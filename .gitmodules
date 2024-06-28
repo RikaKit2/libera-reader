@@ -1,0 +1,2 @@
+[submodule "crates/libera-reader/gui"]
+	path = crates/libera-reader/gui

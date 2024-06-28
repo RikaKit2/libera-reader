@@ -1,0 +1,72 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "cargo run generate --schema=./schema.prisma"
+  // The location to generate the client. Is relative to the position of the schema
+  output   = "./prisma.rs"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.db"
+}
+
+model Settings {
+  id                        Int     @id @unique @default(autoincrement())
+  language                  String  @default("en")
+  theme                     String  @default("sunset")
+  path_to_scan              String?
+  pdf                       Boolean @default(true)
+  epub                      Boolean @default(false)
+  mobi                      Boolean @default(false)
+  number_of_columns         Int     @default(6)
+  page_scaling_factor       Float   @default(1.0)
+  thumbnails_scaling_factor Float   @default(0.3)
+  reading_mode              String  @default("vertical_scroll")
+  workers_num               Int     @default(2)
+}
+
+model BookData {
+  id                Int        @id @unique @default(autoincrement())
+  hash              String     @unique
+  cached            Boolean    @default(false)
+  file_size         Float?
+  extension         String?
+  title             String?
+  author            String?
+  page_count        Int?
+  in_history        Boolean    @default(false)
+  favorite          Boolean    @default(false)
+  last_page_number  Int        @default(0)
+  latest_opening_in DateTime?  @updatedAt
+  book_item         BookItem[]
+  book_mark         BookMark[]
+
+  @@index([id, hash])
+}
+
+model BookItem {
+  id             Int      @id @unique @default(autoincrement())
+  path_to_book   String   @unique
+  book_data_id   Int
+  book_data_link BookData @relation(fields: [book_data_id], references: [id])
+  folder         String
+  file_name      String
+  path_is_valid  Boolean  @default(true)
+
+  @@index([id])
+}
+
+model BookMark {
+  id             Int      @id @unique @default(autoincrement())
+  title          String
+  content        String
+  page_number    Int
+  book_data_id   Int
+  book_data_link BookData @relation(fields: [book_data_id], references: [id])
+  time_created   DateTime @default(now())
+  time_updated   DateTime @updatedAt
+
+  @@index([id])
+}

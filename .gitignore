@@ -1,0 +1,5 @@
+/target
+other/
+.idea/
+crates/libera-reader-core/src/db/prisma/prisma.rs
+crates/libera-reader/gui/
