@@ -1,4 +1,3 @@
 [workspace]
-default-members = ["prisma-cli"]
 resolver = "2"
 members = ["crates/libera-reader-core", "prisma-cli", "crates/libera-reader"]

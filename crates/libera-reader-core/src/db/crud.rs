@@ -1,6 +1,6 @@
-use crate::db::prisma::prisma::{book_data, book_item};
-use crate::db::prisma::prisma::book_data::Data;
-use crate::db::prisma::prisma::PrismaClient;
+use crate::db::model::{book_data, book_item};
+use crate::db::model::book_data::Data;
+use crate::db::model::PrismaClient;
 
 // book_manager
 pub async fn create_book_item(path_to_book: String, book_data_id: i32, folder: String,
@@ -30,8 +30,8 @@ pub async fn get_book_item(path_to_book: String, client: &PrismaClient) -> Optio
 }
 
 pub async fn get_num_links_per_book_data(book_data_id: i32, client: &PrismaClient) -> i64 {
-  client.book_data().count(
-    vec![book_data::id::equals(book_data_id)]
+  client.book_item().count(
+    vec![book_item::book_data_id::equals(book_data_id)]
   ).exec().await.unwrap()
 }
 
@@ -82,3 +82,8 @@ pub async fn get_books_contains_path_to_dir(old_path_to_dir: String, client: &Pr
     vec![book_item::path_to_book::contains(old_path_to_dir)]
   ).exec().await.unwrap()
 }
+
+pub async fn get_books(client: &PrismaClient) -> Vec<book_item::Data> {
+  client.book_item().find_many(vec![]).exec().await.unwrap()
+}
+

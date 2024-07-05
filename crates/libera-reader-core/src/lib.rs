@@ -1,7 +1,9 @@
 mod db;
-pub mod services;
-pub mod app_state;
-pub mod settings_manger;
+mod services;
+mod app_dirs;
+mod settings_manger;
 mod book_manager;
+pub mod app_core;
+mod utils;
 
 
