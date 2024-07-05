@@ -1,15 +1,16 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-generator client {
-  provider = "cargo run generate --schema=./schema.prisma"
-  // The location to generate the client. Is relative to the position of the schema
-  output   = "./prisma.rs"
-}
-
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.db"
+  url      = ""
+}
+
+generator client {
+  provider    = "cargo run -p prisma-cli"
+  // The location to generate the client. Is relative to the position of the schema
+  output      = "./model.rs"
+  module_path = "crate::db::model"
 }
 
 model Settings {
