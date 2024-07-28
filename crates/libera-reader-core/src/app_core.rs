@@ -1,11 +1,14 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
+use crossbeam_channel::Receiver;
+use notify::{Event, RecommendedWatcher};
 use prisma_client_rust::NewClientError;
 use tokio::sync::RwLock;
 use tracing::info;
 
 use crate::app_dirs::AppDirs;
+use crate::book_manager::BookManager;
 use crate::db::crud;
 use crate::db::model::{book_item, PrismaClient};
 use crate::services;
@@ -22,7 +25,9 @@ pub struct AppCore {
   app_dirs: AppDirs,
   client: Arc<PrismaClient>,
   pub settings_manager: SettingsManager,
-  not_cached_books: Arc<RwLock<VecDeque<NotCachedBook>>>,
+  notify_events: Arc<Receiver<notify::Result<Event>>>,
+  watcher: Arc<RwLock<RecommendedWatcher>>,
+  book_manager: Arc<RwLock<BookManager>>,
 }
 
 impl AppCore {
@@ -58,11 +63,8 @@ impl AppCore {
     match &self.settings_manager.path_to_scan {
       None => {}
       Some(_path_to_scan) => {
-        self.settings_manager.start_notify_service();
         tokio::spawn(
-          services::notify_service::run(self.settings_manager.target_ext.clone(),
-                                        self.not_cached_books.clone(), self.client.clone(),
-                                        self.settings_manager.notify_events.clone())
+          services::notify_service::run(self.notify_events.clone(), self.book_manager.clone())
         );
       }
     }
@@ -70,9 +72,9 @@ impl AppCore {
   pub async fn run_dir_scan_service(&mut self) {
     match &self.settings_manager.path_to_scan {
       None => {}
-      Some(path_to_scan) => {
-        services::dir_scan_service::run(path_to_scan, &self.settings_manager.target_ext,
-                                        &self.not_cached_books, &self.client).await;
+      Some(_path_to_scan) => {
+        // services::dir_scan_service::run(path_to_scan, &self.settings_manager.target_ext,
+        //                                 &self.not_cached_books, &self.client).await;
       }
     }
   }
@@ -94,11 +96,20 @@ impl AppCore {
         info!("\n path to db: {:?}", &app_dirs.path_to_db);
         client._db_push().await.unwrap();
         let client = Arc::from(client);
+        let (tx, notify_events) = crossbeam_channel::bounded(20_000);
+        let watcher = Arc::from(RwLock::from(
+          notify::recommended_watcher(move |res| {
+            tx.send(res).unwrap();
+          }).unwrap()));
+        let settings_manager = SettingsManager::new(client.clone(), watcher.clone()).await.unwrap();
+        let target_ext = settings_manager.target_ext.clone();
         Ok(AppCore {
-          settings_manager: SettingsManager::new(client.clone()).await.unwrap(),
-          client,
           app_dirs,
-          not_cached_books: Arc::from(RwLock::from(VecDeque::new())),
+          book_manager: Arc::from(RwLock::from(BookManager::new(target_ext, client.clone()))),
+          client,
+          watcher,
+          settings_manager,
+          notify_events: Arc::from(notify_events),
         })
       }
       Err(e) => {
