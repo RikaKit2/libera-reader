@@ -131,14 +131,20 @@ pub async fn del_book(book: book_item::Data, client: &PrismaClient) {
 }
 
 // dir_scan_service
-pub async fn get_outdated_books(books_paths_from_disk: Vec<String>, client: &PrismaClient) -> Vec<book_item::Data> {
-  client.book_item().find_many(vec![
+pub async fn del_outdated_books(books_paths_from_disk: Vec<String>, client: &PrismaClient){
+  client.book_item().delete_many(vec![
     book_item::path_is_valid::equals(true),
     book_item::path_to_book::not_in_vec(books_paths_from_disk),
     book_item::book_data_link::is(vec![
       book_data::in_history::equals(false),
       book_data::favorite::equals(false),
     ]),
-  ]).exec().await.unwrap()
+    book_item::book_data_link::is_not(vec![
+      book_data::book_mark::some(vec![]),
+    ]),
+  ]).exec().await.unwrap();
+  client.book_data().delete_many(vec![
+    book_data::book_item::none(vec![]),
+  ]).exec().await.unwrap();
 }
 

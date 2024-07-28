@@ -8,7 +8,7 @@ pub struct AppDirs {
 
 impl AppDirs {
   pub fn new() -> Result<Self, Vec<std::io::Error>> {
-    let mut output = vec![];
+    let mut poss_errors = vec![];
     let proj_dirs = ProjectDirs::from("com", "RikaKit", "libera-reader").unwrap();
     let data_dir = proj_dirs.data_dir().to_path_buf();
 
@@ -22,14 +22,14 @@ impl AppDirs {
       if !necessary_dir.exists() {
         match std::fs::create_dir(necessary_dir) {
           Ok(_) => {}
-          Err(e) => {
-            output.push(e);
+          Err(err) => {
+            poss_errors.push(err);
           }
         }
       }
     }
-    if output.len() > 0 {
-      Err(output)
+    if poss_errors.len() > 0 {
+      Err(poss_errors)
     } else {
       Ok(Self {
         path_to_db: path_to_db.to_str().unwrap().to_string(),

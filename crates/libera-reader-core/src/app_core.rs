@@ -1,19 +1,15 @@
-use std::collections::VecDeque;
 use std::sync::Arc;
 
-use crossbeam_channel::Receiver;
-use notify::{Event, RecommendedWatcher};
 use prisma_client_rust::NewClientError;
 use tokio::sync::RwLock;
 use tracing::info;
 
 use crate::app_dirs::AppDirs;
+use crate::book_api::BookApi;
 use crate::book_manager::BookManager;
-use crate::db::crud;
-use crate::db::model::{book_item, PrismaClient};
-use crate::services;
-use crate::settings_manger::SettingsManager;
-use crate::utils::NotCachedBook;
+use crate::db::model::PrismaClient;
+use crate::services::Services;
+use crate::settings::Settings;
 
 #[derive(Debug)]
 pub enum AppCoreError {
@@ -22,12 +18,11 @@ pub enum AppCoreError {
 }
 
 pub struct AppCore {
-  app_dirs: AppDirs,
   client: Arc<PrismaClient>,
-  pub settings_manager: SettingsManager,
-  notify_events: Arc<Receiver<notify::Result<Event>>>,
-  watcher: Arc<RwLock<RecommendedWatcher>>,
-  book_manager: Arc<RwLock<BookManager>>,
+  app_dirs: AppDirs,
+  pub services: Services,
+  pub settings: Settings,
+  pub book_api: BookApi,
 }
 
 impl AppCore {
@@ -53,67 +48,29 @@ impl AppCore {
       }
     }
   }
-  pub async fn run_services(&mut self) {
-    self.run_dir_scan_service().await;
-    self.run_notify_service().await;
-    self.run_data_extraction_service().await;
-  }
-
-  pub async fn run_notify_service(&mut self) {
-    match &self.settings_manager.path_to_scan {
-      None => {}
-      Some(_path_to_scan) => {
-        tokio::spawn(
-          services::notify_service::run(self.notify_events.clone(), self.book_manager.clone())
-        );
-      }
-    }
-  }
-  pub async fn run_dir_scan_service(&mut self) {
-    match &self.settings_manager.path_to_scan {
-      None => {}
-      Some(_path_to_scan) => {
-        // services::dir_scan_service::run(path_to_scan, &self.settings_manager.target_ext,
-        //                                 &self.not_cached_books, &self.client).await;
-      }
-    }
-  }
-  pub async fn run_data_extraction_service(&mut self) {
-    match &self.settings_manager.path_to_scan {
-      None => {}
-      Some(_path_to_scan) => {}
-    }
-  }
-  pub async fn get_book_by_name(&self, book_name: String) -> Option<book_item::Data> {
-    crud::get_book_item_by_name(book_name, &self.client).await
-  }
-  pub async fn get_books_from_db(&self) -> Vec<book_item::Data> {
-    crud::get_book_items_from_db(&self.client).await
-  }
   async fn get_self(app_dirs: AppDirs) -> Result<AppCore, AppCoreError> {
     match PrismaClient::_builder().with_url("file:".to_string() + &app_dirs.path_to_db).build().await {
       Ok(client) => {
         info!("\n path to db: {:?}", &app_dirs.path_to_db);
         client._db_push().await.unwrap();
         let client = Arc::from(client);
-        let (tx, notify_events) = crossbeam_channel::bounded(20_000);
+
+        let (tx, rx) = crossbeam_channel::bounded(20_000);
+
         let watcher = Arc::from(RwLock::from(
-          notify::recommended_watcher(move |res| {
-            tx.send(res).unwrap();
-          }).unwrap()));
-        let settings_manager = SettingsManager::new(client.clone(), watcher.clone()).await.unwrap();
-        let target_ext = settings_manager.target_ext.clone();
-        Ok(AppCore {
-          app_dirs,
-          book_manager: Arc::from(RwLock::from(BookManager::new(target_ext, client.clone()))),
-          client,
-          watcher,
-          settings_manager,
-          notify_events: Arc::from(notify_events),
-        })
+          notify::recommended_watcher(move |res| { tx.send(res).unwrap(); }).unwrap()));
+
+        let settings = Settings::new(client.clone(), watcher.clone()).await.unwrap();
+
+        let book_manager = Arc::from(RwLock::from(
+          BookManager::new(settings.target_ext.clone(), client.clone())
+        ));
+
+        let services = Services::new(settings.path_to_scan.clone(), book_manager, watcher, Arc::from(rx));
+        Ok(AppCore { app_dirs, book_api: BookApi::new(client.clone()), services, settings, client })
       }
-      Err(e) => {
-        Err(AppCoreError::PrismaErr(e))
+      Err(err) => {
+        Err(AppCoreError::PrismaErr(err))
       }
     }
   }

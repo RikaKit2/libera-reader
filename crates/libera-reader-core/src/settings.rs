@@ -11,14 +11,14 @@ use model::settings;
 use crate::db::model;
 use crate::db::model::settings::Data;
 
-pub struct SettingsManager {
+pub struct Settings {
   client: Arc<PrismaClient>,
-  pub path_to_scan: Option<String>,
-  pub target_ext: Arc<RwLock<HashSet<String>>>,
+  pub(crate) path_to_scan: Arc<RwLock<Option<String>>>,
+  pub(crate) target_ext: Arc<RwLock<HashSet<String>>>,
   watcher: Arc<RwLock<RecommendedWatcher>>,
 }
 
-impl SettingsManager {
+impl Settings {
   pub async fn new(client: Arc<PrismaClient>, watcher: Arc<RwLock<RecommendedWatcher>>) -> Result<Self, QueryError> {
     match Self::get_instance(&client).await {
       Ok(res) => {
@@ -43,6 +43,14 @@ impl SettingsManager {
       }
     }
   }
+  pub async fn set_path_to_scan(&mut self, path: String) {
+    let _ = self.path_to_scan.write().await.insert(path.clone());
+    self.watcher.write().await.watch(path.as_ref(), RecursiveMode::Recursive).unwrap();
+    self.client.settings().update(
+      settings::id::equals(1),
+      vec![settings::path_to_scan::set(Option::from(path))],
+    ).exec().await.unwrap();
+  }
   pub async fn set_language(&mut self, lang: String) {
     self.client.settings().update(
       settings::id::equals(1), vec![settings::language::set(lang)],
@@ -51,14 +59,6 @@ impl SettingsManager {
   pub async fn set_theme(&mut self, theme: String) {
     self.client.settings().update(
       settings::id::equals(1), vec![settings::theme::set(theme)],
-    ).exec().await.unwrap();
-  }
-  pub async fn set_path_to_scan(&mut self, path: String) {
-    self.path_to_scan = Option::from(path.clone());
-    self.watcher.write().await.watch(path.as_ref(), RecursiveMode::Recursive).unwrap();
-    self.client.settings().update(
-      settings::id::equals(1),
-      vec![settings::path_to_scan::set(self.path_to_scan.clone())],
     ).exec().await.unwrap();
   }
   pub async fn ignore_pdf(&mut self, status: bool) {
@@ -134,20 +134,20 @@ impl SettingsManager {
     res
   }
   pub async fn get_inn(&mut self) -> prisma_client_rust::Result<Option<Data>> {
-    SettingsManager::get_instance(&self.client).await
+    Settings::get_instance(&self.client).await
   }
   async fn get_instance(client: &PrismaClient) -> prisma_client_rust::Result<Option<Data>> {
     client.settings().find_first(
       vec![settings::id::equals(1)]
     ).exec().await
   }
-  fn get_self(client: Arc<PrismaClient>, inn: Data, watcher: Arc<RwLock<RecommendedWatcher>>) -> SettingsManager {
-    return SettingsManager {
+  fn get_self(client: Arc<PrismaClient>, inn: Data, watcher: Arc<RwLock<RecommendedWatcher>>) -> Self {
+    Self {
       client,
-      target_ext: Arc::from(RwLock::from(Self::get_target_extensions(&inn))),
-      path_to_scan: inn.path_to_scan,
       watcher,
-    };
+      target_ext: Arc::from(RwLock::from(Self::get_target_extensions(&inn))),
+      path_to_scan: Arc::from(RwLock::from(inn.path_to_scan)),
+    }
   }
 }
 

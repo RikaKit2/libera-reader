@@ -22,7 +22,7 @@ async fn main() {
   tracing::subscriber::set_global_default(subscriber).unwrap();
   match AppCore::new(Option::from(None)).await {
     Ok(mut app_core) => {
-      app_core.run_notify_service().await;
+      app_core.services.run().await;
       loop {
         tokio::time::sleep(Duration::from_secs(10)).await;
       }
