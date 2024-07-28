@@ -1,8 +1,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use crossbeam_channel::Receiver;
-use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use prisma_client_rust::QueryError;
 use tokio::sync::RwLock;
 
@@ -16,19 +15,18 @@ pub struct SettingsManager {
   client: Arc<PrismaClient>,
   pub path_to_scan: Option<String>,
   pub target_ext: Arc<RwLock<HashSet<String>>>,
-  watcher: RecommendedWatcher,
-  pub notify_events: Arc<RwLock<Receiver<notify::Result<Event>>>>,
+  watcher: Arc<RwLock<RecommendedWatcher>>,
 }
 
 impl SettingsManager {
-  pub async fn new(client: Arc<PrismaClient>) -> Result<Self, QueryError> {
+  pub async fn new(client: Arc<PrismaClient>, watcher: Arc<RwLock<RecommendedWatcher>>) -> Result<Self, QueryError> {
     match Self::get_instance(&client).await {
       Ok(res) => {
         match res {
           None => {
             match Self::create_instance(&client).await {
               Ok(inn) => {
-                Ok(Self::get_self(client, inn))
+                Ok(Self::get_self(client, inn, watcher))
               }
               Err(e) => {
                 Err(e)
@@ -36,20 +34,12 @@ impl SettingsManager {
             }
           }
           Some(inn) => {
-            Ok(Self::get_self(client, inn))
+            Ok(Self::get_self(client, inn, watcher))
           }
         }
       }
       Err(e) => {
         Err(e)
-      }
-    }
-  }
-  pub fn start_notify_service(&mut self) {
-    match &self.path_to_scan {
-      None => {}
-      Some(path_to_scan) => {
-        self.watcher.watch(path_to_scan.as_ref(), RecursiveMode::Recursive).unwrap();
       }
     }
   }
@@ -65,10 +55,10 @@ impl SettingsManager {
   }
   pub async fn set_path_to_scan(&mut self, path: String) {
     self.path_to_scan = Option::from(path.clone());
-    self.start_notify_service();
+    self.watcher.write().await.watch(path.as_ref(), RecursiveMode::Recursive).unwrap();
     self.client.settings().update(
       settings::id::equals(1),
-      vec![settings::path_to_scan::set(Option::from(path))],
+      vec![settings::path_to_scan::set(self.path_to_scan.clone())],
     ).exec().await.unwrap();
   }
   pub async fn ignore_pdf(&mut self, status: bool) {
@@ -151,17 +141,12 @@ impl SettingsManager {
       vec![settings::id::equals(1)]
     ).exec().await
   }
-  fn get_self(client: Arc<PrismaClient>, inn: Data) -> SettingsManager {
-    let (tx, notify_events) = crossbeam_channel::bounded(20_000);
-    let watcher = notify::recommended_watcher(move |res| {
-      tx.send(res).unwrap();
-    }).unwrap();
+  fn get_self(client: Arc<PrismaClient>, inn: Data, watcher: Arc<RwLock<RecommendedWatcher>>) -> SettingsManager {
     return SettingsManager {
       client,
       target_ext: Arc::from(RwLock::from(Self::get_target_extensions(&inn))),
       path_to_scan: inn.path_to_scan,
       watcher,
-      notify_events: Arc::from(RwLock::from(notify_events)),
     };
   }
 }
