@@ -18,7 +18,7 @@ async fn event_processing(event: Event, book_manager: &Arc<RwLock<BookManager>>)
           match create_kind {
             CreateKind::File => {
               let new_path = &paths[0];
-              book_manager.write().await.add_new_book(new_path).await;
+              book_manager.write().await.add_book(new_path).await;
             }
             _ => {}
           }
@@ -34,7 +34,7 @@ async fn event_processing(event: Event, book_manager: &Arc<RwLock<BookManager>>)
                     let old_dir_path = old_path.to_str().unwrap().to_string();
                     book_manager.write().await.rename_dir(old_dir_path, new_path).await;
                   } else {
-                    book_manager.write().await.rename_book_data(old_path, new_path).await;
+                    book_manager.write().await.rename_data(old_path, new_path).await;
                   }
                 }
                 RenameMode::From => {}
@@ -80,5 +80,4 @@ pub async fn run(notify_events: Arc<Receiver<notify::Result<Event>>>, book_manag
     tokio::time::sleep(Duration::from_millis(1)).await;
   }
 }
-
 

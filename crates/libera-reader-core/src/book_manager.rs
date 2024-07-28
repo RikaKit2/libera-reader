@@ -11,17 +11,16 @@ use crate::utils::{calc_blake3_hash_of_file, calc_file_size_in_mb};
 use crate::utils::NotCachedBook;
 
 pub struct BookManager {
-  pub target_ext: Arc<RwLock<HashSet<String>>>,
-  pub not_cached_books: Arc<RwLock<VecDeque<NotCachedBook>>>,
-  pub client: Arc<PrismaClient>,
+  pub(crate) target_ext: Arc<RwLock<HashSet<String>>>,
+  not_cached_books: Arc<RwLock<VecDeque<NotCachedBook>>>,
+  pub(crate) client: Arc<PrismaClient>,
 }
 
 impl BookManager {
   pub fn new(target_ext: Arc<RwLock<HashSet<String>>>, client: Arc<PrismaClient>) -> BookManager {
     BookManager { target_ext, not_cached_books: Arc::from(RwLock::from(VecDeque::new())), client }
   }
-
-  pub async fn add_new_book(&mut self, path: &PathBuf) {
+  pub(crate) async fn add_book(&mut self, path: &PathBuf) {
     let ext = path.extension().unwrap().to_str().unwrap().to_string();
     if self.target_ext.read().await.contains(&ext) {
       let path_to_book = path.to_str().unwrap().to_string();
@@ -45,13 +44,12 @@ impl BookManager {
       }
     }
   }
-
-  pub async fn rename_book_data(&mut self, old_path: &PathBuf, new_path: &PathBuf) {
+  pub(crate) async fn rename_data(&mut self, old_path: &PathBuf, new_path: &PathBuf) {
     let old_path_to_book = old_path.to_str().unwrap().to_string();
     let new_path_to_book = new_path.to_str().unwrap().to_string();
     match crud::get_book_item_by_path(old_path_to_book, &self.client).await {
       None => {
-        self.add_new_book(new_path).await;
+        self.add_book(new_path).await;
       }
       Some(old_book) => {
         info!("\n rename book data\n new_path:\n{:?}\n old_path:\n{:?}", &new_path_to_book, &old_book.path_to_book);
@@ -80,8 +78,7 @@ impl BookManager {
       }
     }
   }
-
-  pub async fn delete_book(&mut self, old_path_to_book: String) {
+  pub(crate) async fn delete_book(&mut self, old_path_to_book: String) {
     match crud::get_book_item_by_path(old_path_to_book, &self.client).await {
       None => {}
       Some(book_item) => {
@@ -90,8 +87,7 @@ impl BookManager {
       }
     }
   }
-
-  pub async fn delete_dir(&mut self, paths: Vec<PathBuf>) {
+  pub(crate) async fn delete_dir(&mut self, paths: Vec<PathBuf>) {
     let path_to_dir = paths[0].to_str().unwrap().to_string();
     info!("\n del dir:\n{:?}", &path_to_dir);
     let outdated_books = crud::get_books_contains_path_to_dir(
@@ -100,8 +96,7 @@ impl BookManager {
       self.delete_book(outdated_book.path_to_book).await;
     }
   }
-
-  pub async fn rename_dir(&mut self, old_dir_path: String, new_dir_path: &PathBuf) {
+  pub(crate) async fn rename_dir(&mut self, old_dir_path: String, new_dir_path: &PathBuf) {
     let new_path_to_dir_str = new_dir_path.to_str().unwrap().to_string();
     let new_dir_name = new_dir_path.file_name().unwrap().to_str().unwrap().to_string();
     info!("\n rename dir\n new_path:\n{:?}\nold_path:\n{:?}", &new_dir_path, &old_dir_path);
