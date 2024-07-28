@@ -1,0 +1,13 @@
+[package]
+name = "mupdf"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+byte-unit = "5.1.4"
+mupdf-sys = { version = "0.1.0", path = "../mupdf-sys" }
+serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.120"
+
+[dev-dependencies]
+walkdir = "2.5.0"

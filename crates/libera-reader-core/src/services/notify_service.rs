@@ -14,13 +14,16 @@ use crate::utils::NotCachedBook;
 async fn event_processing(event: Event, target_ext: &Arc<RwLock<HashSet<String>>>,
                           not_cached_books: &Arc<RwLock<VecDeque<NotCachedBook>>>,
                           client: &PrismaClient) {
+  tracing::debug!("==========");
+  tracing::debug!("{:?}", &event.kind);
   match event {
     Event { kind, paths, attrs: _attrs } => {
       match kind {
         EventKind::Create(create_kind) => {
           match create_kind {
             CreateKind::File => {
-              book_manager::create_new_book(&paths[0], target_ext, not_cached_books, client).await;
+              let new_path = &paths[0];
+              book_manager::add_new_book(new_path, target_ext, not_cached_books, client).await;
             }
             _ => {}
           }
@@ -30,6 +33,7 @@ async fn event_processing(event: Event, target_ext: &Arc<RwLock<HashSet<String>>
             ModifyKind::Name(rename_mode) => {
               match rename_mode {
                 RenameMode::Both => {
+                  tracing::debug!("RenameMode::Both");
                   let old_path = &paths[0];
                   let new_path = &paths[1];
                   if new_path.is_dir() {
@@ -39,6 +43,8 @@ async fn event_processing(event: Event, target_ext: &Arc<RwLock<HashSet<String>>
                     book_manager::rename_book_data(old_path, new_path, client, target_ext, not_cached_books).await;
                   }
                 }
+                RenameMode::From => {}
+                RenameMode::To => {}
                 _ => {}
               }
             }
@@ -46,6 +52,7 @@ async fn event_processing(event: Event, target_ext: &Arc<RwLock<HashSet<String>>
           }
         }
         EventKind::Remove(remove_kind) => {
+          tracing::debug!("{:?}", &event.kind);
           match remove_kind {
             RemoveKind::File => {
               let old_path_to_book = paths[0].to_str().unwrap().to_string();
@@ -62,7 +69,6 @@ async fn event_processing(event: Event, target_ext: &Arc<RwLock<HashSet<String>>
     }
   }
 }
-
 
 pub async fn run(target_ext: Arc<RwLock<HashSet<String>>>,
                  not_cached_books: Arc<RwLock<VecDeque<NotCachedBook>>>,

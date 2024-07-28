@@ -3,10 +3,10 @@ use crate::db::model::book_data::Data;
 use crate::db::model::PrismaClient;
 
 // book_manager
-pub async fn create_book_item(path_to_book: String, book_data_id: i32, folder: String,
-                              file_name: String, client: &PrismaClient) {
+pub async fn create_book_item(path_to_book: String, book_data_id: i32, path_to_dir: String,
+                              dir_name: String, file_name: String, client: &PrismaClient) {
   client.book_item().create_unchecked(
-    path_to_book, book_data_id, folder, file_name, vec![],
+    path_to_book, book_data_id, path_to_dir, dir_name, file_name, vec![],
   ).exec().await.unwrap();
 }
 
@@ -23,9 +23,21 @@ pub async fn get_book_data(book_hash: String, client: &PrismaClient) -> Option<D
   ).exec().await.unwrap()
 }
 
-pub async fn get_book_item(path_to_book: String, client: &PrismaClient) -> Option<book_item::Data> {
+pub async fn get_book_data_by_id(id: i32, client: &PrismaClient) -> Option<Data> {
+  client.book_data().find_first(
+    vec![book_data::id::equals(id)]
+  ).exec().await.unwrap()
+}
+
+pub async fn get_book_item_by_path(path_to_book: String, client: &PrismaClient) -> Option<book_item::Data> {
   client.book_item().find_first(
     vec![book_item::path_to_book::equals(path_to_book)]
+  ).exec().await.unwrap()
+}
+
+pub async fn get_book_item_by_name(book_name: String, client: &PrismaClient) -> Option<book_item::Data> {
+  client.book_item().find_first(
+    vec![book_item::file_name::equals(book_name)]
   ).exec().await.unwrap()
 }
 
@@ -44,12 +56,14 @@ pub async fn delete_book_item(id: i32, client: &PrismaClient) {
 }
 
 pub async fn change_path_and_dir(new_path_to_book: String, old_path_to_book: String,
-                                 new_dir: String, client: &PrismaClient) {
+                                 new_path_to_dir: String, new_dir_name: String,
+                                 client: &PrismaClient) {
   client.book_item().update(
     book_item::path_to_book::equals(old_path_to_book),
     vec![
       book_item::path_to_book::set(new_path_to_book),
-      book_item::folder::set(new_dir),
+      book_item::path_to_dir::set(new_path_to_dir),
+      book_item::dir_name::set(new_dir_name),
     ],
   ).exec().await.unwrap();
 }
@@ -83,7 +97,48 @@ pub async fn get_books_contains_path_to_dir(old_path_to_dir: String, client: &Pr
   ).exec().await.unwrap()
 }
 
-pub async fn get_books(client: &PrismaClient) -> Vec<book_item::Data> {
+pub async fn get_book_items_from_db(client: &PrismaClient) -> Vec<book_item::Data> {
   client.book_item().find_many(vec![]).exec().await.unwrap()
+}
+
+pub async fn get_books_paths_from_db(client: &PrismaClient) -> Vec<book_item::Data> {
+  client.book_item().find_many(vec![]).exec().await.unwrap()
+}
+
+async fn mark_path_to_book_as_invalid(book_id: i32, client: &PrismaClient) {
+  client.book_item().update(
+    book_item::id::equals(book_id),
+    vec![book_item::path_is_valid::set(false)],
+  ).exec().await;
+}
+
+pub async fn del_book(book: book_item::Data, client: &PrismaClient) {
+  let book_data = get_book_data_by_id(book.book_data_id, client).await.unwrap();
+  if book_data.in_history.eq(&false) && book_data.favorite.eq(&false) {
+    let num_links_per_book_data = get_num_links_per_book_data(book.book_data_id, client).await;
+
+    if num_links_per_book_data == 1 {
+      delete_book_item(book.id, client).await;
+      delete_book_data(book.book_data_id, client).await;
+    } else if num_links_per_book_data > 1 {
+      delete_book_item(book.id, client).await;
+    }
+  } else if book_data.in_history.eq(&false) || book_data.favorite.eq(&false) {
+    mark_path_to_book_as_invalid(book.id, client).await;
+  } else if book_data.in_history.eq(&true) && book_data.favorite.eq(&true) {
+    mark_path_to_book_as_invalid(book.id, client).await;
+  }
+}
+
+// dir_scan_service
+pub async fn get_outdated_books(books_paths_from_disk: Vec<String>, client: &PrismaClient) -> Vec<book_item::Data> {
+  client.book_item().find_many(vec![
+    book_item::path_is_valid::equals(true),
+    book_item::path_to_book::not_in_vec(books_paths_from_disk),
+    book_item::book_data_link::is(vec![
+      book_data::in_history::equals(false),
+      book_data::favorite::equals(false),
+    ]),
+  ]).exec().await.unwrap()
 }
 

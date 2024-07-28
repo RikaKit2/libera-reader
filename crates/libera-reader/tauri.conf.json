@@ -21,9 +21,7 @@
         "depends": []
       },
       "externalBin": [],
-      "icon": [
-        "icons/icon.ico"
-      ],
+      "icon": [],
       "identifier": "com.libera-reader.dev",
       "longDescription": "",
       "macOS": {
