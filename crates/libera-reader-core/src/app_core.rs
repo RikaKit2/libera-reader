@@ -49,9 +49,15 @@ impl AppCore {
     }
   }
   pub async fn run_services(&mut self) {
+    self.run_dir_scan_service().await;
+    self.run_notify_service().await;
+    self.run_data_extraction_service().await;
+  }
+
+  pub async fn run_notify_service(&mut self) {
     match &self.settings_manager.path_to_scan {
       None => {}
-      Some(_path) => {
+      Some(_path_to_scan) => {
         self.settings_manager.start_notify_service();
         tokio::spawn(
           services::notify_service::run(self.settings_manager.target_ext.clone(),
@@ -61,11 +67,26 @@ impl AppCore {
       }
     }
   }
-  pub async fn get_book(&self, path_to_book: String) -> Option<book_item::Data> {
-    crud::get_book_item(path_to_book, &self.client).await
+  pub async fn run_dir_scan_service(&mut self) {
+    match &self.settings_manager.path_to_scan {
+      None => {}
+      Some(path_to_scan) => {
+        services::dir_scan_service::run(path_to_scan, &self.settings_manager.target_ext,
+                                        &self.not_cached_books, &self.client).await;
+      }
+    }
   }
-  pub async fn get_books(&self) -> Vec<book_item::Data> {
-    crud::get_books(&self.client).await
+  pub async fn run_data_extraction_service(&mut self) {
+    match &self.settings_manager.path_to_scan {
+      None => {}
+      Some(_path_to_scan) => {}
+    }
+  }
+  pub async fn get_book_by_name(&self, book_name: String) -> Option<book_item::Data> {
+    crud::get_book_item_by_name(book_name, &self.client).await
+  }
+  pub async fn get_books_from_db(&self) -> Vec<book_item::Data> {
+    crud::get_book_items_from_db(&self.client).await
   }
   async fn get_self(app_dirs: AppDirs) -> Result<AppCore, AppCoreError> {
     match PrismaClient::_builder().with_url("file:".to_string() + &app_dirs.path_to_db).build().await {

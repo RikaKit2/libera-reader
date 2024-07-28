@@ -52,7 +52,8 @@ model BookItem {
   path_to_book   String   @unique
   book_data_id   Int
   book_data_link BookData @relation(fields: [book_data_id], references: [id])
-  folder         String
+  path_to_dir    String
+  dir_name       String
   file_name      String
   path_is_valid  Boolean  @default(true)
 

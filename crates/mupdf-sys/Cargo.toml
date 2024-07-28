@@ -1,0 +1,58 @@
+[package]
+name = "mupdf-sys"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0"
+exclude = [
+    "mupdf/resources/cmaps/*",
+    "mupdf/resources/icc/*",
+    "mupdf/resources/fonts/droid/*",
+    "mupdf/resources/fonts/han/*",
+    "mupdf/resources/fonts/noto/*",
+    "mupdf/resources/fonts/sil/*",
+    "mupdf/resources/fonts/urw/input/*",
+    "mupdf/docs/*",
+    "mupdf/generated/*",
+    "mupdf/platform/gl/*",
+    "mupdf/platform/java/*",
+    "mupdf/platform/wasm/*",
+    "mupdf/platform/x11/*",
+    "mupdf/thirdparty/curl/*",
+    "mupdf/thirdparty/freeglut/*",
+    "mupdf/thirdparty/lcms2/doc/*",
+    "mupdf/thirdparty/lcms2/testbed/*",
+    "mupdf/thirdparty/lcms2/plugins/*",
+    "mupdf/thirdparty/freetype/docs/*",
+    "mupdf/thirdparty/freetype/ChangeLog*",
+    "mupdf/thirdparty/libjpeg/testimg*",
+    "mupdf/thirdparty/openjpeg/doc/*",
+    "mupdf/thirdparty/harfbuzz/docs/*",
+    "mupdf/thirdparty/harfbuzz/test/*",
+    "mupdf/thirdparty/harfbuzz/meson-cc-tests/*",
+    "mupdf/thirdparty/harfbuzz/perf/*",
+    "mupdf/thirdparty/mujs/docs/*",
+    "mupdf/thirdparty/zlib/doc/*",
+    "mupdf/thirdparty/zlib/test/*",
+    "mupdf/thirdparty/zlib/contrib/*",
+    "mupdf/thirdparty/zlib/examples/*",
+    "mupdf/thirdparty/gumbo-parser/examples/*",
+    "mupdf/thirdparty/gumbo-parser/tests/*",
+    "mupdf/thirdparty/gumbo-parser/python/*",
+    "mupdf/thirdparty/gumbo-parser/benchmarks/*",
+    "mupdf/thirdparty/leptonica/prog/*",
+    "mupdf/thirdparty/leptonica/version-notes.html",
+    "mupdf/thirdparty/extract/test/*",
+    "mupdf/thirdparty/tesseract/abseil/*",
+    "mupdf/thirdparty/tesseract/unittest/*",
+    "mupdf/thirdparty/tesseract/googletest/*",
+    "mupdf/thirdparty/tesseract/test/*",
+    "mupdf/thirdparty/tesseract/java/*",
+    "mupdf/thirdparty/tesseract/doc/*",
+]
+
+
+[dependencies]
+
+[build-dependencies]
+bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
+cc = { version = "1.0", features = ["parallel"] }

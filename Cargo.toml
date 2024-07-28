@@ -1,3 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["crates/libera-reader-core", "prisma-cli", "crates/libera-reader"]
+members = [
+    "prisma-cli",
+    "crates/libera-reader",
+    "crates/libera-reader-core",
+    "crates/mupdf-sys",
+    "crates/mupdf"
+]
