@@ -122,14 +122,14 @@ async fn test_notify_service() {
   tokio::time::sleep(Duration::from_millis(300)).await;
 
   let book = test.app_core.book_api.get_book_by_name(FIRST_BOOK.to_string()).await.unwrap();
-  assert_eq!(&FIRST_BOOK, &book.file_name);
+  assert_eq!(&FIRST_BOOK, &book.book_name);
 
   // file rename test
   test.rename_fist_book_to_second();
   tokio::time::sleep(Duration::from_millis(300)).await;
 
   let book = test.app_core.book_api.get_book_by_name(SECOND_BOOK.to_string()).await.unwrap();
-  assert_eq!(&SECOND_BOOK, &book.file_name);
+  assert_eq!(&SECOND_BOOK, &book.book_name);
 
   // // file movement test
   test.move_second_book_to_first_dir();

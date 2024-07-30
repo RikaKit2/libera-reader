@@ -1,3 +1,4 @@
+use std::io;
 use std::time::Duration;
 
 use libera_reader_core::app_core::{AppCore, AppCoreError};
@@ -10,19 +11,31 @@ async fn main() {
     // Use a more compact, abbreviated log format
     .compact()
     // Display source code file paths
-    .with_file(true)
+    .with_file(false)
     // Display source code line numbers
-    .with_line_number(true)
+    .with_line_number(false)
     // Display the thread ID an event was recorded on
-    .with_thread_ids(true)
+    .with_thread_ids(false)
     // Don't display the event's target (module path)
-    .with_target(true)
+    .with_target(false)
     // Build the subscriber
     .finish();
   tracing::subscriber::set_global_default(subscriber).unwrap();
   match AppCore::new(Option::from(None)).await {
     Ok(mut app_core) => {
-      app_core.services.run().await;
+      match app_core.settings.get_path_to_scan().await {
+        Some(_path_to_scan) => {
+          app_core.services.run().await;
+        }
+        None => {
+          println!(" Please input path to scan:");
+          let mut user_input = String::new();
+          io::stdin().read_line(&mut user_input).expect("error: unable to read user input");
+          let user_input= user_input.trim().to_string();
+          app_core.settings.set_path_to_scan(user_input).await;
+          app_core.services.run().await;
+        }
+      };
       loop {
         tokio::time::sleep(Duration::from_secs(10)).await;
       }
