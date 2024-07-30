@@ -1,7 +1,11 @@
 use std::fs;
+use std::hash::{BuildHasher, Hasher};
 use std::io::Read;
+use std::path::{Path, PathBuf};
 
-use blake3;
+use gxhash::GxBuildHasher;
+
+use crate::db::model::book_item;
 
 pub struct NotCachedBook {
   pub book_hash: String,
@@ -19,19 +23,60 @@ pub fn calc_file_size_in_mb(path_to_file: &String) -> f64 {
   round_num(size_mb, 2)
 }
 
+#[derive(Eq, Hash, PartialEq, Clone)]
+pub struct BookData {
+  pub path_to_book: String,
+  pub path_to_dir: String,
+  pub book_name: String,
+  pub dir_name: String,
+  pub ext: String,
+}
 
-pub fn calc_blake3_hash_of_file(path_to_file: &String) -> String {
+impl BookData {
+  pub fn from_pathbuf(pathbuf: &PathBuf) -> Self {
+    let path_to_book = pathbuf.to_str().unwrap().to_string();
+    Self {
+      path_to_book,
+      path_to_dir: pathbuf.parent().unwrap().to_str().unwrap().to_string(),
+      book_name: pathbuf.file_name().unwrap().to_str().unwrap().to_string(),
+      dir_name: pathbuf.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
+      ext: pathbuf.extension().unwrap().to_str().unwrap().to_string(),
+    }
+  }
+  pub fn from_path(data: &Path) -> Self {
+    let path_to_book = data.to_str().unwrap().to_string();
+    Self {
+      path_to_book,
+      path_to_dir: data.parent().unwrap().to_str().unwrap().to_string(),
+      book_name: data.file_name().unwrap().to_str().unwrap().to_string(),
+      dir_name: data.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
+      ext: data.extension().unwrap().to_str().unwrap().to_string(),
+    }
+  }
+  pub fn from_book_item(book_item: book_item::Data) -> Self {
+    let path_to_book = book_item.path_to_book;
+    Self {
+      path_to_book,
+      path_to_dir: book_item.path_to_dir,
+      book_name: book_item.book_name,
+      dir_name: book_item.dir_name,
+      ext: book_item.ext,
+    }
+  }
+}
+
+pub fn calc_gxhash_of_file(path_to_file: &String) -> String {
+  let mut hasher = GxBuildHasher::default().build_hasher();
   let mut file = fs::File::open(path_to_file).unwrap();
-  let mut hasher = blake3::Hasher::new();
   loop {
-    // Read the file in 4KB chunks
-    let mut buffer = [0; 4096];
+    // Read the file in 1 MB chunks
+    let mut buffer = [0; 1024 * 1024];
     let bytes_read = file.read(&mut buffer).unwrap();
     if bytes_read == 0 {
       break;
     }
-    hasher.update(&buffer[..bytes_read]);
+    hasher.write(&buffer[..bytes_read]);
   }
-  hasher.finalize().to_hex().to_string()
+  data_encoding::HEXLOWER.encode(&hasher.finish().to_ne_bytes())
 }
 

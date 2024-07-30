@@ -7,16 +7,17 @@ repository = "https://github.com/RikaKit2/libera-reader"
 edition = "2021"
 
 [dependencies]
-blake3 = "1.5.1"
 crossbeam-channel = "0.5.13"
 directories = "5.0.1"
 notify = "6.1.1"
-prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", tag = "0.6.11", default-features = false, features = ["sqlite", "migrations", "mocking", "specta"] }
+prisma-client-rust = { git = "https://github.com/Brendonovich/prisma-client-rust", tag = "0.6.11", default-features = false, features = ["sqlite", "migrations", "mocking", "specta", "sqlite-create-many"] }
 serde = "1.0.203"
 tokio = { version = "1.38.0", features = ["rt", "rt-multi-thread", "macros", "tracing"] }
 tracing = "0.1.40"
 walkdir = "2.5.0"
 mupdf = { version = "0.1.0", path = "../mupdf" }
+data-encoding = "2.6.0"
+gxhash = "3.4.1"
 
 [dev-dependencies]
 tracing-subscriber = "0.3.18"

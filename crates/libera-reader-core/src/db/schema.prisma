@@ -32,15 +32,14 @@ model BookData {
   id                Int        @id @unique @default(autoincrement())
   hash              String     @unique
   cached            Boolean    @default(false)
-  file_size         Float?
-  extension         String?
+  file_size         Float
   title             String?
   author            String?
   page_count        Int?
   in_history        Boolean    @default(false)
   favorite          Boolean    @default(false)
   last_page_number  Int        @default(0)
-  latest_opening_in DateTime?  @updatedAt
+  latest_opening_in DateTime?
   book_item         BookItem[]
   book_mark         BookMark[]
 
@@ -54,7 +53,8 @@ model BookItem {
   book_data_link BookData @relation(fields: [book_data_id], references: [id])
   path_to_dir    String
   dir_name       String
-  file_name      String
+  book_name      String
+  ext            String
   path_is_valid  Boolean  @default(true)
 
   @@index([id])
@@ -68,7 +68,7 @@ model BookMark {
   book_data_id   Int
   book_data_link BookData @relation(fields: [book_data_id], references: [id])
   time_created   DateTime @default(now())
-  time_updated   DateTime @updatedAt
+  time_updated   DateTime
 
   @@index([id])
 }

@@ -18,7 +18,6 @@ pub enum AppCoreError {
 }
 
 pub struct AppCore {
-  client: Arc<PrismaClient>,
   app_dirs: AppDirs,
   pub services: Services,
   pub settings: Settings,
@@ -26,7 +25,7 @@ pub struct AppCore {
 }
 
 impl AppCore {
-  pub async fn new(path_to_db: Option<String>) -> Result<Self, AppCoreError> {
+  pub async fn new(path_to_db: Option<String>) -> Result<AppCore, AppCoreError> {
     match path_to_db {
       None => {
         match AppDirs::new() {
@@ -65,9 +64,15 @@ impl AppCore {
         let book_manager = Arc::from(RwLock::from(
           BookManager::new(settings.target_ext.clone(), client.clone())
         ));
-
-        let services = Services::new(settings.path_to_scan.clone(), book_manager, watcher, Arc::from(rx));
-        Ok(AppCore { app_dirs, book_api: BookApi::new(client.clone()), services, settings, client })
+        let services = Services::new(
+          settings.path_to_scan.clone(),
+          book_manager,
+          watcher,
+          Arc::from(rx),
+          settings.target_ext.clone(),
+          client.clone(),
+        );
+        Ok(AppCore { app_dirs, book_api: BookApi::new(client), services, settings })
       }
       Err(err) => {
         Err(AppCoreError::PrismaErr(err))

@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::ops::Deref;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -13,7 +15,7 @@ use crate::db::model::settings::Data;
 
 pub struct Settings {
   client: Arc<PrismaClient>,
-  pub(crate) path_to_scan: Arc<RwLock<Option<String>>>,
+  pub(crate) path_to_scan: Rc<RwLock<Option<String>>>,
   pub(crate) target_ext: Arc<RwLock<HashSet<String>>>,
   watcher: Arc<RwLock<RecommendedWatcher>>,
 }
@@ -44,8 +46,8 @@ impl Settings {
     }
   }
   pub async fn set_path_to_scan(&mut self, path: String) {
-    let _ = self.path_to_scan.write().await.insert(path.clone());
     self.watcher.write().await.watch(path.as_ref(), RecursiveMode::Recursive).unwrap();
+    self.path_to_scan.write().await.replace(path.clone());
     self.client.settings().update(
       settings::id::equals(1),
       vec![settings::path_to_scan::set(Option::from(path))],
@@ -141,12 +143,16 @@ impl Settings {
       vec![settings::id::equals(1)]
     ).exec().await
   }
+  pub async fn get_path_to_scan(&self) -> Option<String> {
+    let res = self.path_to_scan.read().await.deref().clone();
+    res
+  }
   fn get_self(client: Arc<PrismaClient>, inn: Data, watcher: Arc<RwLock<RecommendedWatcher>>) -> Self {
     Self {
       client,
       watcher,
       target_ext: Arc::from(RwLock::from(Self::get_target_extensions(&inn))),
-      path_to_scan: Arc::from(RwLock::from(inn.path_to_scan)),
+      path_to_scan: Rc::from(RwLock::from(inn.path_to_scan)),
     }
   }
 }
