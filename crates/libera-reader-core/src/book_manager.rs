@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::db::crud;
 use crate::db::model::PrismaClient;
-use crate::utils::{BookData, calc_gxhash_of_file, calc_file_size_in_mb, NotCachedBook};
+use crate::utils::{BookData, calc_file_hash, calc_file_size_in_mb, NotCachedBook};
 
 pub struct BookManager {
   pub(crate) target_ext: Arc<RwLock<HashSet<String>>>,
@@ -26,20 +26,18 @@ impl BookManager {
   pub async fn add_book(&mut self, book: BookData) {
     if self.target_ext.read().await.contains(&book.ext) {
       info!("\n create new book:\n{:?}", &book.path_to_book);
-      let book_hash = calc_gxhash_of_file(&book.path_to_book);
+      let book_hash = calc_file_hash(&book.path_to_book);
       match crud::get_book_data(book_hash.clone(), &self.client).await {
         None => {
           let book_size = calc_file_size_in_mb(&book.path_to_book);
           let book_data = crud::create_book_data(book_hash.clone(), book_size, &self.client).await;
-          crud::create_book_item(book.path_to_book.clone(), book_data.unwrap().id, book.path_to_dir,
-                                 book.dir_name, book.book_name, book.ext, &self.client).await;
           self.not_cached_books.write().await.push_front(
-            NotCachedBook { book_hash, path_to_book: book.path_to_book }
+            NotCachedBook { book_hash, path_to_book: book.path_to_book.clone() }
           );
+          crud::create_book_item(book, book_data.unwrap().id, &self.client).await;
         }
         Some(book_data) => {
-          crud::create_book_item(book.path_to_book, book_data.id, book.path_to_dir,
-                                 book.dir_name, book.book_name, book.ext, &self.client).await;
+          crud::create_book_item(book, book_data.id, &self.client).await;
         }
       }
     }

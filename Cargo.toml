@@ -5,5 +5,6 @@ members = [
     "crates/libera-reader",
     "crates/libera-reader-core",
     "crates/mupdf-sys",
-    "crates/mupdf"
+    "crates/mupdf",
+    "crates/libera-reader-slint",
 ]

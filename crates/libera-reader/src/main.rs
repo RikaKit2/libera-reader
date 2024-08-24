@@ -1,8 +1,18 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![allow(non_snake_case)]
+use crate::router::Route;
+use dioxus::prelude::*;
+use manganis;
+
+mod router;
+mod ui;
+
+
+const _TAILWIND_URL: &str = manganis::mg!(file("assets/tailwind.css"));
 
 fn main() {
-  tauri::Builder::default()
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    launch(|| {
+        rsx! {
+            Router::<Route> {}
+        }
+    });
 }

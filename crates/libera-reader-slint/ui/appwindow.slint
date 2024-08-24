@@ -1,0 +1,16 @@
+import { Button, VerticalBox, Palette, HorizontalBox } from "std-widgets.slint";
+import { SideBar } from "side_bar.slint";
+import { Content } from "content.slint";
+import { Header } from "header.slint";
+
+export component AppWindow inherits Window {
+    HorizontalBox {
+        spacing: 0px;
+        padding: 0px;
+        SideBar {
+            Height: root.height;
+        }
+
+        Content { }
+    }
+}

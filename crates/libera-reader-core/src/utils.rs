@@ -1,7 +1,7 @@
 use std::fs;
 use std::hash::{BuildHasher, Hasher};
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use gxhash::GxBuildHasher;
 
@@ -23,7 +23,11 @@ pub fn calc_file_size_in_mb(path_to_file: &String) -> f64 {
   round_num(size_mb, 2)
 }
 
-#[derive(Eq, Hash, PartialEq, Clone)]
+pub struct BookHashAndSize {
+  pub book_hash: String,
+  pub book_size: f64,
+}
+
 pub struct BookData {
   pub path_to_book: String,
   pub path_to_dir: String,
@@ -43,16 +47,6 @@ impl BookData {
       ext: pathbuf.extension().unwrap().to_str().unwrap().to_string(),
     }
   }
-  pub fn from_path(data: &Path) -> Self {
-    let path_to_book = data.to_str().unwrap().to_string();
-    Self {
-      path_to_book,
-      path_to_dir: data.parent().unwrap().to_str().unwrap().to_string(),
-      book_name: data.file_name().unwrap().to_str().unwrap().to_string(),
-      dir_name: data.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
-      ext: data.extension().unwrap().to_str().unwrap().to_string(),
-    }
-  }
   pub fn from_book_item(book_item: book_item::Data) -> Self {
     let path_to_book = book_item.path_to_book;
     Self {
@@ -65,7 +59,7 @@ impl BookData {
   }
 }
 
-pub fn calc_gxhash_of_file(path_to_file: &String) -> String {
+pub fn calc_file_hash(path_to_file: &String) -> String {
   let mut hasher = GxBuildHasher::default().build_hasher();
   let mut file = fs::File::open(path_to_file).unwrap();
   loop {
