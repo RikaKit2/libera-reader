@@ -1,0 +1,39 @@
+import { VerticalBox, LineEdit, ComboBox, HorizontalBox } from "std-widgets.slint";
+
+export component Header {
+    in property <length> Width;
+    height: 48px;
+    Rectangle {
+        padding: 0;
+        width: Width;
+        height: 48px;
+        background: #091319;
+        VerticalBox {
+            padding: 0;
+            alignment: center;
+            HorizontalBox {
+                padding-right: 2px;
+                padding-left: 2px;
+                padding-top: 0;
+                padding-bottom: 0;
+                height: 30px;
+                spacing: 4px;
+                LineEdit {
+                    width: 90%;
+                    placeholder-text: "Search";
+                    height: 30px;
+                    input-type: text;
+                }
+
+                ComboBox {
+                    padding: 0;
+                    width: 10%;
+                    height: 30px;
+                    selected => {}
+
+                    model: ["First", "Second", "Third"];
+                }
+            }
+        }
+    }
+}

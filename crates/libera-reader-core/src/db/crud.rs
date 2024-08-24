@@ -9,13 +9,12 @@ use tracing::info;
 use crate::db::model::{book_data, book_item};
 use crate::db::model::book_data::Data;
 use crate::db::model::PrismaClient;
-use crate::utils::{BookData, calc_file_size_in_mb, calc_gxhash_of_file};
+use crate::utils::{BookData, BookHashAndSize, calc_file_hash, calc_file_size_in_mb};
 
 // book_manager
-pub async fn create_book_item(path_to_book: String, book_data_id: i32, path_to_dir: String,
-                              dir_name: String, book_name: String, ext: String, client: &PrismaClient) {
+pub async fn create_book_item(data: BookData, book_data_id: i32, client: &PrismaClient) {
   client.book_item().create_unchecked(
-    path_to_book, book_data_id, path_to_dir, dir_name, book_name, ext, vec![],
+    data.path_to_book, book_data_id, data.path_to_dir, data.dir_name, data.book_name, data.ext, vec![],
   ).exec().await.unwrap();
 }
 
@@ -168,7 +167,7 @@ pub async fn mark_paths_to_outdated_user_books_as_invalid(books_paths_from_disk:
   ).exec().await.unwrap();
 }
 
-async fn get_book_data_id_upsert(book_hash: String, book_size: f64, client: &PrismaClient) -> i32 {
+pub(crate) async fn get_book_data_id_upsert(book_hash: String, book_size: f64, client: &PrismaClient) -> i32 {
   let res = client.book_data().upsert(
     book_data::hash::equals(book_hash.clone()),
     book_data::create(book_hash, book_size, vec![]),
@@ -176,50 +175,3 @@ async fn get_book_data_id_upsert(book_hash: String, book_size: f64, client: &Pri
   ).exec().await.unwrap().id;
   res
 }
-
-pub async fn push_new_books_to_db(new_books_for_db: HashSet<BookData>, client: &PrismaClient) {
-  if new_books_for_db.len() > 0 {
-    let start = Instant::now();
-    let mut data: Vec<(String, i32, String, String, String, String, Vec<book_item::SetParam>)> = vec![];
-    let mut avg_time_of_calc_book_hashes: Vec<Duration> = vec![];
-    let mut avg_time_of_calc_book_sizes: Vec<Duration> = vec![];
-    let mut avg_time_getting_data_id: Vec<Duration> = vec![];
-
-    for i in new_books_for_db {
-      let t0 = Instant::now();
-
-      let book_hash = calc_gxhash_of_file(&i.path_to_book);
-      avg_time_of_calc_book_hashes.push(t0.elapsed());
-
-      let t1 = Instant::now();
-      let book_size = calc_file_size_in_mb(&i.path_to_book);
-      avg_time_of_calc_book_sizes.push(t1.elapsed());
-
-      let t2 = Instant::now();
-      let book_data_id = get_book_data_id_upsert(book_hash, book_size, client).await;
-      avg_time_getting_data_id.push(t2.elapsed());
-      let item = (
-        i.path_to_book,
-        book_data_id,
-        i.path_to_dir,
-        i.dir_name,
-        i.book_name,
-        i.ext,
-        vec![]
-      );
-      data.push(item);
-    }
-    let t1: Duration = avg_time_of_calc_book_hashes.iter().sum();
-    let t2: Duration = avg_time_of_calc_book_sizes.iter().sum();
-    let t3: Duration = avg_time_getting_data_id.iter().sum();
-    info!("\n AVG duration calc book hash: {:?}", t1);
-    info!("\n AVG duration calc book size: {:?}", t2);
-    info!("\n AVG duration getting book_data_id: {:?}", t3);
-    info!("\n Duration of prepare data for creation book_items: {:?}", start.elapsed());
-
-    let t1 = Instant::now();
-    client.book_item().create_many(data).exec().await.unwrap();
-    info!("\n Duration creation book_items: {:?}", t1.elapsed());
-  };
-}
-

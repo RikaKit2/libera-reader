@@ -54,7 +54,7 @@ impl Services {
     match self.path_to_scan.read().await.deref() {
       None => {}
       Some(path_to_scan) => {
-        dir_scan_service::run(path_to_scan, &self.client, &self.target_ext).await;
+        dir_scan_service::run(path_to_scan, self.client.clone(), &self.target_ext).await;
       }
     }
   }
