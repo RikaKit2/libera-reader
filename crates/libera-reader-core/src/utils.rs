@@ -20,7 +20,7 @@ fn round_num(x: f64, decimals: u32) -> f64 {
 pub fn calc_file_size_in_mb(path_to_file: &String) -> f64 {
   let metadata = fs::metadata(path_to_file).unwrap();
   let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
-  round_num(size_mb, 2)
+  round_num(size_mb, 8)
 }
 
 pub struct BookHashAndSize {

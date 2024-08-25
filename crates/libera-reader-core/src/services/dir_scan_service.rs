@@ -1,21 +1,20 @@
-use std::collections::HashSet;
+use gxhash::HashSet;
+use gxhash::HashSetExt;
+use rayon::prelude::*;
 use std::iter::zip;
 use std::sync::Arc;
 use std::time::Instant;
-
-use gxhash::HashSetExt;
-use rayon::prelude::*;
 use tokio::sync::RwLock;
 use tracing::info;
 use walkdir::WalkDir;
 
 use crate::db::crud;
 use crate::db::model::PrismaClient;
-use crate::utils::{BookData, BookHashAndSize, calc_file_hash, calc_file_size_in_mb};
+use crate::utils::{calc_file_hash, calc_file_size_in_mb, BookData, BookHashAndSize};
 
 async fn get_book_data_from_disk(path_to_scan: &String,
                                  target_ext: &Arc<RwLock<HashSet<String>>>) ->
-                               (Vec<BookData>, Vec<String>) {
+                                 (Vec<BookData>, Vec<String>) {
   let t1 = Instant::now();
   let mut books_data: Vec<BookData> = vec![];
   let mut books_paths: Vec<String> = vec![];
@@ -41,7 +40,7 @@ async fn get_book_data_from_disk(path_to_scan: &String,
   (books_data, books_paths)
 }
 
-async fn get_book_data_from_db(client: &PrismaClient) -> gxhash::HashSet<String> {
+async fn get_book_data_from_db(client: &PrismaClient) -> HashSet<String> {
   let t1 = Instant::now();
   let mut books_from_db: gxhash::HashSet<String> = gxhash::HashSet::new();
   for i in crud::get_books_paths_from_db(client).await {
@@ -51,6 +50,17 @@ async fn get_book_data_from_db(client: &PrismaClient) -> gxhash::HashSet<String>
   info!("\n Duration of receiving books from db, eq: {:?}, \n num of books from db eq: {:?}",
    t1.elapsed(), books_from_db.len());
   books_from_db
+}
+
+fn get_new_books_for_db(book_data_from_disk: Vec<BookData>, books_paths_from_db:
+&HashSet<String>) -> Vec<BookData> {
+  let mut new_books_for_db = vec![];
+  for i in book_data_from_disk {
+    if !books_paths_from_db.contains(&i.path_to_book) {
+      new_books_for_db.push(i);
+    }
+  };
+  new_books_for_db
 }
 
 async fn add_new_books_to_db(new_books: Vec<BookData>, client: Arc<PrismaClient>) {
@@ -82,12 +92,8 @@ pub async fn run(path_to_scan: &String, client: Arc<PrismaClient>, target_ext: &
   }
 
   let t1 = Instant::now();
-  let mut new_books_for_db = vec![];
-  for i in book_data_from_disk {
-    if !books_paths_from_db.contains(&i.path_to_book) {
-      new_books_for_db.push(i);
-    }
-  };
+  let new_books_for_db =
+    get_new_books_for_db(book_data_from_disk, &books_paths_from_db);
 
   // add_new_books_to_db(new_books_for_db, client).await;
   info!("\n Duration creation new books eq: {:?}", t1.elapsed());

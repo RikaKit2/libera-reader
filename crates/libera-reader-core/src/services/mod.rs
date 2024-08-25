@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use gxhash::HashSet;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;

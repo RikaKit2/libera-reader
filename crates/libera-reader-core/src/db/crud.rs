@@ -6,10 +6,10 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::info;
 
-use crate::db::model::{book_data, book_item};
 use crate::db::model::book_data::Data;
 use crate::db::model::PrismaClient;
-use crate::utils::{BookData, BookHashAndSize, calc_file_hash, calc_file_size_in_mb};
+use crate::db::model::{book_data, book_item};
+use crate::utils::{calc_file_hash, calc_file_size_in_mb, BookData, BookHashAndSize};
 
 // book_manager
 pub async fn create_book_item(data: BookData, book_data_id: i32, client: &PrismaClient) {
@@ -167,7 +167,7 @@ pub async fn mark_paths_to_outdated_user_books_as_invalid(books_paths_from_disk:
   ).exec().await.unwrap();
 }
 
-pub(crate) async fn get_book_data_id_upsert(book_hash: String, book_size: f64, client: &PrismaClient) -> i32 {
+pub async fn get_book_data_id_upsert(book_hash: String, book_size: f64, client: &PrismaClient) -> i32 {
   let res = client.book_data().upsert(
     book_data::hash::equals(book_hash.clone()),
     book_data::create(book_hash, book_size, vec![]),
