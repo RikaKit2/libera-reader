@@ -1,4 +1,5 @@
-use std::collections::{HashSet, VecDeque};
+use gxhash::HashSet;
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -7,7 +8,7 @@ use tracing::info;
 
 use crate::db::crud;
 use crate::db::model::PrismaClient;
-use crate::utils::{BookData, calc_file_hash, calc_file_size_in_mb, NotCachedBook};
+use crate::utils::{calc_file_hash, calc_file_size_in_mb, BookData, NotCachedBook};
 
 pub struct BookManager {
   pub(crate) target_ext: Arc<RwLock<HashSet<String>>>,

@@ -1,35 +1,75 @@
-import { VerticalBox } from "std-widgets.slint";
+import { VerticalBox, Palette, HorizontalBox } from "std-widgets.slint";
 
-global ActivePath {
-    out property <string> name;
+export enum Rotes { library, folder, history, favorite, bookmarks, stats, settings }
+
+struct Icon  {
+    icon: image,
+    route: Rotes,
 }
 
 global Icons {
-    in property <[image]> top_btns: [
-        @image-url("../assets/sidebar/heroicons--book-open.svg"),
-        @image-url("../assets/sidebar/heroicons--folder.svg"),
-        @image-url("../assets/sidebar/heroicons--clock.svg"),
-        @image-url("../assets/sidebar/heroicons--star.svg"),
-        @image-url("../assets/sidebar/heroicons--bookmark.svg"),
+    in property <[Icon]> top_btns: [
+        {
+            icon: @image-url("../assets/sidebar/heroicons--book-open.svg"),
+            route: Rotes.library
+        },
+        { icon: @image-url("../assets/sidebar/heroicons--folder.svg"), route: Rotes.folder },
+        { icon: @image-url("../assets/sidebar/heroicons--clock.svg"), route: Rotes.history },
+        { icon: @image-url("../assets/sidebar/heroicons--star.svg"), route: Rotes.favorite },
+        {
+            icon: @image-url("../assets/sidebar/heroicons--bookmark.svg"),
+            route: Rotes.bookmarks
+        },
     ];
-    in property <[image]> down_btns: [
-        @image-url("../assets/sidebar/heroicons--chart-bar.svg"),
-        @image-url("../assets/sidebar/heroicons--cog-8-tooth.svg"),
+    in property <[Icon]> down_btns: [
+        { icon: @image-url("../assets/sidebar/heroicons--chart-bar.svg"), route: Rotes.stats },
+        {
+            icon: @image-url("../assets/sidebar/heroicons--cog-8-tooth.svg"),
+            route: Rotes.settings
+        },
     ];
 }
 
-component Btn {
+component Btn inherits Rectangle {
     in property <image> icon;
-    GridLayout {
+    in property <bool> selected;
+    callback clicked <=> touch.clicked;
+    padding: 0px;
+    states [
+        pressed when touch.pressed: {
+            state.opacity: 1;
+        }
+        hover when touch.has-hover && !root.selected: {
+            state.opacity: 0.75;
+        }
+        selected when !root.selected: {
+            state.opacity: 0.5;
+        }
+        selected when root.selected: {
+            state.opacity: 1;
+        }
+    ]
+    touch := TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    state := GridLayout {
         width: 48px;
         height: 48px;
         HorizontalLayout {
             height: parent.height;
             width: parent.width;
-            Rectangle {
+            if selected: Rectangle {
                 height: parent.height;
                 border-width: 4px;
                 border-color: #ff865b;
+                width: 2px;
+            }
+            if !selected: Rectangle {
+                height: parent.height;
+                border-width: 4px;
+                border-color: #091319;
                 width: 2px;
             }
 
@@ -46,33 +86,34 @@ component Btn {
     }
 }
 
-export component SideBar {
-    in property <length> Height;
+export component SideBar inherits Rectangle {
+    out property <Rotes> current-route: Rotes.library;
+    background: #091319;
     width: 48px;
-    Rectangle {
-        background: #091319;
-        width: 48px;
-        height: Height;
-        VerticalBox {
-            padding-bottom: 0px;
-            padding-top: 0px;
-            alignment: space-between;
-            VerticalBox {
-                padding-bottom: 0px;
-                padding-top: 0px;
-                spacing: 0px;
-                for icon in Icons.top_btns: Btn {
-                    icon: icon;
-                }
-            }
+    padding: 0px;
 
-            VerticalBox {
-                padding-bottom: 0px;
-                padding-top: 0px;
-                spacing: 0px;
-                for icon in Icons.down_btns: Btn {
-                    icon: icon;
+    VerticalBox {
+        padding-bottom: 0px;
+        padding-top: 0px;
+        alignment: space-between;
+        VerticalLayout {
+            for item in Icons.top_btns: Btn {
+                clicked => {
+                    root.current-route = item.route;
                 }
+                selected: item.route == root.current-route;
+                icon: item.icon;
+            }
+        }
+
+        VerticalLayout {
+            alignment: start;
+            for item in Icons.down_btns: Btn {
+                clicked => {
+                    root.current-route = item.route;
+                }
+                selected: item.route == root.current-route;
+                icon: item.icon;
             }
         }
     }
