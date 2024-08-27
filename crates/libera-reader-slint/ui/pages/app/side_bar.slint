@@ -1,6 +1,5 @@
 import { VerticalBox, Palette, HorizontalBox } from "std-widgets.slint";
-
-export enum Rotes { library, folder, history, favorite, bookmarks, stats, settings }
+import {Rotes, Data} from "../../vars.slint";
 
 struct Icon  {
     icon: image,
@@ -10,21 +9,21 @@ struct Icon  {
 global Icons {
     in property <[Icon]> top_btns: [
         {
-            icon: @image-url("../assets/sidebar/heroicons--book-open.svg"),
+            icon: @image-url("../../../assets/sidebar/heroicons--book-open.svg"),
             route: Rotes.library
         },
-        { icon: @image-url("../assets/sidebar/heroicons--folder.svg"), route: Rotes.folder },
-        { icon: @image-url("../assets/sidebar/heroicons--clock.svg"), route: Rotes.history },
-        { icon: @image-url("../assets/sidebar/heroicons--star.svg"), route: Rotes.favorite },
+        { icon: @image-url("../../../assets/sidebar/heroicons--folder.svg"), route: Rotes.file_manager },
+        { icon: @image-url("../../../assets/sidebar/heroicons--clock.svg"), route: Rotes.history },
+        { icon: @image-url("../../../assets/sidebar/heroicons--star.svg"), route: Rotes.favorite },
         {
-            icon: @image-url("../assets/sidebar/heroicons--bookmark.svg"),
+            icon: @image-url("../../../assets/sidebar/heroicons--bookmark.svg"),
             route: Rotes.bookmarks
         },
     ];
     in property <[Icon]> down_btns: [
-        { icon: @image-url("../assets/sidebar/heroicons--chart-bar.svg"), route: Rotes.stats },
+        { icon: @image-url("../../../assets/sidebar/heroicons--chart-bar.svg"), route: Rotes.stats },
         {
-            icon: @image-url("../assets/sidebar/heroicons--cog-8-tooth.svg"),
+            icon: @image-url("../../../assets/sidebar/heroicons--cog-8-tooth.svg"),
             route: Rotes.settings
         },
     ];
@@ -87,7 +86,6 @@ component Btn inherits Rectangle {
 }
 
 export component SideBar inherits Rectangle {
-    out property <Rotes> current-route: Rotes.library;
     background: #091319;
     width: 48px;
     padding: 0px;
@@ -99,9 +97,9 @@ export component SideBar inherits Rectangle {
         VerticalLayout {
             for item in Icons.top_btns: Btn {
                 clicked => {
-                    root.current-route = item.route;
+                    Data.route = item.route;
                 }
-                selected: item.route == root.current-route;
+                selected: item.route == Data.route;
                 icon: item.icon;
             }
         }
@@ -110,9 +108,9 @@ export component SideBar inherits Rectangle {
             alignment: start;
             for item in Icons.down_btns: Btn {
                 clicked => {
-                    root.current-route = item.route;
+                    Data.route = item.route;
                 }
-                selected: item.route == root.current-route;
+                selected: item.route == Data.route;
                 icon: item.icon;
             }
         }
