@@ -1,0 +1,37 @@
+import { VerticalBox } from "std-widgets.slint";
+import { Header } from "../header.slint";
+import { Rotes, Data } from "../../../vars.slint";
+import { Library } from "library.slint";
+import { BookMarks } from "bookmarks.slint";
+import { Favorite } from "favorite.slint";
+import { History } from "history.slint";
+import { FileManager } from "file_manager.slint";
+import { Stats } from "stats.slint";
+import { Settings } from "settings.slint";
+
+export component Content {
+    in property <length> Height;
+    in property <length> Width;
+    height: Height;
+    width: Width;
+    padding: 0;
+    Rectangle {
+        padding: 0;
+        background: #121C22;
+        VerticalBox {
+            alignment: start;
+            padding: 0;
+            Header {
+                Width: root.width;
+            }
+
+            if Data.route == Rotes.library: Library { }
+            if Data.route == Rotes.file_manager: FileManager { }
+            if Data.route == Rotes.history: History { }
+            if Data.route == Rotes.favorite: Favorite { }
+            if Data.route == Rotes.bookmarks: BookMarks { }
+            if Data.route == Rotes.stats: Stats { }
+            if Data.route == Rotes.settings: Settings { }
+        }
+    }
+}

@@ -1,14 +1,13 @@
-import { Button, VerticalBox, Palette, HorizontalBox } from "std-widgets.slint";
-import { SideBar } from "side_bar.slint";
-import { Content } from "content.slint";
-import { Header } from "header.slint";
+import { App } from "pages/app/app.slint";
+import { BookViewer } from "pages/book_viewer/book_viewer.slint";
+import {Rotes} from "vars.slint";
+
 
 export component AppWindow inherits Window {
-    HorizontalBox {
-        spacing: 0px;
-        padding: 0px;
-        side_bar := SideBar { }
-
-        Content { }
+    in property <bool> setup_ready: true;
+    if setup_ready: App {
+        Height: root.height;
+        Width: root.width;
     }
+    if !setup_ready:  BookViewer { }
 }
