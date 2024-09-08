@@ -1,23 +1,49 @@
-use std::{env, fs};
-use std::path::PathBuf;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::Stdio;
+use std::{env, fs};
+use zip::ZipArchive;
 
-fn fail_on_empty_directory(name: &str) {
-  if fs::read_dir(name).unwrap().count() == 0 {
-    println!("The `{}` directory is empty, did you forget to pull the submodules?", name);
-    println!("Try `git submodule update --init --recursive`");
-    panic!();
+
+fn extract_from_zip_archive(path_to_file: &str) {
+  let path_to_file = File::open(path_to_file).unwrap();
+  let archive = ZipArchive::new(path_to_file);
+  let out_dir = Path::new(".");
+  archive.unwrap().extract(&out_dir).expect("Failed to extract archive");
+}
+fn download_mupdf(path_to_out_dir: &str) {
+  let url = "https://github.com/ArtifexSoftware/mupdf/archive/refs/tags/1.23.11.zip";
+  let mut response = reqwest::blocking::get(url).expect("request failed");
+  let mut file = File::create(path_to_out_dir).expect("Failed to open file");
+  response.copy_to(&mut file).unwrap();
+}
+fn get_mupdf_if_necessary() {
+  match fs::read_dir("mupdf") {
+    Ok(_) => {}
+    Err(_) => {
+      let mupdf_archive = "mupdf-1.23.11.zip";
+      match File::open(mupdf_archive) {
+        Ok(_) => {}
+        Err(_) => {
+          download_mupdf(mupdf_archive);
+        }
+      };
+      extract_from_zip_archive(mupdf_archive);
+
+      fs::rename("mupdf-1.23.11", "mupdf").unwrap();
+      fs::remove_file(mupdf_archive).expect("Failed: delete mupdf tar archive");
+    }
   }
 }
 
 fn build_libmupdf() {
   let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
   let build_dir = out_dir.join("build");
-  std::fs::create_dir_all(&build_dir).unwrap();
+  fs::create_dir_all(&build_dir).unwrap();
 
   let current_dir = env::current_dir().unwrap();
-  let mupdf_src_dir = current_dir.join("mupdf");
+  let mupdf_dir = current_dir.join("mupdf");
 
   let mut make_flags = vec![
     "libs".to_owned(),
@@ -34,11 +60,12 @@ fn build_libmupdf() {
 
   let output: std::process::Output = Command::new("make")
     .args(&make_flags)
-    .current_dir(&mupdf_src_dir)
+    .current_dir(&mupdf_dir)
     .stdout(Stdio::inherit())
     .stderr(Stdio::inherit())
     .output()
     .expect("make failed");
+
   if !output.status.success() {
     panic!("Build error, exit code {}", output.status.code().unwrap());
   }
@@ -46,7 +73,6 @@ fn build_libmupdf() {
   println!("cargo:rustc-link-lib=static=mupdf");
   println!("cargo:rustc-link-lib=static=mupdf-third");
 }
-
 fn generate_bindings() {
   let bindings = bindgen::Builder::default()
     .clang_arg("-I./mupdf/include/mupdf")
@@ -76,7 +102,7 @@ fn generate_bindings() {
 }
 
 fn main() {
-  fail_on_empty_directory("mupdf");
+  get_mupdf_if_necessary();
   println!("cargo:rerun-if-changed=wrapper.c");
   println!("cargo:rerun-if-changed=wrapper.h");
 

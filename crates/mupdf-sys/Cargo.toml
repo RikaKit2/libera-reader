@@ -54,5 +54,7 @@ exclude = [
 [dependencies]
 
 [build-dependencies]
-bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
+bindgen = { version = "0.70", default-features = false, features = ["runtime"] }
 cc = { version = "1.0", features = ["parallel"] }
+reqwest = { version = "0.12.7", features = ["blocking"] }
+zip = "2.2.0"

@@ -31,7 +31,9 @@ watch_path = ["src", "assets"]
 
 # CSS style file
 
-style = []
+style = [
+    "./assets/side_bar.css",
+]
 
 # Javascript code file
 script = []
