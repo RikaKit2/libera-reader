@@ -35,8 +35,6 @@
     or some kind of algorithm
 20. Import and export settings
 
-## FAQ
-
 # License and Copyright
 
 **Libera Reader** available under the AGPLv3 license.

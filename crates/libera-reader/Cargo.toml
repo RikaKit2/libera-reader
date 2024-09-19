@@ -1,21 +1,17 @@
 [package]
 name = "libera-reader"
-version = "0.1.0"
-description = ""
-authors = ["RikaKit2 <174120712+RikaKit2@users.noreply.github.com>"]
-license = "AGPLv3"
-repository = "https://github.com/RikaKit2/libera-reader"
-default-run = "libera-reader"
+version = "0.0.1"
+authors = ["RikaKit2"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[build-dependencies]
+tauri-build = { version = "1", features = [] }
 
 [dependencies]
-manganis = "0.2.2"
-dioxus = { version = "0.5.6", features = ["desktop", "router"] }
-dioxus-logger = "0.5.1"
+tauri = { version = "1", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
-[profile.release]
-lto = true
-opt-level = 3
-debug = false
+[features]
+# This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
