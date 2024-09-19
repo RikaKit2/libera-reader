@@ -17,3 +17,4 @@ crates/libera-reader-core/src/db/model.rs
 /crates/mupdf-sys/mupdf/
 /crates/libera-reader-core/tests/files/
 /crates/libera-reader/assets/tailwind.css
+/crates/gui

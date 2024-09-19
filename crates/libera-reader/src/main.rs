@@ -1,15 +1,10 @@
-#![allow(non_snake_case)]
-use dioxus::prelude::*;
-use manganis;
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod router;
-mod ui;
-mod app;
-use app::App;
-const _TAILWIND_URL: &str = manganis::mg!(file("assets/tailwind.css"));
+// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 
 fn main() {
-  let config = dioxus::desktop::Config::new()
-    .with_custom_head(r#"<link rel="stylesheet" href="side_bar.css">"#.to_string());
-  LaunchBuilder::desktop().with_cfg(config).launch(App);
+    tauri::Builder::default()
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
