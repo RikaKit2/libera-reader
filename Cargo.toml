@@ -5,6 +5,6 @@ members = [
     "crates/libera-reader",
     "crates/libera-reader-core",
     "crates/mupdf-sys",
-    "crates/mupdf", "crates/redb_example",
+    "crates/mupdf",
 ]
 exclude = ["other"]
