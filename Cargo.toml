@@ -1,10 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "prisma-cli",
-    "crates/libera-reader",
+#    "crates/libera-reader",
     "crates/libera-reader-core",
     "crates/mupdf-sys",
     "crates/mupdf",
+    "crates/measure_time_macro",
+    "crates/libera-reader-egui"
 ]
 exclude = ["other"]
