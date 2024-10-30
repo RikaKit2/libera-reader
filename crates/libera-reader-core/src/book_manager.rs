@@ -1,49 +1,43 @@
+use crate::db::models::BookItem;
+use crate::utils::{calc_file_hash, calc_file_size_in_mb, NotCachedBook};
 use gxhash::HashSet;
+use native_db::Database;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
-
 use tokio::sync::RwLock;
 use tracing::info;
 
-use crate::db::crud;
-use crate::db::model::PrismaClient;
-use crate::utils::{calc_file_hash, calc_file_size_in_mb, BookData, NotCachedBook};
-
-pub struct BookManager {
-  pub(crate) target_ext: Arc<RwLock<HashSet<String>>>,
-  pub(crate) client: Arc<PrismaClient>,
+pub struct BookManager<'a> {
+  db: Arc<Database<'a>>,
+  target_ext: Arc<RwLock<HashSet<String>>>,
   not_cached_books: Arc<RwLock<VecDeque<NotCachedBook>>>,
 }
 
-impl BookManager {
-  pub fn new(target_ext: Arc<RwLock<HashSet<String>>>, client: Arc<PrismaClient>) -> BookManager {
-    BookManager {
-      target_ext,
-      not_cached_books: Arc::from(RwLock::from(VecDeque::new())),
-      client,
-    }
+impl<'a> BookManager<'a> {
+  pub fn new(db: Arc<Database<'a>>, target_ext: Arc<RwLock<HashSet<String>>>) -> Self {
+    Self { db, target_ext, not_cached_books: Default::default() }
   }
-  pub async fn add_book(&mut self, book: BookData) {
-    if self.target_ext.read().await.contains(&book.ext) {
-      info!("\n create new book:\n{:?}", &book.path_to_book);
-      let book_hash = calc_file_hash(&book.path_to_book);
+  pub async fn add_book(&mut self, book_item: BookItem) {
+    if self.target_ext.read().await.contains(&book_item.ext) {
+      info!("\n create new book:\n{:?}", &book_item.path_to_book);
+      let book_hash = calc_file_hash(&book_item.path_to_book);
       match crud::get_book_data(book_hash.clone(), &self.client).await {
         None => {
-          let book_size = calc_file_size_in_mb(&book.path_to_book);
+          let book_size = calc_file_size_in_mb(&book_item.path_to_book);
           let book_data = crud::create_book_data(book_hash.clone(), book_size, &self.client).await;
           self.not_cached_books.write().await.push_front(
-            NotCachedBook { book_hash, path_to_book: book.path_to_book.clone() }
+            NotCachedBook { book_hash, path_to_book: book_item.path_to_book.clone() }
           );
-          crud::create_book_item(book, book_data.unwrap().id, &self.client).await;
+          crud::create_book_item(book_item, book_data.unwrap().id, &self.client).await;
         }
         Some(book_data) => {
-          crud::create_book_item(book, book_data.id, &self.client).await;
+          crud::create_book_item(book_item, book_data.id, &self.client).await;
         }
       }
     }
   }
-  pub async fn rename_data(&mut self, old: BookData, new: BookData) {
+  pub async fn rename_data(&mut self, old: BookItem, new: BookItem) {
     match crud::get_book_item_by_path(old.path_to_book, &self.client).await {
       None => {
         self.add_book(new).await;

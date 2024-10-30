@@ -1,7 +1,7 @@
 use std::ffi::{CStr, CString};
 use std::fmt;
 
-use byte_unit::{Byte, rust_decimal::prelude::ToPrimitive, Unit};
+use byte_unit::{rust_decimal::prelude::ToPrimitive, Byte, Unit};
 
 use mupdf_sys::{fz_context, fz_document, fz_drop_context, fz_drop_document, fz_drop_outline,
                 fz_is_external_link, fz_outline, fz_resolve_link, mupdf_doc_page_count,

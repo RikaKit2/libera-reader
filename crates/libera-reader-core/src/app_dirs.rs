@@ -7,15 +7,14 @@ pub struct AppDirs {
 }
 
 impl AppDirs {
-  pub fn new() -> Result<Self, Vec<std::io::Error>> {
-    let mut poss_errors = vec![];
+  pub fn new() -> Result<Self, Vec<String>> {
+    let mut poss_errors: Vec<String> = vec![];
     let proj_dirs = ProjectDirs::from("com", "RikaKit", "libera-reader").unwrap();
     let data_dir = proj_dirs.data_dir().to_path_buf();
 
     let tts_models = data_dir.join("tts_models");
     let thumbnails_dir = data_dir.join("thumbnails");
-
-    let path_to_db = data_dir.join("libera-reader").with_extension("db");
+    let path_to_db = data_dir.join("libera-reader").with_extension("redb");
 
     let necessary_dirs = [&data_dir, &tts_models, &thumbnails_dir];
     for necessary_dir in necessary_dirs {
@@ -23,7 +22,7 @@ impl AppDirs {
         match std::fs::create_dir(necessary_dir) {
           Ok(_) => {}
           Err(err) => {
-            poss_errors.push(err);
+            poss_errors.push(err.to_string());
           }
         }
       }

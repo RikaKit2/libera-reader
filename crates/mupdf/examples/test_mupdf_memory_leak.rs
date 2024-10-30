@@ -1,7 +1,7 @@
-use std::{io, thread};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use std::{io, thread};
 
 use walkdir::WalkDir;
 

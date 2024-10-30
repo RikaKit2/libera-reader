@@ -1,11 +1,13 @@
 use std::fs;
 use std::hash::{BuildHasher, Hasher};
 use std::io::Read;
-use std::path::PathBuf;
 
 use gxhash::GxBuildHasher;
 
-use crate::db::model::book_item;
+
+pub type BookPath = String;
+pub type BookSize = String;
+pub type Hash = String;
 
 pub struct NotCachedBook {
   pub book_hash: String,
@@ -20,43 +22,7 @@ fn round_num(x: f64, decimals: u32) -> f64 {
 pub fn calc_file_size_in_mb(path_to_file: &String) -> f64 {
   let metadata = fs::metadata(path_to_file).unwrap();
   let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
-  round_num(size_mb, 8)
-}
-
-pub struct BookHashAndSize {
-  pub book_hash: String,
-  pub book_size: f64,
-}
-
-pub struct BookData {
-  pub path_to_book: String,
-  pub path_to_dir: String,
-  pub book_name: String,
-  pub dir_name: String,
-  pub ext: String,
-}
-
-impl BookData {
-  pub fn from_pathbuf(pathbuf: &PathBuf) -> Self {
-    let path_to_book = pathbuf.to_str().unwrap().to_string();
-    Self {
-      path_to_book,
-      path_to_dir: pathbuf.parent().unwrap().to_str().unwrap().to_string(),
-      book_name: pathbuf.file_name().unwrap().to_str().unwrap().to_string(),
-      dir_name: pathbuf.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
-      ext: pathbuf.extension().unwrap().to_str().unwrap().to_string(),
-    }
-  }
-  pub fn from_book_item(book_item: book_item::Data) -> Self {
-    let path_to_book = book_item.path_to_book;
-    Self {
-      path_to_book,
-      path_to_dir: book_item.path_to_dir,
-      book_name: book_item.book_name,
-      dir_name: book_item.dir_name,
-      ext: book_item.ext,
-    }
-  }
+  round_num(size_mb, 6)
 }
 
 pub fn calc_file_hash(path_to_file: &String) -> String {
