@@ -5,6 +5,5 @@ mod settings;
 pub mod app_core;
 mod utils;
 mod book_api;
-// mod book_manager;
 
 
