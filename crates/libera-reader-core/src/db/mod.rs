@@ -1,21 +1,21 @@
-use crate::db::models::{BookData, BookItem, BookMark, HashedBookData, Settings};
+use crate::db::models::{UniqueSizeBookData, Book, BookMark, RepeatSizeBookData, Settings};
 use native_db::{Builder, Database, Models};
 use once_cell::sync::Lazy;
 use std::path::Path;
 
-pub mod models;
-mod crud;
+pub(crate) mod models;
+pub(crate) mod crud;
+pub(crate) mod models_impl;
 
 fn get_models() -> Models {
   let mut models = Models::new();
   models.define::<Settings>().unwrap();
   models.define::<BookMark>().unwrap();
-  models.define::<BookItem>().unwrap();
-  models.define::<BookData>().unwrap();
-  models.define::<HashedBookData>().unwrap();
+  models.define::<Book>().unwrap();
+  models.define::<UniqueSizeBookData>().unwrap();
+  models.define::<RepeatSizeBookData>().unwrap();
   models
 }
-
 
 fn get_db(models: &Models) -> native_db::db_type::Result<Database> {
   let db_name = "libera_reader.redb";

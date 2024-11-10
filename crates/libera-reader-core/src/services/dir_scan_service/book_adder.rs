@@ -1,102 +1,109 @@
-use crate::db::models::{BookData, BookItem, HashedBookData, InsertBatch};
-use crate::utils::{calc_file_hash, calc_file_size_in_mb, BookSize, Hash};
-use gxhash::{HashMap, HashMapExt, HashSet};
+use crate::db::crud;
+use crate::db::models::BookDataType::{RepeatingSizeBook, UniqueSizeBook};
+use crate::db::models::{Book, RepeatSizeBookData, UniqueSizeBookData};
+use crate::utils::{calc_file_hash, calc_file_size_in_mb, BookHash, BookPath, BookSize};
+use gxhash::{HashMap, HashMapExt};
+use itertools::Itertools;
 use measure_time_macro::measure_time;
-use tokio::sync::RwLock;
-use tracing::{event, Level};
+use tracing::info;
 
 
-pub(crate) async fn run(new_book_items: Vec<BookItem>,
-                        book_sizes: &mut RwLock<HashSet<BookSize>>,
-                        book_hashes: &mut RwLock<HashSet<Hash>>) {
+struct RepeatingSizeBooks {
+  book_size: BookSize,
+  books: Vec<Book>,
+}
+
+type BooksSameSize = HashMap<BookSize, Vec<Book>>;
+
+pub(crate) async fn run(new_books: Vec<Book>) {
   let start = std::time::Instant::now();
-  let (books_same_size, new_unique_book_data) = get_same_size_books(new_book_items, book_sizes).await;
-  let (mut hashed_books, unique_size_books) = get_unique_and_hashed_books(books_same_size);
-  let new_hashed_book_data = get_new_repetitive_book_data(&mut hashed_books, book_hashes).await;
+  if new_books.len() > 0 {
+    let mut list_repeating_size_books: Vec<RepeatingSizeBooks> = vec![];
+    let (unique_size_books, unique_size_book_data) =
+      get_unique_size_books(get_list_of_book_sizes(new_books), &mut list_repeating_size_books);
 
-  event!(Level::INFO, "len of unique size books: {:?}", unique_size_books.len());
-  event!(Level::INFO, "len of hashed books: {:?}", hashed_books.len());
+    info!("Len of unique size books: {:?}", unique_size_books.len());
+    crud::insert_batch::<Book>(unique_size_books);
+    crud::insert_batch::<UniqueSizeBookData>(unique_size_book_data);
 
-  BookItem::insert_batch(unique_size_books);
-  BookItem::insert_batch(hashed_books);
+    let (repeating_size_books, repeating_size_book_data) =
+      get_repeating_size_books(list_repeating_size_books);
 
-  BookData::insert_batch(new_unique_book_data);
-  HashedBookData::insert_batch(new_hashed_book_data);
-  event!(Level::INFO, "time to add new books is: {:?}", start.elapsed());
+    info!("Len of repeating size books: {:?}", repeating_size_books.len());
+    crud::insert_batch::<Book>(repeating_size_books);
+    crud::insert_batch::<RepeatSizeBookData>(repeating_size_book_data);
+  }
+  info!("Time to add new books is: {:?}", start.elapsed());
 }
 
+//noinspection RsCompileErrorMacro
 #[measure_time]
-async fn get_same_size_books(new_book_items: Vec<BookItem>,
-                             book_sizes: &mut RwLock<HashSet<BookSize>>) -> (Vec<Vec<BookItem>>, Vec<BookData>) {
-  let mut new_unique_book_data: Vec<BookData> = vec![];
-  let mut result: HashMap<BookSize, Vec<BookItem>> = HashMap::new();
+fn get_list_of_book_sizes(new_books: Vec<Book>) -> BooksSameSize {
+  let mut list_of_book_sizes: HashMap<BookSize, Vec<Book>> = HashMap::new();
 
-  for mut new_book in new_book_items {
+  for mut new_book in new_books {
     let book_size = calc_file_size_in_mb(&new_book.path_to_book).to_string();
-    let books_same_size = result.get_mut(&book_size);
-
-    if !book_sizes.read().await.contains(&book_size) {
-      new_unique_book_data.push(BookData::new(book_size.clone()));
-      book_sizes.write().await.insert(book_size.clone());
-    }
-
-    if books_same_size.is_none() {
-      new_book.book_data_link = Some(book_size.clone());
-      result.insert(book_size, vec![new_book]);
-    } else {
-      new_book.book_data_link = Some(book_size);
-      books_same_size.unwrap().push(new_book);
-    }
-  }
-  let books_same_size: Vec<Vec<BookItem>> = result.into_values().map(|i| i).collect();
-
-  (books_same_size, new_unique_book_data)
-}
-
-#[measure_time]
-fn get_unique_and_hashed_books(books_same_size: Vec<Vec<BookItem>>) -> (Vec<BookItem>, Vec<BookItem>) {
-  let mut repeat_size_books: Vec<BookItem> = vec![];
-  let mut unique_size_books: Vec<BookItem> = vec![];
-
-  for mut book_items in books_same_size {
-    if book_items.len() > 1 {
-      for book_item in book_items.iter_mut() {
-        book_item.unique_file_size = Some(false);
+    match list_of_book_sizes.get_mut(&book_size) {
+      None => {
+        new_book.book_data_primary_key = Some(UniqueSizeBook(book_size.clone()));
+        list_of_book_sizes.insert(book_size, vec![new_book]);
       }
-      repeat_size_books.extend(book_items);
-    } else {
-      let mut book_item = book_items.swap_remove(0);
-      book_item.unique_file_size = Some(true);
-      unique_size_books.push(book_item);
+      Some(group_of_same_size_books) => {
+        group_of_same_size_books.into_iter()
+          .for_each(|i| i.book_data_primary_key = Some(RepeatingSizeBook(None)));
+        new_book.book_data_primary_key = Some(RepeatingSizeBook(None));
+        group_of_same_size_books.push(new_book);
+      }
     }
   }
-  (repeat_size_books, unique_size_books)
+  list_of_book_sizes
 }
 
+//noinspection RsUnresolvedPath
 #[measure_time]
-fn calc_books_hashes(repeat_size_books: &mut Vec<BookItem>) -> Vec<(Hash, BookSize)> {
-  let mut result: Vec<(Hash, BookSize)> = vec![];
-  for book_item in repeat_size_books {
-    let book_hash = calc_file_hash(&book_item.path_to_book);
-    let book_size = calc_file_size_in_mb(&book_item.path_to_book).to_string();
-    book_item.unique_file_size = Some(false);
-    book_item.book_data_link = Some(book_hash.clone());
-    result.push((book_hash, book_size))
-  }
-  result
-}
-
-#[measure_time]
-async fn get_new_repetitive_book_data(repeat_size_books: &mut Vec<BookItem>,
-                                      hashed_book_data: &mut RwLock<HashSet<Hash>>) -> Vec<HashedBookData> {
-  let mut new_repetitive_book_data: Vec<HashedBookData> = vec![];
-  let hashed_books = calc_books_hashes(repeat_size_books);
-
-  for (book_hash, book_size) in hashed_books {
-    if !hashed_book_data.read().await.contains(&book_hash) {
-      new_repetitive_book_data.push(HashedBookData::new(book_hash.clone(), book_size));
-      hashed_book_data.write().await.insert(book_hash);
+fn get_unique_size_books(list_of_book_sizes: BooksSameSize,
+                         list_repeating_size_books: &mut Vec<RepeatingSizeBooks>) -> (Vec<Book>, Vec<UniqueSizeBookData>) {
+  let mut unique_size_books: Vec<Book> = vec![];
+  let mut unique_size_book_data: Vec<UniqueSizeBookData> = vec![];
+  for (book_size, books) in list_of_book_sizes {
+    if books.len() >= 1 {
+      if books.len() == 1 {
+        let book_primary_keys = books.iter().map(|i| i.path_to_book.clone()).collect_vec();
+        unique_size_books.extend(books);
+        unique_size_book_data.push(UniqueSizeBookData::new(book_size, book_primary_keys));
+      } else {
+        list_repeating_size_books.push(RepeatingSizeBooks { book_size, books });
+      }
     }
   }
-  new_repetitive_book_data
+  (unique_size_books, unique_size_book_data)
+}
+
+//noinspection DuplicatedCode
+#[measure_time]
+fn get_repeating_size_books(list_repeating_size_books: Vec<RepeatingSizeBooks>) -> (Vec<Book>, Vec<RepeatSizeBookData>) {
+  let mut list_of_same_hash_books: HashMap<BookHash, (BookSize, Vec<BookPath>)> = HashMap::new();
+
+  let mut repeating_size_books: Vec<Book> = vec![];
+  let mut repeating_size_book_data: Vec<RepeatSizeBookData> = vec![];
+
+  for i in list_repeating_size_books {
+    for mut book in i.books {
+      let book_hash = calc_file_hash(&book.path_to_book);
+      book.book_data_primary_key = Some(RepeatingSizeBook(Some(book_hash.clone())));
+      match list_of_same_hash_books.get_mut(&book_hash) {
+        None => {
+          list_of_same_hash_books.insert(book_hash, (i.book_size.clone(), vec![book.path_to_book.clone()]));
+        }
+        Some((_, group_of_same_hash_books)) => {
+          group_of_same_hash_books.push(book.path_to_book.clone());
+        }
+      }
+      repeating_size_books.push(book);
+    }
+  }
+  for (book_hash, (book_size, books)) in list_of_same_hash_books {
+    repeating_size_book_data.push(RepeatSizeBookData::new(book_hash, book_size.clone(), books));
+  };
+  (repeating_size_books, repeating_size_book_data)
 }

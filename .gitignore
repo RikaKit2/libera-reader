@@ -18,3 +18,4 @@ crates/libera-reader-core/src/db/model.rs
 /crates/libera-reader-core/tests/files/
 /crates/libera-reader/assets/tailwind.css
 /crates/gui
+*.redb

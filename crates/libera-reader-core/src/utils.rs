@@ -2,15 +2,15 @@ use std::fs;
 use std::hash::{BuildHasher, Hasher};
 use std::io::Read;
 
+use crate::db::models::BookDataType;
 use gxhash::GxBuildHasher;
-
 
 pub type BookPath = String;
 pub type BookSize = String;
-pub type Hash = String;
+pub type BookHash = String;
 
 pub struct NotCachedBook {
-  pub book_hash: String,
+  pub data_type: BookDataType,
   pub path_to_book: String,
 }
 
@@ -39,4 +39,3 @@ pub fn calc_file_hash(path_to_file: &String) -> String {
   }
   data_encoding::HEXLOWER.encode(&hasher.finish().to_ne_bytes())
 }
-
