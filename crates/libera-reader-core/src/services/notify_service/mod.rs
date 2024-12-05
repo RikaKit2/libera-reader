@@ -1,4 +1,4 @@
-use crate::db::models::{Book, BookDataType, RepeatSizeBookData, UniqueSizeBookData};
+use crate::db::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
 use crate::db::models_impl::GetBookData;
 use crate::db::{crud, DB};
 use crate::services::NOT_CACHED_BOOKS;
@@ -20,16 +20,16 @@ async fn on_add_new_book(mut new_book: Book, target_ext: &TargetExtensions) {
   if target_ext.read().await.contains(&new_book.ext) {
     info!("\n create new book:\n{:?}", &new_book.path_to_book);
     let book_size = calc_file_size_in_mb(&new_book.path_to_book).to_string();
-    match crud::get_primary::<UniqueSizeBookData>(book_size.clone()) {
+    match crud::get_primary::<DataOfUnhashedBook>(book_size.clone()) {
       None => {
-        let data_type = BookDataType::UniqueSizeBook(book_size.clone());
+        let data_type = BookDataType::UniqueSize(book_size.clone());
 
         NOT_CACHED_BOOKS.write().await.push_front(
           NotCachedBook { data_type: data_type.clone(), path_to_book: new_book.path_to_book.clone() });
 
-        crud::insert::<UniqueSizeBookData>(
-          UniqueSizeBookData::new(book_size, vec![new_book.path_to_book.clone()])).unwrap();
-        new_book.book_data_primary_key = Some(data_type);
+        crud::insert::<DataOfUnhashedBook>(
+          DataOfUnhashedBook::new(book_size, vec![new_book.path_to_book.clone()])).unwrap();
+        new_book.book_data_pk = Some(data_type);
         crud::insert::<Book>(new_book).unwrap();
       }
       Some(unique_book_data) => {
@@ -44,12 +44,12 @@ async fn on_add_new_book(mut new_book: Book, target_ext: &TargetExtensions) {
         let book_path = &unique_book_data.book_data.books_pk[0];
         let book_from_db = crud::get_primary::<Book>(book_path.clone()).unwrap();
 
-        new_book.book_data_primary_key = Some(BookDataType::RepeatingSizeBook(Some(book_hash.clone())));
+        new_book.book_data_pk = Some(BookDataType::RepeatingSize(Some(book_hash.clone())));
         crud::update(book_from_db, new_book).unwrap();
 
         let new_book_data =
-          crud::remove::<UniqueSizeBookData>(unique_book_data).unwrap().to_repeat_size_book_data(book_hash);
-        crud::insert::<RepeatSizeBookData>(new_book_data).unwrap();
+          crud::remove::<DataOfUnhashedBook>(unique_book_data).unwrap().to_repeat_size_book_data(book_hash);
+        crud::insert::<DataOfHashedBook>(new_book_data).unwrap();
       }
     };
   }
@@ -66,7 +66,7 @@ async fn on_update_path_to_book(old_path: &PathBuf, new_path: &PathBuf, target_e
       info!("\n rename book data\n new_path:\n{:?}\n old_path:\n{:?}", &new_book.path_to_book,
           &book_from_db.path_to_book);
 
-      new_book.book_data_primary_key = book_from_db.book_data_primary_key.clone();
+      new_book.book_data_pk = book_from_db.book_data_pk.clone();
       crud::update(new_book, old_book).unwrap();
     }
   }
@@ -97,14 +97,14 @@ fn on_delete_dir(path_to_dir: String) {
 }
 #[measure_time]
 fn on_delete_book(old_book: Book) {
-  match old_book.book_data_primary_key.unwrap() {
-    BookDataType::UniqueSizeBook(book_size) => {
-      let book_data_wrapper = crud::get_primary::<UniqueSizeBookData>(book_size).unwrap();
-      del_event_handler(book_data_wrapper, &old_book.path_to_book);
+  match old_book.book_data_pk.unwrap() {
+    BookDataType::UniqueSize(book_size) => {
+      let book_data = crud::get_primary::<DataOfUnhashedBook>(book_size).unwrap();
+      del_event_handler(book_data, &old_book.path_to_book);
     }
-    BookDataType::RepeatingSizeBook(book_hash) => {
-      let book_data_wrapper = crud::get_primary::<RepeatSizeBookData>(book_hash.unwrap()).unwrap();
-      del_event_handler(book_data_wrapper, &old_book.path_to_book);
+    BookDataType::RepeatingSize(book_hash) => {
+      let book_data = crud::get_primary::<DataOfHashedBook>(book_hash.unwrap()).unwrap();
+      del_event_handler(book_data, &old_book.path_to_book);
     }
   }
 }
