@@ -1,2 +1,1 @@
-#include "./mupdf/fitz.h"
-
+#include "./mupdf/include/mupdf/fitz.h"

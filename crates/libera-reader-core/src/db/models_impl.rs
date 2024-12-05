@@ -1,7 +1,8 @@
-use crate::db::models::{AppLanguage, AppTheme, Book, BookData, RepeatSizeBookData, Settings, UniqueSizeBookData};
+use crate::db::models::{AppLanguage, AppTheme, Book, BookData, DataOfHashedBook, Settings, DataOfUnhashedBook};
 use crate::db::DB;
 use crate::utils::{BookPath, BookSize};
 use itertools::Itertools;
+use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
 
@@ -34,7 +35,7 @@ impl Book {
       book_name: book_path.file_name().unwrap().to_str().unwrap().to_string(),
       dir_name: book_path.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
       ext: book_path.extension().unwrap().to_str().unwrap().to_string(),
-      book_data_primary_key: None,
+      book_data_pk: None,
       path_is_valid: true,
     }
   }
@@ -44,11 +45,11 @@ impl Book {
   }
 }
 
-impl RepeatSizeBookData {
+impl DataOfHashedBook {
   pub fn new(hash: String, file_size: BookSize, books_pk: Vec<BookPath>) -> Self {
-    RepeatSizeBookData {
+    DataOfHashedBook {
       book_hash: hash,
-      file_size,
+      book_size: file_size,
       book_data: BookData {
         cached: false,
         title: None,
@@ -63,10 +64,10 @@ impl RepeatSizeBookData {
     }
   }
 }
-impl UniqueSizeBookData {
+impl DataOfUnhashedBook {
   pub fn new(file_size: BookSize, books_pk: Vec<BookPath>) -> Self {
-    UniqueSizeBookData {
-      file_size,
+    DataOfUnhashedBook {
+      book_size: file_size,
       book_hash: None,
       book_data: BookData {
         cached: false,
@@ -81,10 +82,10 @@ impl UniqueSizeBookData {
       },
     }
   }
-  pub fn to_repeat_size_book_data(self, book_hash: String) -> RepeatSizeBookData {
-    RepeatSizeBookData {
+  pub fn to_repeat_size_book_data(self, book_hash: String) -> DataOfHashedBook {
+    DataOfHashedBook {
       book_hash,
-      file_size: self.file_size,
+      book_size: self.book_size,
       book_data: self.book_data,
     }
   }
@@ -94,7 +95,7 @@ pub trait GetBookData {
   fn get_book_data(self) -> BookData;
   fn get_book_data_as_ref(&self) -> &BookData;
 }
-impl GetBookData for UniqueSizeBookData {
+impl GetBookData for DataOfUnhashedBook {
   fn get_book_data(self) -> BookData {
     self.book_data
   }
@@ -102,11 +103,22 @@ impl GetBookData for UniqueSizeBookData {
     &self.book_data
   }
 }
-impl GetBookData for RepeatSizeBookData {
+impl GetBookData for DataOfHashedBook {
   fn get_book_data(self) -> BookData {
     self.book_data
   }
   fn get_book_data_as_ref(&self) -> &BookData {
     &self.book_data
+  }
+}
+
+impl Hash for Book {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.path_to_book.hash(state);
+  }
+}
+impl PartialEq for Book {
+  fn eq(&self, other: &Self) -> bool {
+    self.path_to_book == other.path_to_book
   }
 }

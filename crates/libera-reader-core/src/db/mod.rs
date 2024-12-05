@@ -1,4 +1,4 @@
-use crate::db::models::{UniqueSizeBookData, Book, BookMark, RepeatSizeBookData, Settings};
+use crate::db::models::{DataOfUnhashedBook, Book, BookMark, DataOfHashedBook, Settings};
 use native_db::{Builder, Database, Models};
 use once_cell::sync::Lazy;
 use std::path::Path;
@@ -12,8 +12,8 @@ fn get_models() -> Models {
   models.define::<Settings>().unwrap();
   models.define::<BookMark>().unwrap();
   models.define::<Book>().unwrap();
-  models.define::<UniqueSizeBookData>().unwrap();
-  models.define::<RepeatSizeBookData>().unwrap();
+  models.define::<DataOfUnhashedBook>().unwrap();
+  models.define::<DataOfHashedBook>().unwrap();
   models
 }
 

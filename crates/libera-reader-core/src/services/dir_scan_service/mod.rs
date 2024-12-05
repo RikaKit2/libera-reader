@@ -1,8 +1,9 @@
-use crate::db::models::Book;
-use crate::utils::BookPath;
-use gxhash::{HashMap, HashMapExt, HashSet, HashSetExt};
+use crate::db::crud;
+use crate::db::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
+use crate::utils::{calc_file_size_in_mb, BooksCount, BookPath, BookSize};
+use gxhash::{HashMap, HashMapExt, HashSet};
+use itertools::Itertools;
 use measure_time_macro::measure_time;
-use std::ops::Sub;
 use tracing::info;
 use walkdir::WalkDir;
 
@@ -18,31 +19,29 @@ enum BooksLocation {
 
 pub(crate) async fn run(path_to_scan: String) {
   let start = std::time::Instant::now();
-  let db_books_set: HashMap<BookPath, Book> = Book::get_all_from_db().into_iter().map(
-    |i| (i.path_to_book.clone(), i)).collect();
-  let disk_books_set: HashMap<BookPath, Book> = get_books_from_disk(&path_to_scan);
 
-  info!("Number of books in the db: {:?}", db_books_set.len());
-  let db_book_count = db_books_set.len();
-  let disk_book_count = disk_books_set.len();
+  let books_on_disk: HashMap<BookPath, Book> = get_books_from_disk(&path_to_scan);
+  let books_in_db: HashMap<BookPath, Book> = Book::get_all_from_db().into_iter().map(|i| (i.path_to_book.clone(), i)).collect();
 
-  let (new_books, outdated_books) = get_new_and_outdated_books(disk_books_set, db_books_set);
+  let books_on_disk_len = books_on_disk.len();
+  let books_in_db_len = books_in_db.len();
 
-  info!("New books count: {:?}", new_books.len());
-  info!("Outdated books count: {:?}", outdated_books.len());
+  let mut book_size_map: BookSizeMap = BookSizeMap::new();
 
-  match get_books_location(db_book_count, disk_book_count) {
+  let _old_books = get_outdated_books(books_on_disk, books_in_db, &mut book_size_map);
+
+  match get_books_location(books_in_db_len, books_on_disk_len) {
     BooksLocation::Disk => {
-      book_adder::run(new_books).await;
+      book_adder::run(book_size_map).await;
     }
     BooksLocation::DB => {
-      book_adder::run(new_books).await;
+      book_adder::run(book_size_map).await;
     }
     BooksLocation::Both => {
-      book_adder::run(new_books).await;
-      if outdated_books.len() > 0 {
-        todo!("make deleting outdated_books")
-      }
+      book_adder::run(book_size_map).await;
+      // if outdated_books.len() > 0 {
+      // TODO: make deleting outdated_books
+      // }
     }
     BooksLocation::None => {}
   };
@@ -85,29 +84,77 @@ fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLoca
 }
 
 #[measure_time]
-fn get_new_and_outdated_books(mut disk_books: HashMap<BookPath, Book>,
-                              mut db_books_set: HashMap<BookPath, Book>) -> (Vec<Book>, Vec<Book>) {
-  let mut disk_books_paths_set: HashSet<BookPath> = HashSet::new();
-  let mut db_books_paths_set: HashSet<BookPath> = HashSet::new();
+fn get_outdated_books(books_on_disk: HashMap<BookPath, Book>, mut books_in_db: HashMap<BookPath, Book>,
+                      book_size_map: &mut BookSizeMap) -> Vec<Book> {
+  let books_paths_on_disk: HashSet<BookPath> = books_on_disk.keys().map(|i| i.clone()).collect();
+  let books_paths_in_db: HashSet<BookPath> = books_in_db.keys().map(|i| i.clone()).collect();
 
-  let books_paths_from_disk: Vec<BookPath> = disk_books.keys().into_iter()
-    .map(|i| i.clone()).collect();
-  disk_books_paths_set.extend(books_paths_from_disk);
-  let books_paths_from_db: Vec<BookPath> = db_books_set.keys().into_iter()
-    .map(|i| i.clone()).collect();
-  db_books_paths_set.extend(books_paths_from_db);
+  let existing_paths_to_books = books_paths_on_disk.intersection(&books_paths_in_db).collect_vec();
+  let new_books_paths = books_paths_on_disk.difference(&books_paths_in_db).collect_vec();
+  let outdated_books: Vec<Book> = books_paths_in_db.difference(&books_paths_on_disk)
+    .map(|i| books_in_db.remove(i).unwrap()).collect_vec();
 
-  let new_books_set = disk_books_paths_set.sub(&db_books_paths_set);
-  let outdated_book_set = db_books_paths_set.sub(&disk_books_paths_set);
+  info!("Number of new books: {:?}", new_books_paths.len());
+  info!("Number of existing books: {:?}", existing_paths_to_books.len());
+  info!("Number of outdated books: {:?}", outdated_books.len());
 
-  let mut new_books: Vec<Book> = vec![];
-  let mut outdated_books: Vec<Book> = vec![];
-  for i in new_books_set {
-    new_books.push(disk_books.remove(&i).unwrap());
+  book_size_map.extend_overall_books(existing_paths_to_books, books_in_db);
+  book_size_map.extend_new_books(new_books_paths, books_on_disk);
+  outdated_books
+}
+
+pub(crate) struct BookSizeMap {
+  new_books: HashMap<BookSize, Vec<Book>>,
+  existing_books: HashMap<BookSize, BooksCount>,
+}
+impl BookSizeMap {
+  pub fn new() -> Self { Self { new_books: Default::default(), existing_books: Default::default() } }
+  pub(crate) fn extend_new_books(&mut self, new_books_paths: Vec<&BookPath>, mut books_on_disk: HashMap<BookPath, Book>) {
+    for book_path in new_books_paths {
+      let new_book = books_on_disk.remove(book_path).unwrap();
+      let book_size = calc_file_size_in_mb(book_path).to_string();
+      match self.new_books.get_mut(&book_size) {
+        None => { self.new_books.insert(book_size, vec![new_book]); }
+        Some(group_of_books) => { group_of_books.push(new_book); }
+      }
+    }
   }
-  for i in outdated_book_set {
-    outdated_books.push(db_books_set.remove(&i).unwrap());
+  pub fn extend_overall_books(&mut self, overall_books: Vec<&BookPath>, books_in_db: HashMap<BookPath, Book>) {
+    for book_path in overall_books {
+      let existing_book = books_in_db.get(book_path).unwrap().clone();
+      let book_size: BookSize = match existing_book.book_data_pk.unwrap() {
+        BookDataType::UniqueSize(i) => { i }
+        BookDataType::RepeatingSize(i) => {
+          let book_size: BookSize = crud::get_primary::<DataOfHashedBook>(i.unwrap()).unwrap().book_size;
+          book_size
+        }
+      };
+      match self.existing_books.get_mut(&book_size) {
+        None => { self.existing_books.insert(book_size, 1); }
+        Some(books_count) => { *books_count += 1; }
+      }
+    };
   }
-  (new_books, outdated_books)
+  pub fn get_books_repeating_and_uniquely_size(mut self) -> (Vec<Book>, Vec<DataOfUnhashedBook>, Vec<(BookSize, Vec<Book>)>) {
+    let mut unique_size_books: Vec<Book> = vec![];
+    let mut data_unhashed_books: Vec<DataOfUnhashedBook> = vec![];
+    let mut list_of_books_sizes: Vec<(BookSize, Vec<Book>)> = vec![];
+    for (book_size, mut new_books) in self.new_books {
+      let num_of_existing_books = self.existing_books.remove(&book_size).unwrap_or_else(|| { 0 });
+      let total_num_of_books_of_this_size = num_of_existing_books + new_books.len();
+
+      if total_num_of_books_of_this_size == 1 {
+        let primary_keys: Vec<BookPath> = new_books.iter().map(|i| i.path_to_book.clone()).collect_vec();
+        for book in new_books.iter_mut() {
+          book.book_data_pk = Some(BookDataType::UniqueSize(book_size.clone()));
+        }
+        unique_size_books.extend(new_books);
+        data_unhashed_books.push(DataOfUnhashedBook::new(book_size, primary_keys))
+      } else if total_num_of_books_of_this_size > 1 {
+        list_of_books_sizes.push((book_size, new_books));
+      }
+    }
+    (unique_size_books, data_unhashed_books, list_of_books_sizes)
+  }
 }
 

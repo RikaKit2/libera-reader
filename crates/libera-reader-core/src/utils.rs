@@ -5,11 +5,13 @@ use std::io::Read;
 use crate::db::models::BookDataType;
 use gxhash::GxBuildHasher;
 
-pub type BookPath = String;
-pub type BookSize = String;
-pub type BookHash = String;
 
-pub struct NotCachedBook {
+pub(crate) type BookPath = String;
+pub(crate) type BookSize = String;
+pub(crate) type BookHash = String;
+pub(crate) type BooksCount = usize;
+
+pub(crate) struct NotCachedBook {
   pub data_type: BookDataType,
   pub path_to_book: String,
 }
@@ -19,13 +21,13 @@ fn round_num(x: f64, decimals: u32) -> f64 {
   (x * y).round() / y
 }
 
-pub fn calc_file_size_in_mb(path_to_file: &String) -> f64 {
+pub(crate) fn calc_file_size_in_mb(path_to_file: &String) -> f64 {
   let metadata = fs::metadata(path_to_file).unwrap();
   let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
   round_num(size_mb, 6)
 }
 
-pub fn calc_file_hash(path_to_file: &String) -> String {
+pub(crate) fn calc_file_hash(path_to_file: &String) -> String {
   let mut hasher = GxBuildHasher::default().build_hasher();
   let mut file = fs::File::open(path_to_file).unwrap();
   loop {
