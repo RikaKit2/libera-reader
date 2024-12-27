@@ -1,6 +1,7 @@
 use crate::db::crud;
 use crate::db::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
-use crate::utils::{calc_file_size_in_mb, BooksCount, BookPath, BookSize};
+use crate::types::{BookPath, BookSize, BooksCount};
+use crate::utils::calc_file_size_in_mb;
 use gxhash::{HashMap, HashMapExt, HashSet};
 use itertools::Itertools;
 use measure_time_macro::measure_time;
@@ -9,13 +10,13 @@ use walkdir::WalkDir;
 
 mod book_adder;
 
-
 enum BooksLocation {
   Disk,
   DB,
   Both,
   None,
 }
+
 
 pub(crate) async fn run(path_to_scan: String) {
   let start = std::time::Instant::now();
@@ -26,7 +27,7 @@ pub(crate) async fn run(path_to_scan: String) {
   let books_on_disk_len = books_on_disk.len();
   let books_in_db_len = books_in_db.len();
 
-  let mut book_size_map: BookSizeMap = BookSizeMap::new();
+  let mut book_size_map: BooksSizeMap = BooksSizeMap::new();
 
   let _old_books = get_outdated_books(books_on_disk, books_in_db, &mut book_size_map);
 
@@ -85,7 +86,7 @@ fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLoca
 
 #[measure_time]
 fn get_outdated_books(books_on_disk: HashMap<BookPath, Book>, mut books_in_db: HashMap<BookPath, Book>,
-                      book_size_map: &mut BookSizeMap) -> Vec<Book> {
+                      book_size_map: &mut BooksSizeMap) -> Vec<Book> {
   let books_paths_on_disk: HashSet<BookPath> = books_on_disk.keys().map(|i| i.clone()).collect();
   let books_paths_in_db: HashSet<BookPath> = books_in_db.keys().map(|i| i.clone()).collect();
 
@@ -103,11 +104,11 @@ fn get_outdated_books(books_on_disk: HashMap<BookPath, Book>, mut books_in_db: H
   outdated_books
 }
 
-pub(crate) struct BookSizeMap {
+pub(crate) struct BooksSizeMap {
   new_books: HashMap<BookSize, Vec<Book>>,
   existing_books: HashMap<BookSize, BooksCount>,
 }
-impl BookSizeMap {
+impl BooksSizeMap {
   pub fn new() -> Self { Self { new_books: Default::default(), existing_books: Default::default() } }
   pub(crate) fn extend_new_books(&mut self, new_books_paths: Vec<&BookPath>, mut books_on_disk: HashMap<BookPath, Book>) {
     for book_path in new_books_paths {
@@ -125,7 +126,7 @@ impl BookSizeMap {
       let book_size: BookSize = match existing_book.book_data_pk.unwrap() {
         BookDataType::UniqueSize(i) => { i }
         BookDataType::RepeatingSize(i) => {
-          let book_size: BookSize = crud::get_primary::<DataOfHashedBook>(i.unwrap()).unwrap().book_size;
+          let book_size: BookSize = crud::get_primary::<DataOfHashedBook>(i).unwrap().book_size;
           book_size
         }
       };

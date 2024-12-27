@@ -3,22 +3,18 @@ use crossbeam_channel::Receiver;
 use gxhash::{HashSet, HashSetExt};
 use native_db::db_type;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use std::ops::Deref;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::error;
+use tracing::{error, info};
 
 
-pub(crate) type TargetExtensions = Arc<RwLock<HashSet<String>>>;
 pub struct Settings {
-  path_to_scan: Arc<RwLock<Option<String>>>,
-  target_ext: TargetExtensions,
+  pub(crate) path_to_scan: Option<String>,
+  pub(crate) target_ext: HashSet<String>,
   watcher: RecommendedWatcher,
   pub(crate) notify_receiver: Receiver<notify::Result<notify::Event>>,
 }
 
 impl Settings {
-  pub fn new() -> Result<Settings, db_type::Error> {
+  pub(crate) fn new() -> Result<Settings, db_type::Error> {
     match Settings::get_settings_model() {
       Ok(settings) => {
         let (tx, notify_receiver) = crossbeam_channel::unbounded();
@@ -34,8 +30,8 @@ impl Settings {
           target_ext.insert("mobi".to_string());
         };
         Ok(Self {
-          path_to_scan: Arc::new(RwLock::new(settings.path_to_scan)),
-          target_ext: Arc::new(RwLock::new(target_ext)),
+          path_to_scan: settings.path_to_scan,
+          target_ext,
           watcher,
           notify_receiver,
         })
@@ -45,16 +41,16 @@ impl Settings {
       }
     }
   }
-  pub async fn set_path_to_scan(&mut self, path_to_scan: String) {
+  pub fn set_path_to_scan(&mut self, path_to_scan: String) {
     let old_settings = Settings::get_settings_model().unwrap();
 
     match &old_settings.path_to_scan {
       None => {}
       Some(path_to_scan) => {
-        self.stop_notify(path_to_scan).await;
+        self.stop_notify(path_to_scan);
       }
     };
-    self.run_notify(&path_to_scan).await;
+    self.run_notify(&path_to_scan);
     let mut new_settings = old_settings.clone();
     new_settings.path_to_scan = Some(path_to_scan.clone());
     match crud::update::<models::Settings>(old_settings, new_settings) {
@@ -65,24 +61,19 @@ impl Settings {
       }
     };
 
-    let _ = self.path_to_scan.write().await.insert(path_to_scan);
+    let _ = self.path_to_scan.insert(path_to_scan);
+    info!("set path_to_scan")
   }
-  pub async fn get_path_to_scan(&self) -> Option<String> {
-    self.path_to_scan.read().await.deref().clone()
-  }
-  pub async fn get_path_to_scan_as_link(&self) -> Arc<RwLock<Option<String>>> {
+  pub fn get_path_to_scan(&self) -> Option<String> {
     self.path_to_scan.clone()
   }
-  pub async fn path_to_scan_is_valid(&self) -> bool {
-    self.path_to_scan.read().await.is_some()
+  pub fn path_to_scan_is_valid(&self) -> bool {
+    self.path_to_scan.is_some()
   }
-  pub fn get_target_ext(&self) -> Arc<RwLock<HashSet<String>>> {
-    self.target_ext.clone()
-  }
-  pub async fn run_notify(&mut self, path_to_scan: &String) {
+  pub(crate) fn run_notify(&mut self, path_to_scan: &String) {
     self.watcher.watch(path_to_scan.as_ref(), RecursiveMode::Recursive).unwrap();
   }
-  pub async fn stop_notify(&mut self, path_to_scan: &String) {
+  pub(crate) fn stop_notify(&mut self, path_to_scan: &String) {
     match self.watcher.unwatch(path_to_scan.as_ref()) {
       Ok(_) => {}
       Err(_) => {}
@@ -110,5 +101,10 @@ impl Settings {
         Err(e)
       }
     }
+  }
+}
+impl Default for Settings {
+  fn default() -> Self {
+    Self::new().unwrap()
   }
 }

@@ -1,4 +1,4 @@
-use crate::utils::{BookHash, BookPath, BookSize};
+use crate::types::{BookHash, BookPath, BookSize};
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
@@ -6,17 +6,17 @@ use serde::{Deserialize, Serialize};
 
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-pub(crate) enum BookDataType {
+pub enum BookDataType {
   UniqueSize(BookSize),
-  RepeatingSize(Option<BookHash>),
+  RepeatingSize(BookHash),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub enum AppLanguage {
+pub enum Language {
   EN
 }
 #[derive(Serialize, Deserialize, Clone)]
-pub enum AppTheme {
+pub enum Theme {
   Sunset,
   Dark,
 }
@@ -27,8 +27,8 @@ pub enum AppTheme {
 pub struct Settings {
   #[primary_key]
   pub id: i32,
-  pub language: AppLanguage,
-  pub theme: AppTheme,
+  pub language: Language,
+  pub theme: Theme,
   pub path_to_scan: Option<String>,
   pub pdf: bool,
   pub epub: bool,
@@ -77,7 +77,7 @@ pub struct DataOfUnhashedBook {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[native_model(id = 4, version = 3)]
+#[native_model(id = 4, version = 1)]
 #[native_db]
 pub struct DataOfHashedBook {
   #[secondary_key]
@@ -88,7 +88,7 @@ pub struct DataOfHashedBook {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq)]
-#[native_model(id = 5, version = 3)]
+#[native_model(id = 5, version = 1)]
 #[native_db]
 pub struct Book {
   #[primary_key]

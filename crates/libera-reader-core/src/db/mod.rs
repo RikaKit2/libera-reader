@@ -1,4 +1,4 @@
-use crate::db::models::{DataOfUnhashedBook, Book, BookMark, DataOfHashedBook, Settings};
+use crate::db::models::{Book, BookMark, DataOfHashedBook, DataOfUnhashedBook, Settings};
 use native_db::{Builder, Database, Models};
 use once_cell::sync::Lazy;
 use std::path::Path;

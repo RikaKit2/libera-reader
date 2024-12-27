@@ -1,6 +1,6 @@
-use crate::db::models::{AppLanguage, AppTheme, Book, BookData, DataOfHashedBook, Settings, DataOfUnhashedBook};
+use crate::db::models::{Book, BookData, DataOfHashedBook, DataOfUnhashedBook, Language, Settings, Theme};
 use crate::db::DB;
-use crate::utils::{BookPath, BookSize};
+use crate::types::{BookPath, BookSize};
 use itertools::Itertools;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
@@ -10,8 +10,8 @@ impl Default for Settings {
   fn default() -> Self {
     Self {
       id: 1,
-      language: AppLanguage::EN,
-      theme: AppTheme::Sunset,
+      language: Language::EN,
+      theme: Theme::Sunset,
       path_to_scan: None,
       pdf: true,
       epub: false,
@@ -92,21 +92,14 @@ impl DataOfUnhashedBook {
 }
 
 pub trait GetBookData {
-  fn get_book_data(self) -> BookData;
   fn get_book_data_as_ref(&self) -> &BookData;
 }
 impl GetBookData for DataOfUnhashedBook {
-  fn get_book_data(self) -> BookData {
-    self.book_data
-  }
   fn get_book_data_as_ref(&self) -> &BookData {
     &self.book_data
   }
 }
 impl GetBookData for DataOfHashedBook {
-  fn get_book_data(self) -> BookData {
-    self.book_data
-  }
   fn get_book_data_as_ref(&self) -> &BookData {
     &self.book_data
   }
