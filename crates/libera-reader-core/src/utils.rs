@@ -2,19 +2,8 @@ use std::fs;
 use std::hash::{BuildHasher, Hasher};
 use std::io::Read;
 
-use crate::db::models::BookDataType;
 use gxhash::GxBuildHasher;
 
-
-pub(crate) type BookPath = String;
-pub(crate) type BookSize = String;
-pub(crate) type BookHash = String;
-pub(crate) type BooksCount = usize;
-
-pub(crate) struct NotCachedBook {
-  pub data_type: BookDataType,
-  pub path_to_book: String,
-}
 
 fn round_num(x: f64, decimals: u32) -> f64 {
   let y = 10i32.pow(decimals) as f64;

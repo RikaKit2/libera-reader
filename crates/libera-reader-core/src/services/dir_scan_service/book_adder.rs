@@ -1,14 +1,16 @@
-use gxhash::{HashMap, HashMapExt};
 use crate::db::crud;
-use crate::db::models::{Book, BookDataType, DataOfHashedBook};
 use crate::db::models::DataOfUnhashedBook;
-use tracing::{info, event, Level};
+use crate::db::models::{Book, BookDataType, DataOfHashedBook};
+use crate::services::dir_scan_service::BooksSizeMap;
+use crate::types::{BookHash, BookPath, BookSize};
+use crate::utils::calc_file_hash;
+use gxhash::{HashMap, HashMapExt};
 use measure_time_macro::measure_time;
-use crate::services::dir_scan_service::BookSizeMap;
-use crate::utils::{calc_file_hash, BookHash, BookPath, BookSize};
+use rayon::prelude::*;
+use tracing::{event, info, Level};
 
 
-pub(crate) async fn run(book_size_map: BookSizeMap) {
+pub(crate) async fn run(book_size_map: BooksSizeMap) {
   let start = std::time::Instant::now();
 
   let (unique_size_books, unique_size_book_data, list_of_books_sizes)
@@ -36,9 +38,12 @@ pub async fn get_hashed_books_and_their_data(list_of_books_sizes: Vec<(BookSize,
   let start = std::time::Instant::now();
 
   for (book_size, books) in list_of_books_sizes {
-    for mut book in books {
+    let hashed_books: Vec<(BookHash, Book)> = books.into_par_iter().map(|mut book| {
       let book_hash = calc_file_hash(&book.path_to_book);
-      book.book_data_pk = Some(BookDataType::RepeatingSize(Some(book_hash.clone())));
+      book.book_data_pk = Some(BookDataType::RepeatingSize(book_hash.clone()));
+      (book_hash, book)
+    }).collect();
+    for (book_hash, book) in hashed_books {
       match book_hash_map.get_mut(&book_hash) {
         None => {
           book_hash_map.insert(book_hash, (book_size.clone(), vec![book.path_to_book.clone()]));
@@ -50,6 +55,7 @@ pub async fn get_hashed_books_and_their_data(list_of_books_sizes: Vec<(BookSize,
       list_hashed_books.push(book);
     }
   }
+
   for (book_hash, (book_size, books)) in book_hash_map {
     data_for_hashed_books.push(DataOfHashedBook::new(book_hash, book_size.clone(), books));
   };
