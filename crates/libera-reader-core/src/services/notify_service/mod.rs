@@ -1,15 +1,15 @@
-pub(crate) mod watchdog;
 use crate::db::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
 use crate::db::models_impl::GetBookData;
 use crate::db::{crud, DB};
 use crate::types::{BookPath, NotCachedBook};
 use crate::utils::{calc_file_hash, calc_file_size_in_mb};
-use crate::vars::{NOT_CACHED_BOOKS, SHUTDOWN, TARGET_EXT, WATCHDOG};
+use crate::vars::WATCHER;
+use crate::vars::{NOTIFY_EVENTS, NOT_CACHED_BOOKS, SHUTDOWN, TARGET_EXT};
 use itertools::Itertools;
 use measure_time_macro::measure_time;
 use native_db::ToInput;
 use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
-use notify::{Event, EventKind};
+use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use tracing::{debug, error, info};
@@ -23,8 +23,7 @@ fn book_adding_handler(mut new_book: Book) {
       None => {
         let data_type = BookDataType::UniqueSize(book_size.clone());
 
-        NOT_CACHED_BOOKS.write().unwrap().push_front(
-          NotCachedBook { data_type: data_type.clone(), path_to_book: new_book.path_to_book.clone() });
+        NOT_CACHED_BOOKS.push(NotCachedBook { data_type: data_type.clone(), path_to_book: new_book.path_to_book.clone() });
 
         crud::insert::<DataOfUnhashedBook>(
           DataOfUnhashedBook::new(book_size, vec![new_book.path_to_book.clone()])).unwrap();
@@ -210,8 +209,9 @@ fn event_processing(event: Event) {
 
 pub async fn run() {
   loop {
-    match WATCHDOG.events.try_recv() {
-      Ok(res) => {
+    match NOTIFY_EVENTS.pop() {
+      None => {}
+      Some(res) => {
         match res {
           Ok(event) => {
             event_processing(event);
@@ -219,11 +219,20 @@ pub async fn run() {
           Err(_) => {}
         }
       }
-      Err(_) => {}
     }
     if SHUTDOWN.load(Ordering::Relaxed) == true {
       debug!("notify has been stopped");
       break;
     } else { continue; }
+  }
+}
+
+pub fn run_watcher(path_to_scan: &String) {
+  WATCHER.lock().unwrap().watch(path_to_scan.as_ref(), RecursiveMode::Recursive).unwrap();
+}
+pub fn stop_watcher(path_to_scan: &String) {
+  match WATCHER.lock().unwrap().unwatch(path_to_scan.as_ref()) {
+    Ok(_) => {}
+    Err(_) => {}
   }
 }

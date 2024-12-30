@@ -1,4 +1,3 @@
-use crate::services::notify_service::watchdog;
 use crate::vars::PATH_TO_SCAN;
 use std::ops::Deref;
 use tracing::info;
@@ -24,7 +23,7 @@ impl Services {
     match PATH_TO_SCAN.read().unwrap().deref() {
       None => {}
       Some(path_to_scan) => {
-        watchdog::run(path_to_scan);
+        notify_service::run_watcher(path_to_scan);
         tokio::spawn(notify_service::run());
       }
     }
@@ -32,12 +31,7 @@ impl Services {
   pub fn stop_notify(&self) {
     match PATH_TO_SCAN.read().unwrap().deref() {
       None => {}
-      Some(path_to_scan) => {
-        match watchdog::stop(path_to_scan) {
-          Ok(_) => {}
-          Err(_) => {}
-        }
-      }
+      Some(path_to_scan) => notify_service::stop_watcher(path_to_scan)
     };
   }
 
