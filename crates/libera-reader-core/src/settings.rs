@@ -1,9 +1,8 @@
 use crate::db::{crud, models, DB};
-use crate::services::notify_service::watchdog;
+use crate::services::notify_service;
 use crate::vars::{PATH_TO_SCAN, TARGET_EXT};
 use native_db::db_type;
 use tracing::error;
-
 
 pub struct Settings {}
 
@@ -38,11 +37,9 @@ impl Settings {
 
     match &old_settings.path_to_scan {
       None => {}
-      Some(path_to_scan) => {
-        watchdog::stop(path_to_scan).unwrap();
-      }
+      Some(path_to_scan) => notify_service::stop_watcher(path_to_scan)
     };
-    watchdog::run(&path_to_scan);
+    notify_service::run_watcher(&path_to_scan);
 
     let mut new_settings = old_settings.clone();
     new_settings.path_to_scan = Some(path_to_scan.clone());

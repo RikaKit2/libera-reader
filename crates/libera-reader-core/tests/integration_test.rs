@@ -29,17 +29,17 @@ fn test_notify_service() {
       test.core.settings.set_path_to_scan(test.tmp_dir.to_str().unwrap().to_string());
       test.core.services.run_notify();
 
-      test.file_creation_test().await;
+      test.file_creation_test();
 
-      test.file_rename_test().await;
+      test.file_rename_test();
 
-      test.file_movement_test().await;
+      test.file_movement_test();
       
-      test.dir_renaming_test().await;
+      test.dir_renaming_test();
       
-      test.test_for_renaming_book_in_renamed_dir().await;
+      test.test_for_renaming_book_in_renamed_dir();
 
-      test.dir_deletion_test().await;
+      test.dir_deletion_test();
     })
   });
 

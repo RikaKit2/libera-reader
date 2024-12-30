@@ -4,6 +4,7 @@ use libera_reader_core::vars::DB_NAME;
 use std::fs::{create_dir, remove_dir_all, remove_file, rename, File};
 use std::path::PathBuf;
 use std::process::Command;
+use std::thread::sleep;
 use std::time::Duration;
 use tracing::{error, info};
 
@@ -43,19 +44,19 @@ impl NotifyTest {
       core: Core::new().unwrap(),
     }
   }
-  pub(crate) async fn file_creation_test(&self) {
+  pub(crate) fn file_creation_test(&self) {
     assert!(File::create(&self.first_book).is_ok());
-    tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+    sleep(Duration::from_millis(TIME_BETWEEN_TESTS));
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name));
     info!("File creation test: create first book IS PASSED");
   }
-  pub(crate) async fn file_rename_test(&self) {
+  pub(crate) fn file_rename_test(&self) {
     assert!(rename(&self.first_book, &self.second_book).is_ok());
-    tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+    sleep(Duration::from_millis(TIME_BETWEEN_TESTS));
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&SECOND_BOOK, &book.book_name));
     info!("File rename test: rename first book to second IS PASSED");
   }
-  pub(crate) async fn file_movement_test(&mut self) {
+  pub(crate) fn file_movement_test(&mut self) {
     assert!(create_dir(&self.fist_dir).is_ok());
     let book_in_first_dir = self.tmp_dir.join(&FIRST_DIR).join(&SECOND_BOOK);
 
@@ -63,32 +64,32 @@ impl NotifyTest {
     assert!(Command::new("mv").args(args).spawn().is_ok());
     self.second_book = book_in_first_dir;
 
-    tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+    sleep(Duration::from_millis(TIME_BETWEEN_TESTS));
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&FIRST_DIR, &book.dir_name));
     info!("File movement test: move second book to first dir IS PASSED");
   }
-  pub(crate) async fn dir_renaming_test(&mut self) {
+  pub(crate) fn dir_renaming_test(&mut self) {
     assert!(rename(&self.fist_dir, &self.second_dir).is_ok());
-    tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+    sleep(Duration::from_millis(TIME_BETWEEN_TESTS));
     self.second_book = self.tmp_dir.join(&SECOND_DIR).join(&SECOND_BOOK);
 
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&SECOND_DIR, &book.dir_name));
 
     info!("Dir renaming test: rename_first_dir_to_second IS PASSED");
   }
-  pub(crate) async fn test_for_renaming_book_in_renamed_dir(&mut self) {
+  pub(crate) fn test_for_renaming_book_in_renamed_dir(&mut self) {
     self.first_book = self.tmp_dir.join(&SECOND_DIR).join(&FIRST_BOOK);
     let args = [self.second_book.to_string2(), self.first_book.to_string2()];
     assert!(Command::new("mv").args(args).spawn().is_ok());
 
-    tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+    sleep(Duration::from_millis(TIME_BETWEEN_TESTS));
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name));
 
     info!("File rename test2: rename second book to first in second dir IS PASSED");
   }
-  pub(crate) async fn dir_deletion_test(&self) {
+  pub(crate) fn dir_deletion_test(&self) {
     assert!(remove_dir_all(&self.second_dir).is_ok());
-    tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+    sleep(Duration::from_millis(TIME_BETWEEN_TESTS));
     assert!(self.core.book_api.get_book_by_path(&self.first_book.to_string2()).unwrap().is_none());
     info!("Dir deletion test: drop_second_dir IS PASSED");
   }
@@ -114,7 +115,7 @@ impl NotifyTest {
       Ok(res) => {
         match res {
           None => {
-            panic!("book not found: {:?}", book_path_in_db)
+            panic!("book in db not found: {:?}", book_path_in_db)
           }
           Some(book) => {
             assert_fn(&book);
