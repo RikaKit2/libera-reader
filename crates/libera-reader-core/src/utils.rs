@@ -1,8 +1,7 @@
+use gxhash::GxBuildHasher;
 use std::fs;
 use std::hash::{BuildHasher, Hasher};
 use std::io::Read;
-
-use gxhash::GxBuildHasher;
 
 
 fn round_num(x: f64, decimals: u32) -> f64 {

@@ -23,9 +23,9 @@ pub fn insert_batch<T: ToInput>(data: Vec<T>) {
   }
 }
 //noinspection RsUnwrap
-pub fn update<T: ToInput>(old_item: T, updated_item: T) -> db_type::Result<()> {
+pub fn update<T: ToInput>(old_data: T, new_data: T) -> db_type::Result<()> {
   let rw_conn = DB.rw_transaction().unwrap();
-  rw_conn.update(old_item, updated_item).unwrap();
+  rw_conn.update(old_data, new_data).unwrap();
   rw_conn.commit()
 }
 

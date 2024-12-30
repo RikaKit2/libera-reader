@@ -1,22 +1,23 @@
+pub(crate) mod watchdog;
 use crate::db::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
 use crate::db::models_impl::GetBookData;
 use crate::db::{crud, DB};
 use crate::types::{BookPath, NotCachedBook};
 use crate::utils::{calc_file_hash, calc_file_size_in_mb};
-use crate::vars::{NOT_CACHED_BOOKS, SETTINGS};
+use crate::vars::{NOT_CACHED_BOOKS, SHUTDOWN, TARGET_EXT, WATCHDOG};
 use itertools::Itertools;
 use measure_time_macro::measure_time;
 use native_db::ToInput;
 use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
 use notify::{Event, EventKind};
 use std::path::PathBuf;
-use tracing::{error, info};
+use std::sync::atomic::Ordering;
+use tracing::{debug, error, info};
 
 
 #[measure_time]
-fn on_add_new_book(mut new_book: Book) {
-  if SETTINGS.read().unwrap().target_ext.contains(&new_book.ext) {
-    info!("\n create new book:\n{:?}", &new_book.path_to_book);
+fn book_adding_handler(mut new_book: Book) {
+  if TARGET_EXT.read().unwrap().contains(&new_book.ext) {
     let book_size = calc_file_size_in_mb(&new_book.path_to_book).to_string();
     match crud::get_primary::<DataOfUnhashedBook>(book_size.clone()) {
       None => {
@@ -53,46 +54,40 @@ fn on_add_new_book(mut new_book: Book) {
   }
 }
 #[measure_time]
-fn on_update_path_to_book(old_path: &PathBuf, new_path: &PathBuf) {
-  let old_book = Book::from_pathbuf(old_path);
+fn book_path_update_handler(old_path: &PathBuf, new_path: &PathBuf) {
   let mut new_book = Book::from_pathbuf(new_path);
-  match crud::get_primary::<Book>(old_book.path_to_book.clone()) {
+  match crud::get_primary::<Book>(old_path.to_str().unwrap()) {
     None => {
-      on_add_new_book(new_book);
+      error!("book_path_update_handler: book not found: {:?}", old_path);
+      book_adding_handler(new_book);
     }
     Some(book_from_db) => {
-      info!("\n rename book data\n new_path:\n{:?}\n old_path:\n{:?}", &new_book.path_to_book,
-          &book_from_db.path_to_book);
-
       new_book.book_data_pk = book_from_db.book_data_pk.clone();
-      crud::update(new_book, old_book).unwrap();
+      crud::update(book_from_db, new_book).unwrap();
     }
   }
 }
 #[measure_time]
-fn on_rename_dir(old_dir_path: String, new_dir_path: &PathBuf) {
-  info!("\n rename dir\n new_path:\n{:?}\nold_path:\n{:?}", &new_dir_path, &old_dir_path);
-
+fn dir_renaming_handler(old_dir_path: String, new_dir_path: &PathBuf) {
   for old_book in get_books_located_in_dir(old_dir_path) {
     let mut new_book = old_book.clone();
     new_book.dir_name = new_dir_path.file_name().unwrap().to_str().unwrap().to_string();
     new_book.path_to_dir = new_dir_path.to_str().unwrap().to_string();
+    new_book.path_to_book = new_dir_path.join(&old_book.book_name).to_str().unwrap().to_string();
     crud::update(old_book, new_book).unwrap();
   }
 }
 #[measure_time]
-fn on_delete_dir(path_to_dir: String) {
-  info!("\n del dir:\n{:?}", &path_to_dir);
+fn dir_deletion_handler(path_to_dir: String) {
   for old_book in get_books_located_in_dir(path_to_dir) {
-    on_delete_book(old_book.path_to_book.as_str());
+    book_deletion_handler(old_book.path_to_book.as_str());
   }
 }
 #[measure_time]
-fn on_delete_book(path_to_book: &str) {
-  info!("start del");
+fn book_deletion_handler(path_to_book: &str) {
   match crud::get_primary::<Book>(path_to_book) {
     None => {
-      info!("book not found: {path_to_book}", )
+      debug!("book_deletion_handler: book not found: {path_to_book}")
     }
     Some(old_book) => {
       match old_book.book_data_pk.clone() {
@@ -110,11 +105,11 @@ fn on_delete_book(path_to_book: &str) {
           match data_type {
             BookDataType::UniqueSize(book_size) => {
               let book_data = crud::get_primary::<DataOfUnhashedBook>(book_size).unwrap();
-              remove_book_and_book_data(book_data, old_book);
+              delete_books_and_their_data(book_data, old_book);
             }
             BookDataType::RepeatingSize(book_hash) => {
               let book_data = crud::get_primary::<DataOfHashedBook>(book_hash).unwrap();
-              remove_book_and_book_data(book_data, old_book);
+              delete_books_and_their_data(book_data, old_book);
             }
           };
         }
@@ -129,25 +124,24 @@ fn get_books_located_in_dir(path_to_dir: String) -> Vec<Book> {
     .unwrap().try_collect().unwrap();
   books
 }
-fn remove_book_and_book_data<T: ToInput + GetBookData>(data: T, book: Book) {
+fn delete_books_and_their_data<T: ToInput + GetBookData>(data: T, book: Book) {
   let rw_conn = DB.rw_transaction().unwrap();
   let book_data = data.get_book_data_as_ref();
   if book_data.favorite == false && book_data.in_history == false {
     if book_data.books_pk.len() == 1 {
-      crud::remove::<Book>(book).unwrap();
-      crud::remove::<T>(data).unwrap();
+      rw_conn.remove::<Book>(book).unwrap();
+      rw_conn.remove::<T>(data).unwrap();
     } else if book_data.books_pk.len() > 1 {
       for i in book_data.books_pk.clone() {
         let book_for_deletion = crud::get_primary::<Book>(i).unwrap();
-        crud::remove::<Book>(book_for_deletion).unwrap();
+        rw_conn.remove::<Book>(book_for_deletion).unwrap();
       }
-      crud::remove::<T>(data).unwrap();
+      rw_conn.remove::<T>(data).unwrap();
     }
   } else {
     mark_book_paths_as_invalid(book_data.books_pk.clone());
   }
   rw_conn.commit().unwrap();
-  info!("remove_book_and_book_data");
 }
 fn mark_book_paths_as_invalid(books_pk: Vec<BookPath>) {
   books_pk.into_iter().for_each(|book_path| {
@@ -169,10 +163,8 @@ fn event_processing(event: Event) {
         EventKind::Create(create_kind) => {
           match create_kind {
             CreateKind::File => {
-              let path_to_file = paths[0].to_str().unwrap();
-              info!("new file: {path_to_file}");
               let new_book = Book::from_pathbuf(&paths[0]);
-              on_add_new_book(new_book);
+              book_adding_handler(new_book);
             }
             _ => {}
           }
@@ -184,16 +176,11 @@ fn event_processing(event: Event) {
                 RenameMode::Both => {
                   let old_path = &paths[0];
                   let new_path = &paths[1];
-                  let old_path_str = old_path.to_str().unwrap();
-                  let new_path_str = new_path.to_str().unwrap();
-
                   if new_path.is_dir() {
-                    info!("rename dir old_path: {old_path_str}\nnew_path: {new_path_str}");
                     let old_dir_path = old_path.to_str().unwrap().to_string();
-                    on_rename_dir(old_dir_path, new_path);
+                    dir_renaming_handler(old_dir_path, new_path);
                   } else {
-                    info!("rename file old_path: {old_path_str}\nnew_path: {new_path_str}");
-                    on_update_path_to_book(old_path, new_path);
+                    book_path_update_handler(old_path, new_path);
                   }
                 }
                 RenameMode::From => {}
@@ -207,14 +194,10 @@ fn event_processing(event: Event) {
         EventKind::Remove(remove_kind) => {
           match remove_kind {
             RemoveKind::File => {
-              let path_to_file = paths[0].to_str().unwrap();
-              info!("this file has been deleted: {path_to_file}");
-              on_delete_book(paths[0].to_str().unwrap());
+              book_deletion_handler(paths[0].to_str().unwrap());
             }
             RemoveKind::Folder => {
-              let path_to_dir = &paths[0].to_str().unwrap();
-              info!("this folder has been deleted: {path_to_dir}");
-              on_delete_dir(paths[0].to_str().unwrap().to_string());
+              dir_deletion_handler(paths[0].to_str().unwrap().to_string());
             }
             _ => {}
           }
@@ -225,10 +208,9 @@ fn event_processing(event: Event) {
   }
 }
 
-//noinspection DuplicatedCode
 pub async fn run() {
   loop {
-    match SETTINGS.write().unwrap().notify_receiver.try_recv() {
+    match WATCHDOG.events.try_recv() {
       Ok(res) => {
         match res {
           Ok(event) => {
@@ -239,5 +221,9 @@ pub async fn run() {
       }
       Err(_) => {}
     }
+    if SHUTDOWN.load(Ordering::Relaxed) == true {
+      debug!("notify has been stopped");
+      break;
+    } else { continue; }
   }
 }

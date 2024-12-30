@@ -2585,7 +2585,6 @@ dependencies = [
  "gxhash",
  "itertools 0.13.0",
  "measure_time_macro",
- "mupdf",
  "native_db",
  "native_model",
  "notify",

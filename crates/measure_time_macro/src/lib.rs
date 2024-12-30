@@ -38,7 +38,7 @@ pub fn measure_time(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let start = std::time::Instant::now();
                 let result = (|| #block)(); // Capture the result of the block
                 let duration = start.elapsed();
-                info!("Function {:?} executed in: {:?}", stringify!(#fn_name), duration);
+                debug!("Function {:?} executed in: {:?}", stringify!(#fn_name), duration);
                 result // Return the result
             }
         }
