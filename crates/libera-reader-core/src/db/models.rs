@@ -12,11 +12,11 @@ pub enum BookDataType {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub enum Language {
+pub(crate) enum Language {
   EN
 }
 #[derive(Serialize, Deserialize, Clone)]
-pub enum Theme {
+pub(crate) enum Theme {
   Sunset,
   Dark,
 }
@@ -24,7 +24,7 @@ pub enum Theme {
 #[derive(Serialize, Deserialize, Clone)]
 #[native_model(id = 1, version = 1)]
 #[native_db]
-pub struct Settings {
+pub(crate) struct Settings {
   #[primary_key]
   pub id: i32,
   pub language: Language,
@@ -42,7 +42,7 @@ pub struct Settings {
 #[derive(Serialize, Deserialize)]
 #[native_model(id = 2, version = 1)]
 #[native_db]
-pub struct BookMark {
+pub(crate) struct BookMark {
   #[primary_key]
   pub id: i32,
   pub title: String,
@@ -54,7 +54,7 @@ pub struct BookMark {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct BookData {
+pub(crate) struct BookData {
   pub cached: bool,
   pub title: Option<String>,
   pub author: Option<String>,
@@ -69,7 +69,7 @@ pub struct BookData {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[native_model(id = 3, version = 1)]
 #[native_db]
-pub struct DataOfUnhashedBook {
+pub(crate) struct DataOfUnhashedBook {
   #[primary_key]
   pub book_size: BookSize,
   pub book_hash: Option<BookHash>,
@@ -79,7 +79,7 @@ pub struct DataOfUnhashedBook {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[native_model(id = 4, version = 1)]
 #[native_db]
-pub struct DataOfHashedBook {
+pub(crate) struct DataOfHashedBook {
   #[secondary_key]
   pub book_size: BookSize,
   #[primary_key]
@@ -87,7 +87,7 @@ pub struct DataOfHashedBook {
   pub book_data: BookData,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[native_model(id = 5, version = 1)]
 #[native_db]
 pub struct Book {

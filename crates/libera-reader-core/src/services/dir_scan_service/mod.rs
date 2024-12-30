@@ -5,7 +5,7 @@ use crate::utils::calc_file_size_in_mb;
 use gxhash::{HashMap, HashMapExt, HashSet};
 use itertools::Itertools;
 use measure_time_macro::measure_time;
-use tracing::info;
+use tracing::{debug, info};
 use walkdir::WalkDir;
 
 mod book_adder;
