@@ -8,7 +8,6 @@ pub mod models;
 pub(crate) mod crud;
 pub(crate) mod models_impl;
 
-
 fn get_models() -> Models {
   let mut models = Models::new();
   models.define::<Settings>().unwrap();

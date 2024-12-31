@@ -98,5 +98,5 @@ pub struct Book {
   pub book_name: String,
   pub ext: String,
   pub path_is_valid: bool,
-  pub book_data_pk: Option<BookDataType>,
+  pub book_data_pk: BookDataType,
 }

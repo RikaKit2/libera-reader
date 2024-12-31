@@ -4,7 +4,7 @@ use crate::types::{BookPath, BookSize};
 use itertools::Itertools;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-
+use crate::models::BookDataType;
 
 impl Default for Settings {
   fn default() -> Self {
@@ -28,14 +28,14 @@ impl Settings {
   pub fn new() -> Self { Self::default() }
 }
 impl Book {
-  pub fn from_pathbuf(book_path: &PathBuf) -> Self {
+  pub fn from_pathbuf(book_pathbuf: &PathBuf, book_data_type: BookDataType) -> Self {
     Self {
-      path_to_book: book_path.to_str().unwrap().to_string(),
-      path_to_dir: book_path.parent().unwrap().to_str().unwrap().to_string(),
-      book_name: book_path.file_name().unwrap().to_str().unwrap().to_string(),
-      dir_name: book_path.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
-      ext: book_path.extension().unwrap().to_str().unwrap().to_string(),
-      book_data_pk: None,
+      path_to_book: book_pathbuf.to_str().unwrap().to_string(),
+      path_to_dir: book_pathbuf.parent().unwrap().to_str().unwrap().to_string(),
+      book_name: book_pathbuf.file_name().unwrap().to_str().unwrap().to_string(),
+      dir_name: book_pathbuf.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
+      ext: book_pathbuf.extension().unwrap().to_str().unwrap().to_string(),
+      book_data_pk: book_data_type,
       path_is_valid: true,
     }
   }
@@ -82,7 +82,7 @@ impl DataOfUnhashedBook {
       },
     }
   }
-  pub fn to_repeat_size_book_data(self, book_hash: String) -> DataOfHashedBook {
+  pub fn to_data_of_hashed_book(self, book_hash: String) -> DataOfHashedBook {
     DataOfHashedBook {
       book_hash,
       book_size: self.book_size,
