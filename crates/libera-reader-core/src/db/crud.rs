@@ -42,3 +42,57 @@ pub fn remove<T: ToInput>(item: T) -> Result<T, db_type::Error> {
     }
   }
 }
+
+pub(crate) mod book {
+  use crate::db::models_impl::GetBookData;
+  use crate::db::{crud, DB};
+  use crate::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
+  use crate::types::BookPath;
+  use native_db::ToInput;
+
+  pub(crate) fn del_book_and_its_data(book: Book) {
+    let book_data_type =book.book_data_pk.clone();
+    match book_data_type {
+      BookDataType::UniqueSize(book_size) => {
+        let book_data = crud::get_primary::<DataOfUnhashedBook>(book_size).unwrap();
+        delete_books_and_their_data(book_data, book);
+      }
+      BookDataType::RepeatingSize(book_hash) => {
+        let book_data = crud::get_primary::<DataOfHashedBook>(book_hash).unwrap();
+        delete_books_and_their_data(book_data, book);
+      }
+    };
+  }
+
+  fn delete_books_and_their_data<T: ToInput + GetBookData>(data: T, book: Book) {
+    let rw_conn = DB.rw_transaction().unwrap();
+    let book_data = data.get_book_data_as_ref();
+    if book_data.favorite == false && book_data.in_history == false {
+      if book_data.books_pk.len() == 1 {
+        rw_conn.remove::<Book>(book).unwrap();
+        rw_conn.remove::<T>(data).unwrap();
+      } else if book_data.books_pk.len() > 1 {
+        for i in book_data.books_pk.clone() {
+          let book_for_deletion = crud::get_primary::<Book>(i).unwrap();
+          rw_conn.remove::<Book>(book_for_deletion).unwrap();
+        }
+        rw_conn.remove::<T>(data).unwrap();
+      }
+    } else {
+      mark_book_paths_as_invalid(book_data.books_pk.clone());
+    }
+    rw_conn.commit().unwrap();
+  }
+  fn mark_book_paths_as_invalid(books_pk: Vec<BookPath>) {
+    books_pk.into_iter().for_each(|book_path| {
+      match crud::get_primary::<Book>(book_path) {
+        None => {}
+        Some(old_book) => {
+          let mut new_book = old_book.clone();
+          new_book.path_is_valid = false;
+          crud::update::<Book>(old_book, new_book).unwrap()
+        }
+      }
+    });
+  }
+}

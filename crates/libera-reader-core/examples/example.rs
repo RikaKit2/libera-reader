@@ -1,7 +1,7 @@
 use libera_reader_core::core::Core;
 use std::io;
 use std::time::Duration;
-use tracing::error;
+use tracing::{error, Level};
 
 
 #[tokio::main(flavor = "multi_thread")]
@@ -14,6 +14,7 @@ async fn main() {
     .with_line_number(false)
     .with_thread_ids(true)
     .with_target(false)
+    .with_max_level(Level::DEBUG)
     .finish();
   tracing::subscriber::set_global_default(subscriber).unwrap();
   match Core::new() {

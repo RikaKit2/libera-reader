@@ -9,11 +9,12 @@ pub fn measure_time(_attr: TokenStream, item: TokenStream) -> TokenStream {
   // Parse the input tokens into a syntax tree
   let input = parse_macro_input!(item as ItemFn);
 
-  // Get the function name, arguments, return type, and block
+  // Get the function name, arguments, return type, visibility, and block
   let fn_name = &input.sig.ident;
   let fn_args = &input.sig.inputs;
   let return_type = &input.sig.output;
   let block = &input.block;
+  let visibility = &input.vis;
 
   // Check if the function is async
   let is_async = input.sig.asyncness.is_some();
@@ -21,7 +22,7 @@ pub fn measure_time(_attr: TokenStream, item: TokenStream) -> TokenStream {
   // Generate the new function with timing
   let gen = if is_async {
     quote! {
-            async fn #fn_name(#fn_args) #return_type {
+            #visibility async fn #fn_name(#fn_args) #return_type {
                 let start = std::time::Instant::now();
                 let result = {
                     let fut = async { #block }; // Capture the future
@@ -34,7 +35,7 @@ pub fn measure_time(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
   } else {
     quote! {
-            fn #fn_name(#fn_args) #return_type {
+            #visibility fn #fn_name(#fn_args) #return_type {
                 let start = std::time::Instant::now();
                 let result = (|| #block)(); // Capture the result of the block
                 let duration = start.elapsed();
@@ -47,3 +48,4 @@ pub fn measure_time(_attr: TokenStream, item: TokenStream) -> TokenStream {
   // Convert the generated code back to TokenStream
   gen.into()
 }
+

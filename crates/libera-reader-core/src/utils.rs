@@ -15,7 +15,7 @@ pub(crate) fn calc_file_size_in_mb(path_to_file: &String) -> f64 {
   round_num(size_mb, 6)
 }
 
-pub(crate) fn calc_file_hash(path_to_file: &String) -> String {
+pub(crate) fn calc_file_hash(path_to_file: &str) -> String {
   let mut hasher = GxBuildHasher::default().build_hasher();
   let mut file = fs::File::open(path_to_file).unwrap();
   loop {

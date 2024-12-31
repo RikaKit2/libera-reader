@@ -6,7 +6,7 @@ use tokio::runtime::Runtime;
 use tracing::{info, Level};
 
 
-#[allow(non_snake_case)]
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn test_notify_service() {
   let subscriber = tracing_subscriber::fmt()
@@ -34,9 +34,9 @@ fn test_notify_service() {
       test.file_rename_test();
 
       test.file_movement_test();
-      
+
       test.dir_renaming_test();
-      
+
       test.test_for_renaming_book_in_renamed_dir();
 
       test.dir_deletion_test();

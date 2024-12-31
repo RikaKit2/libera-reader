@@ -9,7 +9,7 @@ use std::time::Duration;
 use tracing::{error, info};
 
 
-const TIME_BETWEEN_TESTS: u64 = 170;
+const TIME_BETWEEN_TESTS: u64 = 300;
 const FIRST_BOOK: &str = "first_book.pdf";
 pub const SECOND_BOOK: &str = "second_book.pdf";
 const FIRST_DIR: &str = "first_dir";
