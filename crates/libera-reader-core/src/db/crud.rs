@@ -50,8 +50,9 @@ pub(crate) mod book {
   use crate::types::BookPath;
   use native_db::ToInput;
 
+
   pub(crate) fn del_book_and_its_data(book: Book) {
-    let book_data_type =book.book_data_pk.clone();
+    let book_data_type = book.book_data_pk.clone();
     match book_data_type {
       BookDataType::UniqueSize(book_size) => {
         let book_data = crud::get_primary::<DataOfUnhashedBook>(book_size).unwrap();

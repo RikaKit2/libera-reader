@@ -1,16 +1,14 @@
-use std::path::PathBuf;
 use crate::models::Book;
-use crate::services::dir_scan_service::book_separator::BookSeparator;
 use crate::types::BookPath;
 use gxhash::{HashMap, HashMapExt};
 use measure_time_macro::measure_time;
+use std::path::PathBuf;
 use tracing::{debug, info};
 use walkdir::WalkDir;
 
-mod book_separator;
+pub(crate) mod books_separator;
 mod book_deleter;
 mod book_adder;
-
 
 enum BooksLocation {
   Disk,
@@ -21,32 +19,32 @@ enum BooksLocation {
 
 
 pub(crate) async fn run(path_to_scan: BookPath) {
-  let start = std::time::Instant::now();
+  let start_time = std::time::Instant::now();
 
   let books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(&path_to_scan);
-  let books_in_db: HashMap<BookPath, Book> = Book::get_all_from_db().into_iter().map(|i| (i.path_to_book.clone(), i)).collect();
+  let books_in_db: HashMap<BookPath, Book> = Book::get_all_from_db().into_iter()
+    .map(|i| (i.path_to_book.clone(), i)).collect();
 
   let books_on_disk_len = books_on_disk.len();
   let books_in_db_len = books_in_db.len();
 
-  let mut book_separator: BookSeparator = BookSeparator::new();
-
-  let outdated_books = book_separator.fill_and_get_outdated_books(books_on_disk, books_in_db);
+  let (outdated_books, unique_books, hashed_books) =
+    books_separator::run(books_on_disk, books_in_db).await;
 
   match get_books_location(books_in_db_len, books_on_disk_len) {
     BooksLocation::Disk => {
-      book_adder::run(book_separator).await;
+      book_adder::run(unique_books, hashed_books).await;
     }
     BooksLocation::DB => {
-      book_adder::run(book_separator).await;
+      book_deleter::del_outdated_books(outdated_books);
     }
     BooksLocation::Both => {
-      book_adder::run(book_separator).await;
+      book_adder::run(unique_books, hashed_books).await;
       book_deleter::del_outdated_books(outdated_books);
     }
     BooksLocation::None => {}
   };
-  info!("Dir scan service execution time is: {:?}", start.elapsed());
+  info!("Dir scan service execution time is: {:?}", start_time.elapsed());
 }
 
 #[measure_time]
@@ -70,7 +68,6 @@ fn get_books_from_disk(path_to_scan: &String) -> HashMap<BookPath, PathBuf> {
   books_from_disk
 }
 
-#[measure_time]
 fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLocation {
   if db_book_count > 0 && disk_book_count == 0 {
     BooksLocation::DB

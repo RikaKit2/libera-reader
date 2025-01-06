@@ -1,11 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-#    "crates/libera-reader",
     "crates/libera-reader-core",
     "crates/mupdf-sys",
     "crates/mupdf",
     "crates/measure_time_macro",
     "crates/libera-reader-egui"
-, "crates/test_notify"]
+]
 exclude = ["other"]
