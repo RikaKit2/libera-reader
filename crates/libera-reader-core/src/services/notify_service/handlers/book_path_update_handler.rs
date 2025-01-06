@@ -1,9 +1,9 @@
 use crate::db::crud;
 use crate::models::Book;
 use crate::services::notify_service::handlers;
-use std::path::PathBuf;
-use tracing::{error, debug};
 use measure_time_macro::measure_time;
+use std::path::PathBuf;
+use tracing::{debug, error};
 
 
 #[measure_time]

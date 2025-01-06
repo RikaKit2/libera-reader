@@ -13,7 +13,7 @@ impl Services {
   pub(crate) fn new() -> Self { Self {} }
   pub async fn run(&mut self) {
     let start = std::time::Instant::now();
-    self.run_dir_scan();
+    self.launch_dir_scan_service(false).await;
     self.run_notify();
     self.run_data_extraction();
     info!("All services execution time is: {:?}", start.elapsed());
@@ -35,11 +35,18 @@ impl Services {
     };
   }
 
-  pub fn run_dir_scan(&self) {
+  pub async fn launch_dir_scan_service(&self, is_blocking: bool) {
     match PATH_TO_SCAN.read().unwrap().deref() {
       None => {}
       Some(path_to_scan) => {
-        tokio::spawn(dir_scan_service::run(path_to_scan.clone()));
+        match is_blocking {
+          true => {
+            dir_scan_service::run(path_to_scan.clone()).await;
+          }
+          false => {
+            tokio::spawn(dir_scan_service::run(path_to_scan.clone()));
+          }
+        }
       }
     }
   }

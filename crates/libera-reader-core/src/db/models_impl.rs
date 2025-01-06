@@ -1,10 +1,12 @@
-use crate::db::models::{Book, BookData, DataOfHashedBook, DataOfUnhashedBook, Language, Settings, Theme};
+use crate::db::models::{Book, BookData, DataOfHashedBook, DataOfUnhashedBook,
+                        Language, Settings, Theme};
 use crate::db::DB;
+use crate::models::BookDataType;
 use crate::types::{BookPath, BookSize};
 use itertools::Itertools;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use crate::models::BookDataType;
+
 
 impl Default for Settings {
   fn default() -> Self {

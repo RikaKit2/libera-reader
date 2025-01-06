@@ -3,7 +3,6 @@ use crate::db::models::BookDataType;
 pub(crate) type BookPath = String;
 pub(crate) type BookSize = String;
 pub(crate) type BookHash = String;
-pub(crate) type BooksCount = usize;
 pub(crate) type NotifyEvents = notify::Result<notify::Event>;
 
 pub(crate) struct NotCachedBook {
