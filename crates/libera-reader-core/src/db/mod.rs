@@ -1,8 +1,9 @@
 use crate::db::models::{Book, BookMark, DataOfHashedBook, DataOfUnhashedBook, Settings};
-use crate::vars::DB_NAME;
+use crate::models::TargetExt;
+use crate::vars::APP_DIRS;
 use native_db::{Builder, Database, Models};
 use once_cell::sync::Lazy;
-use std::path::Path;
+
 
 pub mod models;
 pub(crate) mod crud;
@@ -15,17 +16,15 @@ fn get_models() -> Models {
   models.define::<Book>().unwrap();
   models.define::<DataOfUnhashedBook>().unwrap();
   models.define::<DataOfHashedBook>().unwrap();
+  models.define::<TargetExt>().unwrap();
   models
 }
 
 fn get_db(models: &Models) -> native_db::db_type::Result<Database> {
-  match Path::new(DB_NAME).exists() {
-    true => {
-      Builder::new().open(models, DB_NAME)
-    }
-    false => {
-      Builder::new().create(models, DB_NAME)
-    }
+  let path_to_db = &APP_DIRS.read().unwrap().path_to_db;
+  match path_to_db.exists() {
+    true => { Builder::new().open(models, path_to_db) }
+    false => { Builder::new().create(models, path_to_db) }
   }
 }
 

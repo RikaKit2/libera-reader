@@ -4,7 +4,8 @@ use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::sync::atomic::Ordering;
 use tracing::debug;
-mod handlers;
+
+pub(crate) mod handlers;
 
 
 fn event_processing(event: Event) {
@@ -61,8 +62,7 @@ fn event_processing(event: Event) {
 pub async fn run() {
   loop {
     match NOTIFY_EVENTS.pop() {
-      None => {}
-      Some(res) => {
+      Ok(res) => {
         match res {
           Ok(event) => {
             event_processing(event);
@@ -70,6 +70,7 @@ pub async fn run() {
           Err(_) => {}
         }
       }
+      Err(_) => {}
     }
     if SHUTDOWN.load(Ordering::Relaxed) == true {
       debug!("notify has been stopped");

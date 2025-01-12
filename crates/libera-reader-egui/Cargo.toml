@@ -1,5 +1,5 @@
 [package]
-name = "libera-reader"
+name = "libera-reader-egui"
 version = "0.1.0"
 authors = ["RikaKit2"]
 license = "AGPL-3"
