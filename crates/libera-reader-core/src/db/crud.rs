@@ -1,6 +1,7 @@
 use crate::db::DB;
 use native_db::{db_type, ToInput, ToKey};
 
+
 pub fn get_primary<T: ToInput>(key: impl ToKey) -> Option<T> {
   let r_conn = DB.r_transaction().unwrap();
   r_conn.get().primary(key).unwrap()
@@ -13,15 +14,6 @@ pub fn insert<T: ToInput>(item: T) -> db_type::Result<()> {
   rw_conn.commit()
 }
 
-pub fn insert_batch<T: ToInput>(data: Vec<T>) {
-  if data.len() > 0 {
-    let rw_conn = DB.rw_transaction().unwrap();
-    for i in data {
-      rw_conn.insert(i).unwrap();
-    }
-    rw_conn.commit().unwrap();
-  }
-}
 //noinspection RsUnwrap
 pub fn update<T: ToInput>(old_data: T, new_data: T) -> db_type::Result<()> {
   let rw_conn = DB.rw_transaction().unwrap();

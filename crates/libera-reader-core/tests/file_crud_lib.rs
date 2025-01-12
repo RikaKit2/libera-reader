@@ -15,7 +15,7 @@ pub enum TestMode {
   DirScan,
 }
 
-const TIME_BETWEEN_TESTS: u64 = 200;
+const TIME_BETWEEN_TESTS: u64 = 300;
 const FIRST_BOOK: &str = "first_book.pdf";
 pub const SECOND_BOOK: &str = "second_book.pdf";
 const FIRST_DIR: &str = "first_dir";
@@ -48,20 +48,21 @@ impl FileCrudLib {
 
       tmp_dir,
       proj_root_dir,
-      core: Core::new().unwrap(),
+      core: Core::new(),
       test_mode,
     }
   }
-  pub async fn create_first_book(&self) {
+  pub async fn create_first_book(&mut self) {
+    info!("Create first book");
     assert!(File::create(&self.first_book).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
       TestMode::DirScan => { self.core.services.launch_dir_scan_service(true).await; }
     };
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name));
-    info!("Create first book");
   }
-  pub async fn rename_first_book_to_second(&self) {
+  pub async fn rename_first_book_to_second(&mut self) {
+    info!("File rename test: rename first book to second");
     match self.test_mode {
       TestMode::Notify => {
         let args = [&self.first_book.to_str().unwrap(), &self.second_book.to_str().unwrap()];
@@ -73,11 +74,10 @@ impl FileCrudLib {
         self.core.services.launch_dir_scan_service(true).await;
       }
     };
-
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&SECOND_BOOK, &book.book_name));
-    info!("File rename test: rename first book to second");
   }
   pub async fn move_second_book_to_first_dir(&mut self) {
+    info!("File movement test: move second book to first dir");
     assert!(create_dir(&self.fist_dir).is_ok());
     let book_in_first_dir = self.tmp_dir.join(&FIRST_DIR).join(&SECOND_BOOK);
     match self.test_mode {
@@ -93,33 +93,32 @@ impl FileCrudLib {
     }
     self.second_book = book_in_first_dir;
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&FIRST_DIR, &book.dir_name));
-    info!("File movement test: move second book to first dir");
   }
   pub async fn rename_first_dir_to_second(&mut self) {
+    info!("Dir renaming test: rename_first_dir_to_second");
     assert!(rename(&self.fist_dir, &self.second_dir).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
       TestMode::DirScan => { self.core.services.launch_dir_scan_service(true).await; }
     }
+
     self.second_book = self.tmp_dir.join(&SECOND_DIR).join(&SECOND_BOOK);
-
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&SECOND_DIR, &book.dir_name));
-
-    info!("Dir renaming test: rename_first_dir_to_second");
   }
   pub async fn rename_second_book_to_first_in_second_dir(&mut self) {
-    self.first_book = self.tmp_dir.join(&SECOND_DIR).join(&FIRST_BOOK);
+    info!("File rename test2: rename second book to first in second dir");
 
+    self.first_book = self.tmp_dir.join(&SECOND_DIR).join(&FIRST_BOOK);
     assert!(rename(&self.second_book, &self.first_book).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
       TestMode::DirScan => { self.core.services.launch_dir_scan_service(true).await; }
     }
-    self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name));
 
-    info!("File rename test2: rename second book to first in second dir");
+    self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name));
   }
-  pub async fn drop_second_dir(&self) {
+  pub async fn drop_second_dir(&mut self) {
+    info!("Dir deletion test: drop_second_dir");
     assert!(remove_dir_all(&self.second_dir).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
@@ -131,7 +130,6 @@ impl FileCrudLib {
       }
       Err(_) => {}
     };
-    info!("Dir deletion test: drop_second_dir");
   }
   pub fn drop_files(&self) {
     match remove_dir_all(&self.tmp_dir) {
@@ -196,6 +194,7 @@ impl EasyString for PathBuf {
 }
 impl Drop for FileCrudLib {
   fn drop(&mut self) {
+    self.core.services.stop_all_services();
     self.drop_files();
   }
 }

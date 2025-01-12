@@ -5,18 +5,13 @@ use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
 
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-pub enum BookDataType {
-  UniqueSize(BookSize),
-  RepeatingSize(BookHash),
+#[derive(Serialize, Deserialize, Clone)]
+pub enum Language {
+  EN
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub(crate) enum Language {
-  EN
-}
-#[derive(Serialize, Deserialize, Clone)]
-pub(crate) enum Theme {
+pub enum Theme {
   Sunset,
   Dark,
 }
@@ -24,15 +19,12 @@ pub(crate) enum Theme {
 #[derive(Serialize, Deserialize, Clone)]
 #[native_model(id = 1, version = 1)]
 #[native_db]
-pub(crate) struct Settings {
+pub struct Settings {
   #[primary_key]
   pub id: i32,
   pub language: Language,
   pub theme: Theme,
   pub path_to_scan: Option<String>,
-  pub pdf: bool,
-  pub epub: bool,
-  pub mobi: bool,
   pub number_of_columns: i32,
   pub page_scaling_factor: f64,
   pub thumbnails_scaling_factor: f64,
@@ -99,4 +91,21 @@ pub struct Book {
   pub ext: String,
   pub path_is_valid: bool,
   pub book_data_pk: BookDataType,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
+pub enum BookDataType {
+  UniqueSize(BookSize),
+  RepeatingSize(BookHash),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[native_model(id = 6, version = 1)]
+#[native_db]
+pub struct TargetExt {
+  #[primary_key]
+  pub id: i32,
+  pub pdf: bool,
+  pub epub: bool,
+  pub mobi: bool,
 }
