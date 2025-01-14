@@ -53,6 +53,13 @@ impl Book {
     new_book.book_data_pk = book_data_type;
     crud::update(old_book, new_book).unwrap();
   }
+  pub(crate) fn get_book_data(&self) -> BookData {
+    let book_data = match self.book_data_pk.clone() {
+      BookDataType::UniqueSize(book_size) => { crud::get_primary::<DataOfUnhashedBook>(book_size).unwrap().book_data }
+      BookDataType::RepeatingSize(book_hash) => { crud::get_primary::<DataOfHashedBook>(book_hash).unwrap().book_data }
+    };
+    book_data
+  }
 }
 impl Hash for Book {
   fn hash<H: Hasher>(&self, state: &mut H) {

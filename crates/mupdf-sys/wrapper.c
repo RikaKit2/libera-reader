@@ -1,12 +1,13 @@
 #include "wrapper.h"
-#include <./mupdf/fitz/buffer.h>
-#include <./mupdf/fitz/color.h>
-#include <./mupdf/fitz/context.h>
-#include <./mupdf/fitz/document.h>
-#include <./mupdf/fitz/pixmap.h>
-#include <./mupdf/fitz/store.h>
-#include <./mupdf/fitz/write-pixmap.h>
+#include <mupdf/fitz/buffer.h>
+#include <mupdf/fitz/color.h>
+#include <mupdf/fitz/context.h>
+#include <mupdf/fitz/document.h>
+#include <mupdf/fitz/pixmap.h>
+#include <mupdf/fitz/store.h>
+#include <mupdf/fitz/write-pixmap.h>
 #include <stdbool.h>
+
 
 typedef struct {
   bool status;
@@ -141,6 +142,7 @@ mupdf_ctx mupdf_new_context(const size_t max_store) {
 mupdf_doc mupdf_open_document(fz_context *ctx, const char *path_to_doc) {
   mupdf_doc res;
   fz_document *doc = NULL;
+  fz_var(doc);
   fz_try(ctx) {
     doc = fz_open_document(ctx, path_to_doc);
     res.status = true;
@@ -205,6 +207,7 @@ mupdf_page mupdf_load_page(fz_context *ctx, fz_document *doc,
                            const int page_num) {
   mupdf_page res;
   fz_page *page = NULL;
+  fz_var(page);
   fz_try(ctx) {
     page = fz_load_page(ctx, doc, page_num);
     res.status = true;
@@ -222,6 +225,7 @@ mupdf_pixmap mupdf_page_to_pixmap(fz_context *ctx, fz_page *page,
                                   const float alpha, const float zoom) {
   mupdf_pixmap res;
   fz_pixmap *pixmap = NULL;
+  fz_var(pixmap);
   fz_try(ctx) {
     const fz_matrix ctm = fz_scale(zoom, zoom);
     pixmap = fz_new_pixmap_from_page(ctx, page, ctm, fz_device_rgb(ctx), alpha);

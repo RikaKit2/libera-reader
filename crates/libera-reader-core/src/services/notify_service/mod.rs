@@ -59,7 +59,7 @@ fn event_processing(event: Event) {
   }
 }
 
-pub async fn run() {
+pub fn run() {
   loop {
     match NOTIFY_EVENTS.pop() {
       Ok(res) => {
