@@ -1,5 +1,5 @@
 use crate::db::crud;
-use crate::models::{BookDataType, DataOfHashedBook, DataOfUnhashedBook};
+use crate::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
 use crate::types::BookPath;
 use crate::vars::{APP_DIRS, NOT_CACHED_BOOKS, TARGET_EXT};
 use gxhash::GxBuildHasher;
@@ -10,6 +10,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use tracing::debug;
 use walkdir::WalkDir;
+
 
 fn round_num(x: f64, decimals: u32) -> f64 {
   let y = 10i32.pow(decimals) as f64;
@@ -60,19 +61,19 @@ pub(crate) fn get_books_from_disk(path_to_scan: &String) -> Vec<PathBuf> {
 
 #[derive(Debug)]
 pub(crate) struct NotCachedBook {
-  pub data_type: BookDataType,
   pub book_path: BookPath,
 }
 
 impl NotCachedBook {
-  pub(crate) fn new(data_type: BookDataType, book_path: BookPath) -> Self {
-    Self { data_type, book_path }
+  pub(crate) fn new(book_path: BookPath) -> Self {
+    Self { book_path }
   }
   pub(crate) fn push_to_storage(self) {
     NOT_CACHED_BOOKS.push(self).unwrap();
   }
   pub(crate) fn mark_as_cached(self) {
-    match self.data_type {
+    let book = crud::get_primary::<Book>(self.book_path).unwrap();
+    match book.book_data_pk {
       BookDataType::UniqueSize(book_size) => {
         let old_book_data = crud::get_primary::<DataOfUnhashedBook>(book_size).unwrap();
         let mut new_book_data = old_book_data.clone();
@@ -88,7 +89,8 @@ impl NotCachedBook {
     }
   }
   pub(crate) fn get_out_file_name(&self) -> String {
-    match &self.data_type {
+    let book = crud::get_primary::<Book>(self.book_path.clone()).unwrap();
+    match &book.book_data_pk {
       BookDataType::UniqueSize(book_size) => {
         APP_DIRS.read().unwrap().dir_of_unhashed_books.join(book_size).to_str().unwrap().to_string()
       }

@@ -1,11 +1,11 @@
 use libera_reader_core::core::Core;
 use std::io;
+use std::thread::sleep;
 use std::time::Duration;
 use tracing::Level;
 
 
-#[tokio::main(flavor = "multi_thread")]
-async fn main() {
+fn main() {
   let subscriber = tracing_subscriber::fmt()
     .pretty()
     .without_time()
@@ -21,7 +21,7 @@ async fn main() {
   let mut app_core = Core::new();
   match app_core.settings.path_to_scan_is_valid() {
     true => {
-      app_core.services.run().await;
+      app_core.services.run();
     }
     false => {
       println!("Please input path to scan:");
@@ -29,11 +29,10 @@ async fn main() {
       io::stdin().read_line(&mut user_input).expect("Error: unable to read user input");
       let user_input = user_input.trim().to_string();
       app_core.settings.set_path_to_scan(user_input);
-      app_core.services.run().await;
+      app_core.services.run();
     }
   };
   loop {
-    tokio::time::sleep(Duration::from_secs(10)).await;
-    println!("Example of an infinite loop")
+    sleep(Duration::from_secs(10));
   }
 }

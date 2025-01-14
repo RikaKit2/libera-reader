@@ -5,8 +5,8 @@ use tracing::Level;
 
 
 #[cfg(not(target_os = "windows"))]
-#[tokio::test(flavor = "multi_thread")]
-async fn dir_scan_service_test() {
+#[test]
+fn dir_scan_service_test() {
   let subscriber = tracing_subscriber::fmt()
     .pretty()
     .without_time()
@@ -20,5 +20,5 @@ async fn dir_scan_service_test() {
   tracing::subscriber::set_global_default(subscriber).unwrap();
 
   let mut fc_lib = FileCrudLib::new(TestMode::DirScan, "tmp_dir_scan");
-  fc_lib.run_tests().await;
+  fc_lib.run_tests();
 }

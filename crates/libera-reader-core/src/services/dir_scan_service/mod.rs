@@ -15,23 +15,23 @@ enum BooksLocation {
   None,
 }
 
-pub(crate) async fn run(path_to_scan: BookPath) {
+pub(crate) fn run(path_to_scan: BookPath) {
   let book_separator = BookSeparator::new(&path_to_scan);
   let start_time = std::time::Instant::now();
+  data_extraction_service::fill_storage_of_non_cached_books(book_separator.general_books);
   match get_books_location(book_separator.num_of_books_in_db, book_separator.num_of_books_on_disk) {
     BooksLocation::Disk => {
-      book_adder::run(book_separator.new_books).await;
+      book_adder::run(book_separator.new_books);
     }
     BooksLocation::DB => {
       book_deleter::del_outdated_books(book_separator.outdated_books);
     }
     BooksLocation::DiskAndDB => {
       book_deleter::del_outdated_books(book_separator.outdated_books);
-      book_adder::run(book_separator.new_books).await;
+      book_adder::run(book_separator.new_books);
     }
     BooksLocation::None => {}
   };
-  data_extraction_service::fill_storage_of_non_cached_books(book_separator.general_books);
   info!("Dir scan service execution time is: {:?}", start_time.elapsed());
 }
 

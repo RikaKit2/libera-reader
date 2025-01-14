@@ -40,8 +40,9 @@ pub(crate) mod book {
   use crate::db::{crud, DB};
   use crate::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
   use crate::types::BookPath;
+  use crate::vars::APP_DIRS;
   use native_db::ToInput;
-
+  use std::fs::remove_file;
 
   pub(crate) fn del_book_and_its_data(book: Book) {
     let book_data_type = book.book_data_pk.clone();
@@ -61,6 +62,9 @@ pub(crate) mod book {
     let rw_conn = DB.rw_transaction().unwrap();
     let book_data = data.get_book_data_as_ref();
     if book_data.favorite == false && book_data.in_history == false {
+      if book_data.cached {
+        remove_thumbnail(&book.book_data_pk);
+      }
       if book_data.books_pk.len() == 1 {
         rw_conn.remove::<Book>(book).unwrap();
         rw_conn.remove::<T>(data).unwrap();
@@ -75,6 +79,16 @@ pub(crate) mod book {
       mark_book_paths_as_invalid(book_data.books_pk.clone());
     }
     rw_conn.commit().unwrap();
+  }
+  fn remove_thumbnail(book_data_type: &BookDataType) {
+    match book_data_type {
+      BookDataType::UniqueSize(book_size) => {
+        remove_file(APP_DIRS.read().unwrap().dir_of_unhashed_books.join(book_size)).unwrap()
+      }
+      BookDataType::RepeatingSize(book_hash) => {
+        remove_file(APP_DIRS.read().unwrap().dir_of_hashed_books.join(book_hash)).unwrap()
+      }
+    };
   }
   fn mark_book_paths_as_invalid(books_pk: Vec<BookPath>) {
     books_pk.into_iter().for_each(|book_path| {
