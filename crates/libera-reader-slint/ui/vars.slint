@@ -1,0 +1,47 @@
+export struct Theme {
+    name: string,
+    color-scheme: string,
+    primary: color,
+    secondary: color,
+    accent: color,
+    bg-100: color,
+    bg-200: color,
+    bg-300: color,
+    text-color: color,
+    inactive_text: color,
+    hovered_text: color,
+    border-color: color,
+}
+
+export enum Route {
+    setup,
+    book-viewer,
+    library,
+    folder,
+    history,
+    favorite,
+    bookmarks,
+    stats,
+    settings
+}
+
+export global Global {
+    in-out property <[Theme]> themes: [
+        {
+            name: "sunset",
+            color-scheme: "dark",
+            primary: #FF865B,
+            secondary: #FD6F9C,
+            accent: #B387FA,
+            bg-100: #121C22,
+            bg-200: #0E171E,
+            bg-300: #091319,
+            text-color: #9FB9D0,
+            inactive_text: #4F5C65,
+            hovered_text: #738697,
+            border-color: #2B3742
+        }
+    ];
+    in-out property <Theme> curr_theme: themes[0];
+    in-out property <Route> route: library;
+}

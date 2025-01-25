@@ -1,5 +1,5 @@
 use crate::db::models::Book;
-use crate::db::DB;
+use crate::db::{crud, DB};
 use crate::types::BookPath;
 
 
@@ -13,7 +13,7 @@ impl BookApi {
     r_conn.get().primary::<Book>(path_to_book.clone())
   }
   pub fn get_books_from_db(&self) -> Vec<Book> {
-    Book::get_all_from_db()
+    crud::book::get_all_from_db()
   }
 }
 impl Default for BookApi {

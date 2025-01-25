@@ -17,8 +17,8 @@ enum BooksLocation {
 
 pub(crate) fn run(path_to_scan: BookPath) {
   let book_separator = BookSeparator::new(&path_to_scan);
-  let start_time = std::time::Instant::now();
   data_extraction_service::fill_storage_of_non_cached_books(book_separator.general_books);
+  let start_time = std::time::Instant::now();
   match get_books_location(book_separator.num_of_books_in_db, book_separator.num_of_books_on_disk) {
     BooksLocation::Disk => {
       book_adder::run(book_separator.new_books);

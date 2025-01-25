@@ -1,0 +1,37 @@
+import { Global } from "../../vars.slint";
+import { ComboBox, Palette } from "std-widgets.slint";
+
+
+component Input {
+    Rectangle {
+        background: Global.curr_theme.bg-300;
+        VerticalLayout {
+            padding-right: 4px;
+            height: 48px;
+            alignment: center;
+            Rectangle {
+                border-color: Global.curr_theme.border-color;
+                border-radius: 2px;
+                border-width: 1px;
+                height: 30px;
+                VerticalLayout {
+                    padding-left: 4px;
+                    TextInput {
+                        vertical-alignment: center;
+                        color: Global.curr_theme.text-color;
+                        input-type: InputType.text;
+                        text: "Search";
+                        font-size: 16px;
+                        height: 30px;
+                        single-line: true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component Header inherits HorizontalLayout {
+    height: 48px;
+    Input { }
+}

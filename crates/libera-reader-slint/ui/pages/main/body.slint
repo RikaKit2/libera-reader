@@ -1,0 +1,18 @@
+import { Global } from "../../vars.slint";
+import { SideBar } from "side_bar.slint";
+import { Header } from "header.slint";
+
+
+export component Main {
+    Rectangle {
+        min-height: 500px;
+        min-width: 500px;
+        background: Global.curr_theme.bg-100;
+        HorizontalLayout {
+            SideBar {
+                width: 48px; }
+
+            Header { }
+        }
+    }
+}

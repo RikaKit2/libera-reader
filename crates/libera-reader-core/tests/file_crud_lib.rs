@@ -1,4 +1,5 @@
-use libera_reader_core::{core::Core, models::Book, vars::DB_NAME};
+use libera_reader_core::{core::Core, models::Book, vars, vars::DB_NAME};
+use std::env::set_var;
 use std::fs::{create_dir, remove_dir_all, remove_file, rename, File};
 use std::path::PathBuf;
 use std::process::Command;
@@ -32,11 +33,13 @@ pub struct FileCrudLib {
   core: Core,
   test_mode: TestMode,
 }
-
 impl FileCrudLib {
   pub fn new(test_mode: TestMode, tmp_dir_name: &str) -> Self {
     let proj_root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let tmp_dir = proj_root_dir.join("tests").join(tmp_dir_name);
+    let tmp_dir = proj_root_dir.join("test_files").join(tmp_dir_name);
+    set_var("libera_reader_data_dir", tmp_dir.to_string2());
+    let core = Core::new();
+    vars::APP_DIRS.write().unwrap().change_base_dir(Some(proj_root_dir.clone())).unwrap();
     Self {
       first_book: tmp_dir.join(&FIRST_BOOK),
       second_book: tmp_dir.join(&SECOND_BOOK),
@@ -46,7 +49,7 @@ impl FileCrudLib {
 
       tmp_dir,
       proj_root_dir,
-      core: Core::new(),
+      core,
       test_mode,
     }
   }
