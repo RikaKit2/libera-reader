@@ -1,11 +1,10 @@
+use crate::db::crud;
 use crate::db::models::{Book, BookData, DataOfHashedBook, DataOfUnhashedBook,
                         Language, Settings, Theme};
-use crate::db::{crud, DB};
-use crate::models::{BookDataType, DataOfHashedBookKey, TargetExt};
+use crate::models::{BookDataType, TargetExt};
 use crate::services::notify_service;
 use crate::types::{BookHash, BookPath, BookSize};
 use crate::vars::PATH_TO_SCAN;
-use itertools::Itertools;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use tracing::error;
@@ -22,36 +21,6 @@ impl Book {
       book_data_pk: book_data_type,
       path_is_valid: true,
     }
-  }
-  pub(crate) fn get_all_from_db() -> Vec<Book> {
-    let r_conn = DB.r_transaction().unwrap();
-    r_conn.scan().primary().unwrap().all().unwrap().try_collect().unwrap()
-  }
-  pub(crate) fn get_num_of_books_of_this_size(book_size: BookSize) -> (usize, Option<DataOfUnhashedBook>) {
-    let mut out_data: Option<DataOfUnhashedBook> = None;
-    let mut num_of_book_with_this_size = 0;
-    match crud::get_primary::<DataOfUnhashedBook>(book_size.clone()) {
-      None => {
-        let r_conn = DB.r_transaction().unwrap();
-        for i in r_conn.scan().secondary::<DataOfHashedBook>(DataOfHashedBookKey::book_size).unwrap().all().unwrap() {
-          match i {
-            Ok(_data) => { num_of_book_with_this_size += 1; }
-            Err(_) => {}
-          }
-        }
-      }
-      Some(data) => {
-        num_of_book_with_this_size = data.book_data.books_pk.len();
-        out_data = Some(data);
-      }
-    };
-    (num_of_book_with_this_size, out_data)
-  }
-  pub(crate) fn update_book_data_type(book_path: BookPath, book_data_type: BookDataType) {
-    let old_book = crud::get_primary::<Book>(book_path).unwrap();
-    let mut new_book = old_book.clone();
-    new_book.book_data_pk = book_data_type;
-    crud::update(old_book, new_book).unwrap();
   }
   pub(crate) fn get_book_data(&self) -> BookData {
     let book_data = match self.book_data_pk.clone() {

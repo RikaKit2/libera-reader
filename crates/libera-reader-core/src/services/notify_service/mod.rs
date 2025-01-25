@@ -1,11 +1,11 @@
+use crate::db::crud;
 use crate::vars::WATCHER;
 use crate::vars::{NOTIFY_EVENTS, SHUTDOWN};
 use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::sync::atomic::Ordering;
 use tracing::debug;
-
-pub(crate) mod handlers;
+mod handlers;
 
 
 fn event_processing(event: Event) {
@@ -28,8 +28,7 @@ fn event_processing(event: Event) {
                   let old_path = &paths[0];
                   let new_path = &paths[1];
                   if new_path.is_dir() {
-                    let old_dir_path = old_path.to_str().unwrap().to_string();
-                    handlers::dir_renaming_handler(old_dir_path, new_path);
+                    crud::book::update_the_books_directory(old_path, new_path);
                   } else {
                     handlers::book_path_update_handler(old_path, new_path);
                   }

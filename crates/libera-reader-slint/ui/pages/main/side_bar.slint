@@ -1,0 +1,86 @@
+import { Global, Route } from "../../vars.slint";
+
+
+struct BtnData {
+    img: image,
+    route: Route,
+}
+
+
+component Btn {
+    in property <BtnData> btn_data;
+    property <color> img_color;
+    property <bool> is_active: (btn_data.route == Global.route);
+    area := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            Global.route = btn_data.route;
+        }
+    }
+
+    states [
+        active when is_active: {
+            img_color: Global.curr_theme.text-color;
+        }
+        active-hover when !is_active && area.has-hover: {
+            img_color: Global.curr_theme.hovered_text;
+        }
+        inactive when !is_active && !area.has-hover: {
+            img_color: Global.curr_theme.inactive_text;
+        }
+    ]
+    Rectangle {
+        HorizontalLayout {
+            Rectangle {
+                width: 2px;
+                background: is_active ? Global.curr_theme.primary : Global.curr_theme.bg-300;
+            }
+
+            alignment: space-between;
+            Rectangle {
+                height: 48px;
+                width: parent.width;
+                Image {
+                    width: 28px;
+                    height: 28px;
+                    source: btn_data.img;
+                    colorize: img_color;
+                }
+            }
+        }
+    }
+}
+
+export component SideBar {
+    property <[BtnData]> images: [
+        { img: @image-url("../../../assets/sidebar/heroicons--book-open.svg"), route: Route.library },
+        { img: @image-url("../../../assets/sidebar/heroicons--folder.svg"), route: Route.folder },
+        { img: @image-url("../../../assets/sidebar/heroicons--clock.svg"), route: Route.history },
+        { img: @image-url("../../../assets/sidebar/heroicons--star.svg"), route: Route.favorite },
+        { img: @image-url("../../../assets/sidebar/heroicons--bookmark.svg"), route: Route.bookmarks }
+    ];
+    property <[BtnData]> images2: [
+        {img: @image-url("../../../assets/sidebar/heroicons--chart-bar.svg"), route: Route.stats },
+        {img: @image-url("../../../assets/sidebar/heroicons--cog-8-tooth.svg"), route: Route.settings },
+    ];
+    Rectangle {
+        width: 48px;
+        height: root.height;
+        background: Global.curr_theme.bg-300;
+        VerticalLayout {
+            alignment: space-between;
+            VerticalLayout {
+                for i in images: Btn {
+                    btn_data: i;
+                }
+            }
+
+            VerticalLayout {
+                for i in images2: Btn {
+                    btn_data: i;
+                }
+            }
+        }
+    }
+}

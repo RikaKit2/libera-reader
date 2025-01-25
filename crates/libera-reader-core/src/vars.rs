@@ -18,7 +18,5 @@ pub(crate) static WATCHER: Lazy<Arc<Mutex<RecommendedWatcher>>> = Lazy::new(||
 pub(crate) static NOT_CACHED_BOOKS: Lazy<ConcurrentQueue<NotCachedBook>> = Lazy::new(|| ConcurrentQueue::unbounded());
 
 pub(crate) static PATH_TO_SCAN: Lazy<Arc<RwLock<Option<String>>>> = Lazy::new(|| Default::default());
-pub static APP_DIRS: Lazy<Arc<RwLock<AppDirs>>> = Lazy::new(||
-  Arc::from(RwLock::from(AppDirs::new().unwrap()))
-);
+pub static APP_DIRS: Lazy<Arc<RwLock<AppDirs>>> = Lazy::new(|| Default::default());
 pub(crate) static TARGET_EXT: Lazy<Arc<RwLock<TargetExt>>> = Lazy::new(|| Default::default());
