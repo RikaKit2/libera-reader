@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use mupdf_sys::{fz_context, fz_drop_page, fz_page, mupdf_page_to_pixmap, mupdf_stext_page_as_json_from_page};
 
 use crate::pixmap::Pixmap;
+use crate::utils::mupdf_err_to_string;
 
 pub struct Page {
   ctx: *mut fz_context,
@@ -18,21 +19,21 @@ impl Page {
   pub fn to_pixmap(&self, zoom: f32) -> Result<Pixmap, String> {
     unsafe {
       let mupdf_result = mupdf_page_to_pixmap(self.ctx, self.inner, 0.0, zoom);
-      if mupdf_result.status {
-        let pixmap = mupdf_result.value.pix;
+      if mupdf_result.status.flag {
+        let pixmap = mupdf_result.pix;
         Ok(Pixmap::new(self.ctx, pixmap))
       } else {
-        Err(CStr::from_ptr(mupdf_result.value.err_msg).to_str().unwrap().to_string())
+        Err(mupdf_err_to_string(mupdf_result.status))
       }
     }
   }
   pub fn get_stext_as_json(&self, scale: f32) -> Result<String, String> {
     unsafe {
       let mupdf_result = mupdf_stext_page_as_json_from_page(self.ctx, self.inner, scale);
-      if mupdf_result.status {
-        Ok(CStr::from_ptr(mupdf_result.value.text).to_str().unwrap().to_string())
+      if mupdf_result.status.flag {
+        Ok(CStr::from_ptr(mupdf_result.text).to_str().unwrap().to_string())
       } else {
-        Err(CStr::from_ptr(mupdf_result.value.err_msg).to_str().unwrap().to_string())
+        Err(CStr::from_ptr(mupdf_result.status.err_msg).to_str().unwrap().to_string())
       }
     }
   }

@@ -4,11 +4,15 @@ export component Setup {
     height: 100%;
     width: 100%;
     Rectangle {
-        background: Global.curr_theme.bg-300;
-        Text {
-            font-size: 20px;
-            color: white;
-            text: "some";
+        background: Global.curr_theme.bg-100;
+        HorizontalLayout {
+            alignment: center;
+            padding-top: 20px;
+            Text {
+                font-size: 18px;
+                color: Global.curr_theme.text_color;
+                text: "Please select a scan folder";
+            }
         }
     }
 }

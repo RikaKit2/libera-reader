@@ -85,7 +85,7 @@ impl Services {
   pub fn run_data_extraction(&mut self) {
     match self.data_extraction_service_working_status {
       ServiceStatus::NotWorking => {
-        thread::spawn(|| { data_extraction_service::run() });
+        // thread::spawn(|| { data_extraction_service::run() });
         self.data_extraction_service_working_status = ServiceStatus::Working;
       }
       _ => {}

@@ -34,6 +34,7 @@ pub(crate) fn get_num_of_books_of_this_size(book_size: BookSize) -> (usize, Opti
   };
   (num_of_book_with_this_size, out_data)
 }
+
 pub(crate) fn update_book_data_type(book_path: BookPath, book_data_type: BookDataType) {
   let old_book = crud::get_primary::<Book>(book_path).unwrap();
   let mut new_book = old_book.clone();
@@ -106,21 +107,41 @@ pub(crate) fn add_book(bookbuf: &PathBuf, book_size: BookSize) {
   ) = get_num_of_books_of_this_size(book_size.clone());
 
   if db_book_count_with_this_size == 0 {
-    add_unique_size_book(bookbuf, book_size);
+    add_unhashed_book(bookbuf, book_size);
   } else if db_book_count_with_this_size == 1 {
-    add_book_to_an_existing_one(bookbuf, book_size, data_of_unhashed_book.unwrap());
+    replace_unhashed_book_with_hashed(bookbuf, book_size, data_of_unhashed_book.unwrap());
   } else if db_book_count_with_this_size > 1 {
-    add_book_of_repeating_size(bookbuf, book_size);
+    add_hashed_book(bookbuf, book_size);
   }
 }
-fn add_unique_size_book(bookbuf: &PathBuf, book_size: BookSize) {
+
+fn add_unhashed_book(bookbuf: &PathBuf, book_size: BookSize) {
   let book_path = bookbuf.to_str().unwrap().to_string();
   let book_data_type = UniqueSize(book_size.clone());
   crud::insert::<DataOfUnhashedBook>(DataOfUnhashedBook::new(book_size, vec![book_path.clone()])).unwrap();
   crud::insert::<Book>(Book::from_pathbuf(bookbuf, book_data_type.clone())).unwrap();
   NotCachedBook::new(book_path).push_to_storage();
 }
-fn add_book_to_an_existing_one(bookbuf: &PathBuf, book_size: BookSize, data_of_unhashed_book: DataOfUnhashedBook) {
+fn add_hashed_book(bookbuf: &PathBuf, book_size: BookSize) {
+  let book_path = bookbuf.to_str().unwrap().to_string();
+  let hash_of_new_book = calc_file_hash(bookbuf);
+  match crud::get_primary::<DataOfHashedBook>(hash_of_new_book.clone()) {
+    None => {
+      let new_book_data = DataOfHashedBook::new(hash_of_new_book.clone(), book_size, vec![book_path.clone()]);
+      crud::insert::<DataOfHashedBook>(new_book_data).unwrap();
+      crud::insert::<Book>(Book::from_pathbuf(bookbuf, RepeatingSize(hash_of_new_book))).unwrap();
+      NotCachedBook::new(book_path).push_to_storage();
+    }
+    Some(data_of_hashed_book) => {
+      crud::insert::<Book>(Book::from_pathbuf(bookbuf, RepeatingSize(hash_of_new_book))).unwrap();
+      match &data_of_hashed_book.book_data.cached {
+        true => {}
+        false => { NotCachedBook::new(book_path).push_to_storage(); }
+      }
+    }
+  };
+}
+fn replace_unhashed_book_with_hashed(bookbuf: &PathBuf, book_size: BookSize, data_of_unhashed_book: DataOfUnhashedBook) {
   let path_of_other_book = &data_of_unhashed_book.book_data.books_pk[0];
   let path_of_new_book = bookbuf.to_str().unwrap().to_string();
   let hash_of_other_book = match &data_of_unhashed_book.book_hash {
@@ -145,25 +166,6 @@ fn add_book_to_an_existing_one(bookbuf: &PathBuf, book_size: BookSize, data_of_u
   let new_book = Book::from_pathbuf(bookbuf, RepeatingSize(hash_of_new_book));
   crud::insert::<Book>(new_book).unwrap();
   NotCachedBook::new(path_of_new_book).push_to_storage();
-}
-fn add_book_of_repeating_size(bookbuf: &PathBuf, book_size: BookSize) {
-  let book_path = bookbuf.to_str().unwrap().to_string();
-  let hash_of_new_book = calc_file_hash(bookbuf);
-  match crud::get_primary::<DataOfHashedBook>(hash_of_new_book.clone()) {
-    None => {
-      let new_book_data = DataOfHashedBook::new(hash_of_new_book.clone(), book_size, vec![book_path.clone()]);
-      crud::insert::<DataOfHashedBook>(new_book_data).unwrap();
-      crud::insert::<Book>(Book::from_pathbuf(bookbuf, RepeatingSize(hash_of_new_book))).unwrap();
-      NotCachedBook::new(book_path).push_to_storage();
-    }
-    Some(data_of_hashed_book) => {
-      crud::insert::<Book>(Book::from_pathbuf(bookbuf, RepeatingSize(hash_of_new_book))).unwrap();
-      match &data_of_hashed_book.book_data.cached {
-        true => {}
-        false => { NotCachedBook::new(book_path).push_to_storage(); }
-      }
-    }
-  };
 }
 
 pub(crate) fn get_books_located_in_dir(path_to_dir: String) -> Vec<Book> {
