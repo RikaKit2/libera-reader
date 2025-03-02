@@ -42,10 +42,7 @@ fn get_books_grouped_by_size(new_books: HashSet<PathBuf>) -> BooksGroupedBySize 
 
   for new_book_path in new_books {
     let book_size = calc_file_size_in_mb(&new_book_path);
-    let db_book_count = match crud::get_primary::<DataOfUnhashedBook>(book_size.clone()) {
-      None => { 0 }
-      Some(res) => { res.book_data.books_pk.len() }
-    };
+    let (db_book_count, _) = crud::book::get_num_of_books_of_this_size(book_size.clone());
 
     match books_grouped_by_size.get_mut(&book_size) {
       None => {

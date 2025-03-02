@@ -10,6 +10,7 @@ use mupdf_sys::{fz_context, fz_document, fz_drop_context, fz_drop_document, fz_d
 
 use crate::outline::Outline;
 use crate::page::Page;
+use crate::utils::mupdf_err_to_string;
 
 pub struct Document {
   inner: *mut fz_document,
@@ -22,37 +23,37 @@ impl Document {
     let max_store_in_bytes = Byte::
     from_u64_with_unit(max_store_size_in_mb, Unit::MB).unwrap().as_u64().to_usize().unwrap();
     unsafe {
-      let mupdf_res = mupdf_new_context(max_store_in_bytes);
-      if mupdf_res.status {
-        let ctx: *mut fz_context = mupdf_res.value.ctx;
+      let ctx_res = mupdf_new_context(max_store_in_bytes);
+      if ctx_res.status.flag {
+        let ctx: *mut fz_context = ctx_res.ctx;
         let inner_res = mupdf_open_document(ctx, c_path_to_book.as_ptr());
-        if inner_res.status {
-          Ok(Document { inner: inner_res.value.doc, ctx })
+        if inner_res.status.flag {
+          Ok(Document { inner: inner_res.doc, ctx })
         } else {
-          Err(CStr::from_ptr(inner_res.value.err_msg).to_str().unwrap().to_string())
+          Err(mupdf_err_to_string(inner_res.status))
         }
       } else {
-        Err(CStr::from_ptr(mupdf_res.value.err_msg).to_str().unwrap().to_string())
+        Err(mupdf_err_to_string(ctx_res.status))
       }
     }
   }
   pub fn page_count(&self) -> Result<u32, String> {
     unsafe {
       let mupdf_res = mupdf_doc_page_count(self.ctx, self.inner);
-      if mupdf_res.status {
-        Ok(mupdf_res.value.count.to_u32().unwrap())
+      if mupdf_res.status.flag {
+        Ok(mupdf_res.count.to_u32().unwrap())
       } else {
-        Err(CStr::from_ptr(mupdf_res.value.err_msg).to_str().unwrap().to_string())
+        Err(mupdf_err_to_string(mupdf_res.status))
       }
     }
   }
   pub fn load_page(&self, page_num: i32) -> Result<Page, String> {
     unsafe {
       let mupdf_res = mupdf_load_page(self.ctx, self.inner, page_num);
-      if mupdf_res.status {
-        Ok(Page::new(self.ctx, mupdf_res.value.page))
+      if mupdf_res.status.flag {
+        Ok(Page::new(self.ctx, mupdf_res.page))
       } else {
-        Err(CStr::from_ptr(mupdf_res.value.err_msg).to_str().unwrap().to_string())
+        Err(mupdf_err_to_string(mupdf_res.status))
       }
     }
   }
@@ -61,15 +62,15 @@ impl Document {
     let c_key = CString::new(key.to_string()).unwrap();
     unsafe {
       let mupdf_res = mupdf_lookup_metadata(self.ctx, self.inner, c_key.as_ptr());
-      if mupdf_res.status {
-        let data = mupdf_res.value.res;
+      if mupdf_res.status.flag {
+        let data = mupdf_res.metadata;
         if data.is_null() {
           Ok(String::new())
         } else {
           Ok(CStr::from_ptr(data).to_str().unwrap().to_string())
         }
       } else {
-        Err(CStr::from_ptr(mupdf_res.value.err_msg).to_str().unwrap().to_string())
+        Err(mupdf_err_to_string(mupdf_res.status))
       }
     }
   }
@@ -114,8 +115,8 @@ impl Document {
   pub fn outlines(&self) -> Result<Vec<Outline>, String> {
     unsafe {
       let mupdf_res = mupdf_load_outline(self.ctx, self.inner);
-      if mupdf_res.status {
-        let outline = mupdf_res.value.res;
+      if mupdf_res.status.flag {
+        let outline = mupdf_res.outline;
         if outline.is_null() {
           return Ok(Vec::new());
         }
@@ -123,7 +124,7 @@ impl Document {
         fz_drop_outline(self.ctx, outline);
         Ok(toc)
       } else {
-        Err(CStr::from_ptr(mupdf_res.value.err_msg).to_str().unwrap().to_string())
+        Err(mupdf_err_to_string(mupdf_res.status))
       }
     }
   }

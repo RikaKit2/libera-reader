@@ -2,7 +2,7 @@ use crate::db::crud;
 use crate::models::{Book, BookDataType, DataOfHashedBook, DataOfUnhashedBook};
 use crate::types::BookPath;
 use crate::vars::{APP_DIRS, NOT_CACHED_BOOKS, TARGET_EXT};
-use gxhash::GxBuildHasher;
+use gxhash::{GxBuildHasher, HashSet};
 use measure_time_macro::measure_time;
 use std::fs;
 use std::hash::{BuildHasher, Hasher};
@@ -59,7 +59,7 @@ pub(crate) fn get_books_from_disk(path_to_scan: &String) -> Vec<PathBuf> {
   books_from_disk
 }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub(crate) struct NotCachedBook {
   pub book_path: BookPath,
 }
