@@ -6,7 +6,7 @@ use glob_structs::IpcMsg;
 use gxhash::HashSet;
 use ipc_channel::ipc;
 use ipc_channel::ipc::{IpcOneShotServer, IpcReceiver, TryRecvError};
-use mupdf::document::Document;
+// use mupdf::document::Document;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use std::process;
@@ -32,20 +32,20 @@ pub(crate) fn run() {
   ThreadPoolBuilder::new().num_threads(num_of_threads).build().unwrap().install(|| {
     loop {
       NOT_CACHED_BOOKS.try_iter().par_bridge().for_each(|not_cached_book| {
-        match Document::open(&not_cached_book.book_path, 20) {
-          Ok(doc) => {
-            let page = doc.load_page(0).unwrap();
-            match page.to_pixmap(0.4) {
-              Ok(mut pixmap) => {
-                let out_file_name = not_cached_book.get_out_file_name();
-                pixmap.save_as_jpeg_to_storage(70, format!("{}.jpeg", out_file_name));
-                not_cached_book.mark_as_cached();
-              }
-              Err(_err) => {}
-            };
-          }
-          Err(_e) => {}
-        }
+        // match Document::open(&not_cached_book.book_path, 20) {
+        //   Ok(doc) => {
+        //     let page = doc.load_page(0).unwrap();
+        //     match page.to_pixmap(0.4) {
+        //       Ok(mut pixmap) => {
+        //         let out_file_name = not_cached_book.get_out_file_name();
+        //         pixmap.save_as_jpeg_to_storage(70, format!("{}.jpeg", out_file_name));
+        //         not_cached_book.mark_as_cached();
+        //       }
+        //       Err(_err) => {}
+        //     };
+        //   }
+        //   Err(_e) => {}
+        // }
       
       });
       sleep(Duration::from_secs(1));
