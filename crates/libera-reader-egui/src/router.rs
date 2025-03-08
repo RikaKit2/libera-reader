@@ -1,15 +1,16 @@
 pub enum Route {
   Main(MainRoute),
   BookViewer,
-  Setup
+  Setup,
 }
-#[derive(PartialEq)]
+
+#[derive(PartialEq, Debug)]
 pub enum MainRoute {
   Library,
   FileManager,
   History,
   Favorite,
   BookMarks,
-  State,
+  Stats,
   Settings,
 }
