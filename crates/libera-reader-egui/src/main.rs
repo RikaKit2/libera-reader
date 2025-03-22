@@ -1,25 +1,20 @@
-use crate::router::{MainRoute, Route};
 use eframe::{run_native, Frame, NativeOptions};
 use egui::Context;
 use egui_extras::install_image_loaders;
+use ui::pages::main::side_bar;
 
 mod router;
-mod side_bar;
-
+mod ui;
+mod glob;
 
 pub struct App {
-  route: Route,
   side_bar: side_bar::State,
 }
 
 impl App {
   pub fn new() -> Self {
-    Self {
-      route: Route::Main(MainRoute::Library),
-      side_bar: Default::default(),
-    }
+    Self { side_bar: side_bar::State::new() }
   }
-  fn change_route(&mut self, route: Route) { self.route = route; }
 }
 
 impl eframe::App for App {
