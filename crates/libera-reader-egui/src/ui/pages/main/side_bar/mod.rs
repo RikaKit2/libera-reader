@@ -1,5 +1,4 @@
-use crate::router::{BaseRoute, RootRoute};
-use crate::ui::pages::main::side_bar::state::BtnAction;
+use crate::router::BaseRoute;
 use crate::App;
 use eframe::egui::ImageButton;
 use eframe::emath::Vec2;
@@ -77,16 +76,14 @@ impl App {
         ui.painter().rect_filled(rect, 0.0, strip_color);
 
         layer_y_size += img_response.intrinsic_size.clone().unwrap().y;
-        if img_response.hovered() {
-          self.side_bar.change_btn_status(BtnAction::Hover, &btn_route);
-        } else {
-          if !self.router.compare_with_root_route(&btn_route) {
-            self.side_bar.change_btn_status(BtnAction::None, &btn_route);
-          }
-        }
+
+        let target_btn = self.side_bar.get_mut_btn_by_route(&btn_route);
         if img_response.clicked() {
-          self.side_bar.change_btn_status(BtnAction::Click, &btn_route);
-          self.router.change_route(RootRoute::Base(btn_route));
+          target_btn.mark_btn_as_clicked(&mut self.router)
+        } else if img_response.hovered() {
+          target_btn.mark_btn_as_hovered()
+        } else {
+          target_btn.mark_btn_as_base(&mut self.router)
         }
       });
     }
