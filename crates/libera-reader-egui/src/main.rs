@@ -15,8 +15,9 @@ pub struct App {
 
 impl App {
   pub fn new() -> Self {
-    let router = Router::new(RootRoute::Base(BaseRoute::Library));
-    let side_bar = side_bar::State::new();
+    let mut router = Router::new(RootRoute::Base(BaseRoute::Library));
+    let mut side_bar = side_bar::State::new();
+    side_bar.get_mut_btn_by_route(&BaseRoute::Library).mark_btn_as_clicked(&mut router);
     Self { side_bar, router }
   }
 }
