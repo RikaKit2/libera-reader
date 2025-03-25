@@ -1,4 +1,4 @@
-use crate::router::BaseRoute;
+use crate::router::{BaseRoute, RootRoute};
 use crate::ui::pages::main::side_bar::state::BtnAction;
 use crate::App;
 use eframe::egui::ImageButton;
@@ -67,38 +67,27 @@ impl App {
 
     for (img_source, btn_route) in btns {
       ui.vertical_centered_justified(|ui| {
-        let img_color = self.side_bar.get_btn_by_route(&btn_route).color_data.icon;
+        let img_color = self.side_bar.get_btn_by_route(&btn_route).icon;
         let img = Image::new(img_source).fit_to_exact_size(img_size).tint(img_color);
         let img_btn = ImageButton::new(img);
         let img_response = ui.add(img_btn);
 
-        let btn_data = self.side_bar.get_btn_by_route(&btn_route);
-        let strip_color = btn_data.color_data.strip;
+        let strip_color = self.side_bar.get_btn_by_route(&btn_route).strip;
         let rect = Rect::from_min_size(img_response.rect.min, Vec2::new(2.0, 48.0));
         ui.painter().rect_filled(rect, 0.0, strip_color);
+
         layer_y_size += img_response.intrinsic_size.clone().unwrap().y;
-
-        let btn_action: BtnAction;
-
-        if img_response.clicked() {
-          btn_action = BtnAction::Click;
-        } else if img_response.hovered() {
-          btn_action = BtnAction::Hover;
+        if img_response.hovered() {
+          self.side_bar.change_btn_status(BtnAction::Hover, &btn_route);
         } else {
-          btn_action = BtnAction::None;
+          if !self.router.compare_with_root_route(&btn_route) {
+            self.side_bar.change_btn_status(BtnAction::None, &btn_route);
+          }
         }
-        self.side_bar.apply_action_to_btn(btn_action, &btn_route);
-
-        // if img_response.hovered() {
-        //   self.side_bar.apply_action_to_btn(BtnAction::Hover, &btn_route);
-        // } else {
-        //   if !ROUTER.compare_with_root_route(&btn_route) {
-        //     self.side_bar.apply_action_to_btn(BtnAction::None, &btn_route);
-        //   }
-        // }
-        // if img_response.clicked() {
-        //   self.side_bar.apply_action_to_btn(BtnAction::Click, &btn_route);
-        // }
+        if img_response.clicked() {
+          self.side_bar.change_btn_status(BtnAction::Click, &btn_route);
+          self.router.change_route(RootRoute::Base(btn_route));
+        }
       });
     }
     layer_y_size
