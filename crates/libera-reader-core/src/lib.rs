@@ -1,13 +1,11 @@
 mod db;
-mod services;
-
+pub mod services;
 mod app_dirs;
-
 mod utils;
 mod book_api;
 mod types;
 pub mod vars;
-pub mod core;
+mod not_cached_book;
 
-
+pub use crate::book_api::BookApi;
 pub use crate::db::models;

@@ -1,10 +1,12 @@
 use crate::db::crud;
 use crate::models::Book;
 use crate::types::BookPath;
-use crate::utils::get_books_from_disk;
+use crate::vars::TARGET_EXT;
 use gxhash::{HashMap, HashSet};
+use measure_time_macro::measure_time;
 use std::path::PathBuf;
 use tracing::debug;
+use walkdir::WalkDir;
 
 
 pub(crate) struct BookSeparator {
@@ -16,7 +18,7 @@ pub(crate) struct BookSeparator {
 }
 
 impl BookSeparator {
-  pub(crate) fn new(path_to_scan: &BookPath) -> Self {
+  pub(crate) fn new(path_to_scan: &String) -> Self {
     let mut books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(path_to_scan)
       .into_iter().map(|i| (i.to_str().unwrap().to_string(), i)).collect();
     let mut books_in_db: HashMap<BookPath, Book> = crud::book::get_all_from_db().into_iter()
@@ -48,4 +50,25 @@ impl BookSeparator {
       num_of_books_in_db,
     }
   }
+}
+
+#[measure_time]
+fn get_books_from_disk(path_to_scan: &String) -> Vec<PathBuf> {
+  let mut books_from_disk: Vec<PathBuf> = vec![];
+  for entry in WalkDir::new(path_to_scan) {
+    let entry = entry.unwrap();
+    if entry.file_type().is_file() {
+      let path = entry.path();
+      match path.extension() {
+        Some(res) => {
+          let file_ext = res.to_str().unwrap();
+          if TARGET_EXT.read().unwrap().contains(file_ext) {
+            books_from_disk.push(path.to_path_buf());
+          }
+        }
+        None => {}
+      };
+    }
+  };
+  books_from_disk
 }

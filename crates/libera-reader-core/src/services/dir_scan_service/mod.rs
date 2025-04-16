@@ -1,8 +1,7 @@
 use crate::services::data_extraction_service;
-use crate::types::BookPath;
+use crate::vars::SETTINGS;
 use books_separator::BookSeparator;
 use tracing::info;
-
 
 mod book_deleter;
 mod book_adder;
@@ -15,24 +14,29 @@ enum BooksLocation {
   None,
 }
 
-pub(crate) fn run(path_to_scan: BookPath) {
-  let book_separator = BookSeparator::new(&path_to_scan);
-  data_extraction_service::fill_storage_of_non_cached_books(book_separator.general_books);
-  let start_time = std::time::Instant::now();
-  match get_books_location(book_separator.num_of_books_in_db, book_separator.num_of_books_on_disk) {
-    BooksLocation::Disk => {
-      book_adder::run(book_separator.new_books);
+pub(crate) fn run() {
+  match &SETTINGS.read().unwrap().path_to_scan {
+    None => {}
+    Some(path_to_scan) => {
+      let book_separator = BookSeparator::new(&path_to_scan);
+      data_extraction_service::fill_storage_of_non_cached_books(book_separator.general_books);
+      let start_time = std::time::Instant::now();
+      match get_books_location(book_separator.num_of_books_in_db, book_separator.num_of_books_on_disk) {
+        BooksLocation::Disk => {
+          book_adder::run(book_separator.new_books);
+        }
+        BooksLocation::DB => {
+          book_deleter::del_outdated_books(book_separator.outdated_books);
+        }
+        BooksLocation::DiskAndDB => {
+          book_deleter::del_outdated_books(book_separator.outdated_books);
+          book_adder::run(book_separator.new_books);
+        }
+        BooksLocation::None => {}
+      };
+      info!("Dir scan service execution time is: {:?}", start_time.elapsed());
     }
-    BooksLocation::DB => {
-      book_deleter::del_outdated_books(book_separator.outdated_books);
-    }
-    BooksLocation::DiskAndDB => {
-      book_deleter::del_outdated_books(book_separator.outdated_books);
-      book_adder::run(book_separator.new_books);
-    }
-    BooksLocation::None => {}
-  };
-  info!("Dir scan service execution time is: {:?}", start_time.elapsed());
+  }
 }
 
 fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLocation {

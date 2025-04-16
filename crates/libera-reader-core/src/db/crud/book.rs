@@ -2,13 +2,13 @@ use crate::db::{crud, models_impl::GetBookData, DB};
 use crate::models::{Book, BookDataType, DataOfHashedBook, DataOfHashedBookKey, DataOfUnhashedBook};
 use crate::models::{BookDataType::RepeatingSize, BookDataType::UniqueSize};
 use crate::types::{BookPath, BookSize};
-use crate::utils::{calc_file_hash, NotCachedBook};
+use crate::utils::calc_file_hash;
 use crate::vars::APP_DIRS;
 use itertools::Itertools;
 use native_db::ToInput;
 use std::fs::remove_file;
 use std::path::PathBuf;
-
+use crate::not_cached_book::NotCachedBook;
 
 pub(crate) fn get_all_from_db() -> Vec<Book> {
   let r_conn = DB.r_transaction().unwrap();
