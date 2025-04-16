@@ -1,4 +1,4 @@
-use libera_reader_core::{core::Core, models::Book, vars, vars::DB_NAME};
+use libera_reader_core::{models::{Book, Settings}, services::Services, vars, BookApi};
 use std::env::set_var;
 use std::fs::{create_dir, remove_dir_all, remove_file, rename, File};
 use std::path::PathBuf;
@@ -22,23 +22,25 @@ const SECOND_DIR: &str = "second_dir";
 
 
 pub struct FileCrudLib {
+  test_mode: TestMode,
+
   first_book: PathBuf,
   second_book: PathBuf,
 
   fist_dir: PathBuf,
   second_dir: PathBuf,
-
   tmp_dir: PathBuf,
   proj_root_dir: PathBuf,
-  core: Core,
-  test_mode: TestMode,
+
+  services: Services,
+  book_api: BookApi,
+  settings: Settings,
 }
 impl FileCrudLib {
   pub fn new(test_mode: TestMode, tmp_dir_name: &str) -> Self {
     let proj_root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let tmp_dir = proj_root_dir.join("test_files").join(tmp_dir_name);
     set_var("libera_reader_data_dir", tmp_dir.to_string2());
-    let core = Core::new();
     vars::APP_DIRS.write().unwrap().change_base_dir(Some(proj_root_dir.clone())).unwrap();
     Self {
       first_book: tmp_dir.join(&FIRST_BOOK),
@@ -49,8 +51,10 @@ impl FileCrudLib {
 
       tmp_dir,
       proj_root_dir,
-      core,
       test_mode,
+      services: Default::default(),
+      book_api: Default::default(),
+      settings: Default::default(),
     }
   }
   pub fn create_first_book(&mut self) {
@@ -58,7 +62,7 @@ impl FileCrudLib {
     assert!(File::create(&self.first_book).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::DirScan => { self.core.services.launch_dir_scan_service(true); }
+      TestMode::DirScan => { self.services.launch_dir_scan_service(true); }
     };
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name));
   }
@@ -72,7 +76,7 @@ impl FileCrudLib {
       }
       TestMode::DirScan => {
         assert!(rename(&self.first_book, &self.second_book).is_ok());
-        self.core.services.launch_dir_scan_service(true);
+        self.services.launch_dir_scan_service(true);
       }
     };
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&SECOND_BOOK, &book.book_name));
@@ -89,7 +93,7 @@ impl FileCrudLib {
       }
       TestMode::DirScan => {
         assert!(rename(&self.second_book, &book_in_first_dir).is_ok());
-        self.core.services.launch_dir_scan_service(true);
+        self.services.launch_dir_scan_service(true);
       }
     }
     self.second_book = book_in_first_dir;
@@ -100,7 +104,7 @@ impl FileCrudLib {
     assert!(rename(&self.fist_dir, &self.second_dir).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::DirScan => { self.core.services.launch_dir_scan_service(true); }
+      TestMode::DirScan => { self.services.launch_dir_scan_service(true); }
     }
 
     self.second_book = self.tmp_dir.join(&SECOND_DIR).join(&SECOND_BOOK);
@@ -113,7 +117,7 @@ impl FileCrudLib {
     assert!(rename(&self.second_book, &self.first_book).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::DirScan => { self.core.services.launch_dir_scan_service(true); }
+      TestMode::DirScan => { self.services.launch_dir_scan_service(true); }
     }
 
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name));
@@ -123,12 +127,10 @@ impl FileCrudLib {
     assert!(remove_dir_all(&self.second_dir).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::DirScan => { self.core.services.launch_dir_scan_service(true); }
+      TestMode::DirScan => { self.services.launch_dir_scan_service(true); }
     }
-    match self.core.book_api.get_book_by_path(&self.first_book.to_string2()) {
-      Ok(poss_book) => {
-        assert_eq!(poss_book, None, "there shouldn't be a book");
-      }
+    match self.book_api.get_book_by_path(&self.first_book.to_string2()) {
+      Ok(poss_book) => { assert_eq!(poss_book, None, "there shouldn't be a book"); }
       Err(_) => {}
     };
   }
@@ -137,7 +139,7 @@ impl FileCrudLib {
       Ok(_) => {}
       Err(e) => error!("error when deleting tests_files_dir: {:?}", e),
     };
-    match remove_file(&self.proj_root_dir.join(DB_NAME)) {
+    match remove_file(&self.proj_root_dir.join("libera_reader.redb")) {
       Ok(_) => {}
       Err(_) => {}
     };
@@ -150,15 +152,11 @@ impl FileCrudLib {
   where
     F: Fn(&Book),
   {
-    match self.core.book_api.get_book_by_path(book_path_in_db) {
+    match self.book_api.get_book_by_path(book_path_in_db) {
       Ok(res) => {
         match res {
-          None => {
-            panic!("book in db not found: {:?}", book_path_in_db)
-          }
-          Some(book) => {
-            assert_fn(&book);
-          }
+          None => { panic!("book in db not found: {:?}", book_path_in_db) }
+          Some(book) => { assert_fn(&book); }
         }
       }
       Err(e) => {
@@ -168,12 +166,10 @@ impl FileCrudLib {
   }
   pub fn run_tests(&mut self) {
     self.drop_files();
-    self.core.settings.set_path_to_scan(self.tmp_dir.to_str().unwrap().to_string());
+    self.settings.set_path_to_scan(self.tmp_dir.to_str().unwrap().to_string());
 
     match self.test_mode {
-      TestMode::Notify => {
-        self.core.services.run_notify();
-      }
+      TestMode::Notify => { self.services.run_notify(); }
       TestMode::DirScan => {}
     }
     self.create_first_book();
@@ -195,7 +191,7 @@ impl EasyString for PathBuf {
 }
 impl Drop for FileCrudLib {
   fn drop(&mut self) {
-    self.core.services.stop_all_services();
+    self.services.stop_all_services();
     self.drop_files();
   }
 }

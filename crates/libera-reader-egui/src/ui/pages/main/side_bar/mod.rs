@@ -1,4 +1,4 @@
-use crate::router::BaseRoute;
+use crate::router::Route;
 use crate::App;
 use eframe::egui::ImageButton;
 use eframe::emath::Vec2;
@@ -17,17 +17,17 @@ pub const BORDER_BASE_COLOR: Lazy<Color32> = Lazy::new(|| Color32::from_hex("#09
 
 
 impl App {
-  pub fn side_bar(&mut self, ctx: &Context) {
-    let images1: Vec<(ImageSource, BaseRoute)> = vec![
-      (include_image!("icons/heroicons--book-open.svg"), BaseRoute::Library),
-      (include_image!("icons/heroicons--folder.svg"), BaseRoute::FileManager),
-      (include_image!("icons/heroicons--clock.svg"), BaseRoute::History),
-      (include_image!("icons/heroicons--star.svg"), BaseRoute::Favorite),
-      (include_image!("icons/heroicons--bookmark.svg"), BaseRoute::BookMarks),
+  pub fn make_side_bar(&mut self, ctx: &Context) {
+    let images1: Vec<(ImageSource, Route)> = vec![
+      (include_image!("icons/heroicons--book-open.svg"), Route::Library),
+      (include_image!("icons/heroicons--folder.svg"), Route::FileManager),
+      (include_image!("icons/heroicons--clock.svg"), Route::History),
+      (include_image!("icons/heroicons--star.svg"), Route::Favorite),
+      (include_image!("icons/heroicons--bookmark.svg"), Route::BookMarks),
     ];
-    let images2: Vec<(ImageSource, BaseRoute)> = vec![
-      (include_image!("icons/heroicons--chart-bar.svg"), BaseRoute::Stats),
-      (include_image!("icons/heroicons--cog-8-tooth.svg"), BaseRoute::Settings),
+    let images2: Vec<(ImageSource, Route)> = vec![
+      (include_image!("icons/heroicons--chart-bar.svg"), Route::Stats),
+      (include_image!("icons/heroicons--cog-8-tooth.svg"), Route::Settings),
     ];
     let side_bar_frame = egui::containers::Frame {
       inner_margin: Default::default(),
@@ -60,30 +60,31 @@ impl App {
       });
   }
 
-  fn new_btn_layer(&mut self, ui: &mut Ui, btns: Vec<(ImageSource, BaseRoute)>) -> f32 {
+  fn new_btn_layer(&mut self, ui: &mut Ui, btns: Vec<(ImageSource, Route)>) -> f32 {
     let mut layer_y_size: f32 = 0.0;
     let img_size = Vec2::new(28.0, 28.0);
 
     for (img_source, btn_route) in btns {
       ui.vertical_centered_justified(|ui| {
-        let img_color = self.side_bar.get_btn_by_route(&btn_route).icon;
+        let img_color = self.side_bar.get_btn(&btn_route).icon;
         let img = Image::new(img_source).fit_to_exact_size(img_size).tint(img_color);
         let img_btn = ImageButton::new(img);
         let img_response = ui.add(img_btn);
 
-        let strip_color = self.side_bar.get_btn_by_route(&btn_route).strip;
-        let rect = Rect::from_min_size(img_response.rect.min, Vec2::new(2.0, 48.0));
+        let strip_color = self.side_bar.get_btn(&btn_route).strip;
+        let rect_size: Vec2 = Vec2::new(2.0, 37.0);
+        let rect = Rect::from_min_size(img_response.rect.min, rect_size);
         ui.painter().rect_filled(rect, 0.0, strip_color);
 
         layer_y_size += img_response.intrinsic_size.clone().unwrap().y;
 
-        let target_btn = self.side_bar.get_mut_btn_by_route(&btn_route);
+        let target_btn = self.side_bar.get_mut_btn(&btn_route);
         if img_response.clicked() {
-          target_btn.mark_btn_as_clicked(&mut self.router)
+          target_btn.mark_as_clicked(&mut self.router)
         } else if img_response.hovered() {
-          target_btn.mark_btn_as_hovered()
+          target_btn.mark_as_hovered()
         } else {
-          target_btn.mark_btn_as_base(&mut self.router)
+          target_btn.remove_mark(&mut self.router)
         }
       });
     }

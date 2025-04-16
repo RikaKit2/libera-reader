@@ -1,13 +1,14 @@
+pub mod models;
+pub(crate) mod crud;
+pub(crate) mod models_impl;
+
+
 use crate::db::models::{Book, BookMark, DataOfHashedBook, DataOfUnhashedBook, Settings};
 use crate::models::TargetExt;
 use crate::vars::APP_DIRS;
 use native_db::{Builder, Database, Models};
 use once_cell::sync::Lazy;
 
-
-pub mod models;
-pub(crate) mod crud;
-pub(crate) mod models_impl;
 
 fn get_models() -> Models {
   let mut models = Models::new();

@@ -1601,6 +1601,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_virtual_list"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "892bc51cb691c5cf1d1a72b0f84f20674ce7fb482d76ed3266fae926f9390bef"
+dependencies = [
+ "egui",
+ "web-time",
+]
+
+[[package]]
 name = "ehttp"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2293,14 +2303,6 @@ name = "glob"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
-
-[[package]]
-name = "glob_structs"
-version = "0.1.0"
-dependencies = [
- "ipc-channel",
- "serde",
-]
 
 [[package]]
 name = "glow"
@@ -3125,25 +3127,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ipc-channel"
-version = "0.19.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fb8251fb7bcd9ccd3725ed8deae9fe7db8e586495c9eb5b0c52e6233e5e75ea"
-dependencies = [
- "bincode",
- "crossbeam-channel",
- "fnv",
- "lazy_static",
- "libc",
- "mio",
- "rand",
- "serde",
- "tempfile",
- "uuid",
- "windows",
-]
-
-[[package]]
 name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3321,10 +3304,9 @@ dependencies = [
  "concurrent-queue",
  "data-encoding",
  "directories",
- "glob_structs",
  "gxhash",
- "ipc-channel",
  "itertools 0.14.0",
+ "libc",
  "measure_time_macro",
  "native_db",
  "native_model",
@@ -3333,6 +3315,7 @@ dependencies = [
  "once_cell",
  "rayon",
  "serde",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "walkdir",
@@ -3345,8 +3328,10 @@ dependencies = [
  "eframe",
  "egui",
  "egui_extras",
+ "egui_virtual_list",
  "image",
  "lazy_static",
+ "libera-reader-core",
  "once_cell",
 ]
 
@@ -3375,7 +3360,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -5851,9 +5836,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.0"
+version = "1.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9975ea0f48b5aa3972bf2d888c238182458437cc2a19374b81b25cdf1023fb3a"
+checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
 dependencies = [
  "backtrace",
  "bytes",
@@ -6241,15 +6226,6 @@ name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
-
-[[package]]
-name = "uuid"
-version = "1.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0f540e3240398cce6128b64ba83fdbdd86129c16a3aa1a3a252efd66eb3d587"
-dependencies = [
- "getrandom 0.3.1",
-]
 
 [[package]]
 name = "v_frame"
