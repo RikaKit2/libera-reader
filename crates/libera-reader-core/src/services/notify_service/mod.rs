@@ -57,7 +57,6 @@ fn event_processing(event: Event) {
     }
   }
 }
-
 pub fn run() {
   loop {
     match NOTIFY_EVENTS.pop() {
@@ -77,9 +76,8 @@ pub fn run() {
     } else { continue; }
   }
 }
-
-pub fn run_watcher(path_to_scan: &String) {
-  WATCHER.lock().unwrap().watch(path_to_scan.as_ref(), RecursiveMode::Recursive).unwrap();
+pub fn run_watcher(path_to_scan: &String) -> notify::Result<()> {
+  WATCHER.lock()?.watch(path_to_scan.as_ref(), RecursiveMode::Recursive)
 }
 pub fn stop_watcher(path_to_scan: &String) {
   match WATCHER.lock().unwrap().unwatch(path_to_scan.as_ref()) {

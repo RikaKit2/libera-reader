@@ -10,7 +10,6 @@ impl App {
       ctx.set_style(style);
       ScrollArea::vertical().show(ui, |ui| {
         ui.set_width(ui.available_width());
-
       });
     });
   }

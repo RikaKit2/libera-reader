@@ -6,6 +6,7 @@ impl BookData {
   pub(crate) fn new(books_pk: Vec<BookPath>) -> Self {
     Self {
       cached: false,
+      mutool_err: None,
       title: None,
       author: None,
       page_count: None,

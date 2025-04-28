@@ -1,4 +1,4 @@
-use crate::router::{Route, RootRoute, Router};
+use crate::router::{RootRoute, Route, Router};
 use crate::side_bar::{BORDER_ACTIVE_COLOR, BORDER_BASE_COLOR, BTN_ACTIVE_COLOR, BTN_BASE_COLOR, BTN_HOVER_COLOR};
 use egui::Color32;
 

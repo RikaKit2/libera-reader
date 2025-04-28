@@ -1,11 +1,10 @@
-use libera_reader_core::{models::{Book, Settings}, services::Services, vars, BookApi};
-use std::env::set_var;
+use libera_reader_core::{models::Book, services::Services, vars::{APP_DIRS, SETTINGS}};
 use std::fs::{create_dir, remove_dir_all, remove_file, rename, File};
 use std::path::PathBuf;
 use std::process::Command;
 use std::thread::sleep;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 
 #[allow(dead_code)]
@@ -33,15 +32,12 @@ pub struct FileCrudLib {
   proj_root_dir: PathBuf,
 
   services: Services,
-  book_api: BookApi,
-  settings: Settings,
 }
 impl FileCrudLib {
   pub fn new(test_mode: TestMode, tmp_dir_name: &str) -> Self {
     let proj_root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let tmp_dir = proj_root_dir.join("test_files").join(tmp_dir_name);
-    set_var("libera_reader_data_dir", tmp_dir.to_string2());
-    vars::APP_DIRS.write().unwrap().change_base_dir(Some(proj_root_dir.clone())).unwrap();
+    APP_DIRS.write().unwrap().set_base_dir(tmp_dir.clone()).unwrap();
     Self {
       first_book: tmp_dir.join(&FIRST_BOOK),
       second_book: tmp_dir.join(&SECOND_BOOK),
@@ -53,8 +49,6 @@ impl FileCrudLib {
       proj_root_dir,
       test_mode,
       services: Default::default(),
-      book_api: Default::default(),
-      settings: Default::default(),
     }
   }
   pub fn create_first_book(&mut self) {
@@ -129,12 +123,10 @@ impl FileCrudLib {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
       TestMode::DirScan => { self.services.launch_dir_scan_service(true); }
     }
-    match self.book_api.get_book_by_path(&self.first_book.to_string2()) {
-      Ok(poss_book) => { assert_eq!(poss_book, None, "there shouldn't be a book"); }
-      Err(_) => {}
-    };
+    assert_eq!(Book::get_by_path(&self.first_book.to_string2()), None, "there shouldn't be a book");
   }
   pub fn drop_files(&self) {
+    debug!("Drop test files");
     match remove_dir_all(&self.tmp_dir) {
       Ok(_) => {}
       Err(e) => error!("error when deleting tests_files_dir: {:?}", e),
@@ -149,24 +141,15 @@ impl FileCrudLib {
     };
   }
   fn test_fn<F>(&self, book_path_in_db: &String, assert_fn: F)
-  where
-    F: Fn(&Book),
-  {
-    match self.book_api.get_book_by_path(book_path_in_db) {
-      Ok(res) => {
-        match res {
-          None => { panic!("book in db not found: {:?}", book_path_in_db) }
-          Some(book) => { assert_fn(&book); }
-        }
-      }
-      Err(e) => {
-        panic!("{:?}", e)
-      }
+  where F: Fn(&Book) {
+    match Book::get_by_path(book_path_in_db) {
+      None => { panic!("book in db not found: {:?}", book_path_in_db) }
+      Some(book) => { assert_fn(&book); }
     }
   }
   pub fn run_tests(&mut self) {
     self.drop_files();
-    self.settings.set_path_to_scan(self.tmp_dir.to_str().unwrap().to_string());
+    SETTINGS.write().unwrap().set_path_to_scan(self.tmp_dir.to_str().unwrap().to_string());
 
     match self.test_mode {
       TestMode::Notify => { self.services.run_notify(); }
@@ -178,6 +161,7 @@ impl FileCrudLib {
     self.rename_first_dir_to_second();
     self.rename_second_book_to_first_in_second_dir();
     self.drop_second_dir();
+    self.drop_files();
   }
 }
 pub trait EasyString {
@@ -190,8 +174,5 @@ impl EasyString for PathBuf {
   }
 }
 impl Drop for FileCrudLib {
-  fn drop(&mut self) {
-    self.services.stop_all_services();
-    self.drop_files();
-  }
+  fn drop(&mut self) { self.services.stop_all_services(); }
 }
