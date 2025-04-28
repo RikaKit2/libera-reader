@@ -1,5 +1,5 @@
 use crate::db::crud;
-use crate::models::{Book, BookDataType, DataOfUnhashedBook};
+use crate::models::{Book, BookDataWrapperPK, DataOfUnhashedBook};
 use crate::types::{BookPath, BookSize};
 use crate::utils::RayonTaskType::HashCalc;
 use crate::utils::{calc_file_size_in_mb, get_num_of_threads};
@@ -32,7 +32,7 @@ pub(crate) fn run(new_books: HashSet<PathBuf>) {
   debug!("Number of threads for hash calculation: {:?}", &num_of_threads);
   ThreadPoolBuilder::new().num_threads(num_of_threads).build().unwrap().install(|| {
     for (book_size, books) in books_for_hashing {
-      books.par_iter().for_each(|bookbuf| crud::book::add_book(bookbuf, book_size.clone()));
+      books.par_iter().for_each(|book_pathbuf| crud::book::add_book(book_pathbuf, book_size.clone()));
     }
   });
 }
@@ -63,7 +63,7 @@ fn get_hashed_and_unique_books(books_grouped_by_size: BooksGroupedBySize) -> (Un
       let primary_keys: Vec<BookPath> = books_paths.iter().map(|i| i.to_str().unwrap().to_string()).collect_vec();
 
       let new_books = books_paths.iter().map(|book_path| {
-        Book::from_pathbuf(book_path, BookDataType::UniqueSize(book_size.clone()))
+        Book::from_pathbuf(book_path, BookDataWrapperPK::UniqueSize(book_size.clone()))
       }).collect_vec();
 
       unique_books.books.extend(new_books);

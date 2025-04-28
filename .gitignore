@@ -9,3 +9,5 @@ other/
 .idea/
 /crates/libera-reader-core/tests/files/
 *.redb
+*.svg
+.env

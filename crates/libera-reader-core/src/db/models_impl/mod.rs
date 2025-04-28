@@ -4,6 +4,7 @@ mod target_ext;
 mod data_of_unhashed_book;
 mod data_of_hashed_book;
 mod book_data;
+mod book_data_wrapper_pk;
 
 use crate::db::crud::{get_primary, insert};
 use crate::db::models::BookData;

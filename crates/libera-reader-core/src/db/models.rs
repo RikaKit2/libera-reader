@@ -1,4 +1,4 @@
-use crate::types::{BookHash, BookPath, BookSize};
+use crate::types::{BookHash, BookPath, BookSize, MutoolErr};
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
@@ -48,6 +48,7 @@ pub(crate) struct BookMark {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct BookData {
   pub cached: bool,
+  pub mutool_err: Option<MutoolErr>,
   pub title: Option<String>,
   pub author: Option<String>,
   pub page_count: Option<i32>,
@@ -90,13 +91,13 @@ pub struct Book {
   pub book_name: String,
   pub ext: String,
   pub path_is_valid: bool,
-  pub book_data_pk: BookDataType,
+  pub book_data_wrapper_pk: BookDataWrapperPK,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-pub enum BookDataType {
-  UniqueSize(BookSize),
-  RepeatingSize(BookHash),
+pub enum BookDataWrapperPK {
+  UniqueSize(BookSize),    // DataOfHashedBook
+  RepeatingSize(BookHash), // DataOfUnhashedBook
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

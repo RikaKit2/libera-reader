@@ -1,7 +1,9 @@
-use crate::services::data_extraction_service;
-use crate::vars::SETTINGS;
+use crate::models::Book;
+use crate::vars::{NOT_CACHED_BOOKS, SETTINGS};
 use books_separator::BookSeparator;
-use tracing::info;
+use gxhash::HashSet;
+use tracing::{debug, info};
+
 
 mod book_deleter;
 mod book_adder;
@@ -19,7 +21,7 @@ pub(crate) fn run() {
     None => {}
     Some(path_to_scan) => {
       let book_separator = BookSeparator::new(&path_to_scan);
-      data_extraction_service::fill_storage_of_non_cached_books(book_separator.general_books);
+      fill_storage_of_non_cached_books(book_separator.general_books);
       let start_time = std::time::Instant::now();
       match get_books_location(book_separator.num_of_books_in_db, book_separator.num_of_books_on_disk) {
         BooksLocation::Disk => {
@@ -38,7 +40,6 @@ pub(crate) fn run() {
     }
   }
 }
-
 fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLocation {
   if db_book_count > 0 && disk_book_count == 0 {
     BooksLocation::DB
@@ -50,4 +51,12 @@ fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLoca
     BooksLocation::None
   }
 }
-
+fn fill_storage_of_non_cached_books(general_books: HashSet<Book>) {
+  for book in general_books {
+    let book_data = book.get_book_data();
+    if !book_data.cached && book_data.mutool_err.is_none() {
+      book.push_to_storage();
+    }
+  }
+  debug!("Number of NOT_CACHED_BOOKS: {:?}", &NOT_CACHED_BOOKS.len());
+}

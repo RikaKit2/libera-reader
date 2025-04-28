@@ -1,4 +1,3 @@
-use crate::db::crud;
 use crate::models::Book;
 use crate::types::BookPath;
 use crate::vars::TARGET_EXT;
@@ -21,7 +20,7 @@ impl BookSeparator {
   pub(crate) fn new(path_to_scan: &String) -> Self {
     let mut books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(path_to_scan)
       .into_iter().map(|i| (i.to_str().unwrap().to_string(), i)).collect();
-    let mut books_in_db: HashMap<BookPath, Book> = crud::book::get_all_from_db().into_iter()
+    let mut books_in_db: HashMap<BookPath, Book> = Book::get_all().into_iter()
       .map(|i| (i.path_to_book.clone(), i)).collect();
 
     let books_paths_on_disk: HashSet<BookPath> = books_on_disk.keys().cloned().collect();

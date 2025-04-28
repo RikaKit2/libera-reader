@@ -12,7 +12,7 @@ fn dir_scan_service_test() {
     .without_time()
     .compact()
     .with_file(false)
-    .with_line_number(true)
+    .with_line_number(false)
     .with_thread_ids(false)
     .with_target(false)
     .with_max_level(Level::DEBUG)

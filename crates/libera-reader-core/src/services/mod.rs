@@ -1,27 +1,28 @@
+use crate::services::{Status::NotWorking, Status::Working};
 use crate::vars::{SETTINGS, SHUTDOWN};
 use std::sync::atomic::Ordering;
 use std::thread;
-
+use tracing::debug;
 
 mod dir_scan_service;
 pub(crate) mod notify_service;
 mod data_extraction_service;
 
-pub(crate) enum ServiceStatus {
+pub enum Status {
   Working,
   NotWorking,
 }
 
 pub struct Services {
-  notify_working_status: ServiceStatus,
-  data_extraction_service_working_status: ServiceStatus,
+  notify_working_status: Status,
+  data_extraction_service_working_status: Status,
 }
 
 impl Services {
   pub fn new() -> Self {
     Self {
-      notify_working_status: ServiceStatus::NotWorking,
-      data_extraction_service_working_status: ServiceStatus::NotWorking,
+      notify_working_status: NotWorking,
+      data_extraction_service_working_status: NotWorking,
     }
   }
   pub fn run(&mut self) {
@@ -29,10 +30,10 @@ impl Services {
       None => {}
       Some(path_to_scan) => {
         match self.notify_working_status {
-          ServiceStatus::NotWorking => {
-            notify_service::run_watcher(&path_to_scan);
+          NotWorking => {
+            notify_service::run_watcher(&path_to_scan).unwrap();
             thread::spawn(|| { notify_service::run() });
-            self.notify_working_status = ServiceStatus::Working;
+            self.notify_working_status = Working;
           }
           _ => {}
         }
@@ -44,27 +45,27 @@ impl Services {
 
   pub fn run_notify(&mut self) {
     match self.notify_working_status {
-      ServiceStatus::NotWorking => {
+      NotWorking => {
         match &SETTINGS.read().unwrap().path_to_scan {
           None => {}
           Some(path_to_scan) => {
-            notify_service::run_watcher(path_to_scan);
+            notify_service::run_watcher(path_to_scan).unwrap();
             thread::spawn(|| { notify_service::run() });
           }
         }
-        self.notify_working_status = ServiceStatus::Working;
+        self.notify_working_status = Working;
       }
       _ => {}
     }
   }
   pub fn stop_notify(&mut self) {
     match self.notify_working_status {
-      ServiceStatus::NotWorking => {
+      NotWorking => {
         match &SETTINGS.read().unwrap().path_to_scan {
           None => {}
           Some(path_to_scan) => notify_service::stop_watcher(path_to_scan)
         };
-        self.notify_working_status = ServiceStatus::Working;
+        self.notify_working_status = Working;
       }
       _ => {}
     }
@@ -72,7 +73,7 @@ impl Services {
 
   pub fn launch_dir_scan_service(&mut self, is_blocking: bool) {
     match &SETTINGS.read().unwrap().path_to_scan {
-      None => {}
+      None => { debug!("Path to scan is none") }
       Some(_path_to_scan) => {
         match is_blocking {
           true => { dir_scan_service::run(); }
@@ -83,9 +84,8 @@ impl Services {
   }
   pub fn run_data_extraction(&mut self) {
     match self.data_extraction_service_working_status {
-      ServiceStatus::NotWorking => {
-        thread::spawn(|| { data_extraction_service::run() });
-        self.data_extraction_service_working_status = ServiceStatus::Working;
+      NotWorking => {
+        self.data_extraction_service_working_status = Working;
       }
       _ => {}
     }
