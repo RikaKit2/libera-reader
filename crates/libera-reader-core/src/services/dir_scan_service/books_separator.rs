@@ -1,7 +1,5 @@
-use crate::models::Book;
-use crate::types::BookPath;
-use crate::vars::TARGET_EXT;
-use gxhash::{HashMap, HashSet};
+use crate::db::models::Book;
+use crate::types::{BookPath, HashMap, HashSet, TypeTargetExt, DB};
 use measure_time_macro::measure_time;
 use std::path::PathBuf;
 use tracing::debug;
@@ -17,10 +15,10 @@ pub(crate) struct BookSeparator {
 }
 
 impl BookSeparator {
-  pub(crate) fn new(path_to_scan: &String) -> Self {
-    let mut books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(path_to_scan)
+  pub(crate) fn new(path_to_scan: &String, db: &DB, target_ext: &TypeTargetExt) -> Self {
+    let mut books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(path_to_scan, target_ext)
       .into_iter().map(|i| (i.to_str().unwrap().to_string(), i)).collect();
-    let mut books_in_db: HashMap<BookPath, Book> = Book::get_all().into_iter()
+    let mut books_in_db: HashMap<BookPath, Book> = Book::get_all(db).into_iter()
       .map(|i| (i.path_to_book.clone(), i)).collect();
 
     let books_paths_on_disk: HashSet<BookPath> = books_on_disk.keys().cloned().collect();
@@ -52,7 +50,7 @@ impl BookSeparator {
 }
 
 #[measure_time]
-fn get_books_from_disk(path_to_scan: &String) -> Vec<PathBuf> {
+fn get_books_from_disk(path_to_scan: &String, target_ext: &TypeTargetExt) -> Vec<PathBuf> {
   let mut books_from_disk: Vec<PathBuf> = vec![];
   for entry in WalkDir::new(path_to_scan) {
     let entry = entry.unwrap();
@@ -61,7 +59,7 @@ fn get_books_from_disk(path_to_scan: &String) -> Vec<PathBuf> {
       match path.extension() {
         Some(res) => {
           let file_ext = res.to_str().unwrap();
-          if TARGET_EXT.read().unwrap().contains(file_ext) {
+          if target_ext.read().unwrap().contains(file_ext) {
             books_from_disk.push(path.to_path_buf());
           }
         }

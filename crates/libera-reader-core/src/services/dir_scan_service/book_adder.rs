@@ -1,9 +1,9 @@
 use crate::db::crud;
-use crate::models::{Book, BookDataWrapperPK, DataOfUnhashedBook};
-use crate::types::{BookPath, BookSize};
-use crate::utils::RayonTaskType::HashCalc;
-use crate::utils::{calc_file_size_in_mb, get_num_of_threads};
-use gxhash::{HashMap, HashMapExt, HashSet};
+use crate::db::models::{Book, BookDataWrapperPK, DataOfUnhashedBook};
+use crate::services::get_num_of_threads;
+use crate::services::RayonTaskType::HashCalc;
+use crate::types::{BookPath, BookSize, HashMap, HashSet, DB};
+use crate::utils::calc_file_size_in_mb;
 use itertools::Itertools;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
@@ -15,34 +15,34 @@ type BooksGroupedBySize = HashMap<BookSize, (Vec<PathBuf>, DBBookCount)>;
 type BooksForHashing = Vec<(BookSize, Vec<PathBuf>)>;
 
 
-pub(crate) fn run(new_books: HashSet<PathBuf>) {
+pub(crate) fn run(new_books: HashSet<PathBuf>, db: &DB) {
   let start_time = std::time::Instant::now();
   let num_of_new_books = new_books.len();
-  let books_grouped_by_size = get_books_grouped_by_size(new_books);
+  let books_grouped_by_size = get_books_grouped_by_size(new_books, db);
   let (unique_books, books_for_hashing) = get_hashed_and_unique_books(books_grouped_by_size);
   let num_of_unique_books = unique_books.books.len();
 
   debug!("Number of books for hashing: {:?}", num_of_new_books - num_of_unique_books);
   debug!("Number of books of a unique size: {:?}", num_of_unique_books);
-  crud::insert_batch::<Book>(unique_books.books);
-  crud::insert_batch::<DataOfUnhashedBook>(unique_books.data);
+  crud::insert_batch::<Book>(unique_books.books, db);
+  crud::insert_batch::<DataOfUnhashedBook>(unique_books.data, db);
   debug!("Time to add unique size books: {:?}", start_time.elapsed());
 
   let num_of_threads = get_num_of_threads(HashCalc);
   debug!("Number of threads for hash calculation: {:?}", &num_of_threads);
   ThreadPoolBuilder::new().num_threads(num_of_threads).build().unwrap().install(|| {
     for (book_size, books) in books_for_hashing {
-      books.par_iter().for_each(|book_pathbuf| crud::book::add_book(book_pathbuf, book_size.clone()));
+      books.par_iter().for_each(|book_pathbuf| crud::book::add_book(book_pathbuf, book_size.clone(), db));
     }
   });
 }
 
-fn get_books_grouped_by_size(new_books: HashSet<PathBuf>) -> BooksGroupedBySize {
-  let mut books_grouped_by_size: BooksGroupedBySize = HashMap::new();
+fn get_books_grouped_by_size(new_books: HashSet<PathBuf>, db: &DB) -> BooksGroupedBySize {
+  let mut books_grouped_by_size: BooksGroupedBySize = HashMap::default();
 
   for new_book_path in new_books {
     let book_size = calc_file_size_in_mb(&new_book_path);
-    let (db_book_count, _) = crud::book::get_num_of_books_of_this_size(book_size.clone());
+    let (db_book_count, _) = crud::book::get_num_of_books_of_this_size(book_size.clone(), db);
 
     match books_grouped_by_size.get_mut(&book_size) {
       None => {

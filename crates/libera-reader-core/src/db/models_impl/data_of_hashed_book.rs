@@ -1,5 +1,5 @@
+use crate::db::models::{BookData, DataOfHashedBook};
 use crate::db::models_impl::GetBookData;
-use crate::models::{BookData, DataOfHashedBook};
 use crate::types::{BookPath, BookSize};
 
 

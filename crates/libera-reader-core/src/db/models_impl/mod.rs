@@ -5,25 +5,21 @@ mod data_of_unhashed_book;
 mod data_of_hashed_book;
 mod book_data;
 mod book_data_wrapper_pk;
-
 use crate::db::crud::{get_primary, insert};
 use crate::db::models::BookData;
-use native_db::{ToInput, ToKey};
+use native_db::{Database, ToInput, ToKey};
 
-
-pub trait GetBookData {
+pub(crate) trait GetBookData {
   fn get_book_data_as_ref(&self) -> &BookData;
 }
-pub trait NewModel {
-  fn new_model() -> Self
-  where
-    Self: Sized + ToInput;
+pub trait DefaultModel {
+  fn default_model() -> Self where Self: Sized + ToInput;
 }
-pub trait GetOrCreate: Sized + ToInput + Clone + NewModel {
-  fn get_or_create(key: impl ToKey) -> Self {
-    get_primary::<Self>(key).unwrap_or_else(|| {
-      let item: Self = Self::new_model();
-      insert(item.clone()).unwrap();
+pub trait GetOrCreate: Sized + ToInput + Clone + DefaultModel {
+  fn get_or_create(key: impl ToKey, db: &Database) -> Self {
+    get_primary::<Self>(key, db).unwrap_or_else(|| {
+      let item: Self = Self::default_model();
+      insert(item.clone(), db).unwrap();
       item
     })
   }
