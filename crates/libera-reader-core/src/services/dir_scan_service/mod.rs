@@ -1,9 +1,7 @@
-use crate::models::Book;
-use crate::vars::{NOT_CACHED_BOOKS, SETTINGS};
+use crate::db::models::Book;
+use crate::types::{AppDirsType, HashSet, NotCachedBooks, TypeTargetExt, DB};
 use books_separator::BookSeparator;
-use gxhash::HashSet;
 use tracing::{debug, info};
-
 
 mod book_deleter;
 mod book_adder;
@@ -16,30 +14,26 @@ enum BooksLocation {
   None,
 }
 
-pub(crate) fn run() {
-  match &SETTINGS.read().unwrap().path_to_scan {
-    None => {}
-    Some(path_to_scan) => {
-      let book_separator = BookSeparator::new(&path_to_scan);
-      fill_storage_of_non_cached_books(book_separator.general_books);
-      let start_time = std::time::Instant::now();
-      match get_books_location(book_separator.num_of_books_in_db, book_separator.num_of_books_on_disk) {
-        BooksLocation::Disk => {
-          book_adder::run(book_separator.new_books);
-        }
-        BooksLocation::DB => {
-          book_deleter::del_outdated_books(book_separator.outdated_books);
-        }
-        BooksLocation::DiskAndDB => {
-          book_deleter::del_outdated_books(book_separator.outdated_books);
-          book_adder::run(book_separator.new_books);
-        }
-        BooksLocation::None => {}
-      };
-      info!("Dir scan service execution time is: {:?}", start_time.elapsed());
+pub(crate) fn run(path_to_scan: &String, db: &DB, target_ext: TypeTargetExt, app_dirs: AppDirsType, not_cached_books: &NotCachedBooks) {
+  let book_separator = BookSeparator::new(&path_to_scan, db, &target_ext);
+  fill_storage_of_non_cached_books(book_separator.general_books, db, not_cached_books);
+  let start_time = std::time::Instant::now();
+  match get_books_location(book_separator.num_of_books_in_db, book_separator.num_of_books_on_disk) {
+    BooksLocation::Disk => {
+      book_adder::run(book_separator.new_books, db);
     }
-  }
+    BooksLocation::DB => {
+      book_deleter::del_outdated_books(book_separator.outdated_books, db, &app_dirs);
+    }
+    BooksLocation::DiskAndDB => {
+      book_deleter::del_outdated_books(book_separator.outdated_books, db, &app_dirs);
+      book_adder::run(book_separator.new_books, db);
+    }
+    BooksLocation::None => {}
+  };
+  info!("Dir scan service execution time is: {:?}", start_time.elapsed());
 }
+
 fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLocation {
   if db_book_count > 0 && disk_book_count == 0 {
     BooksLocation::DB
@@ -51,12 +45,12 @@ fn get_books_location(db_book_count: usize, disk_book_count: usize) -> BooksLoca
     BooksLocation::None
   }
 }
-fn fill_storage_of_non_cached_books(general_books: HashSet<Book>) {
+fn fill_storage_of_non_cached_books(general_books: HashSet<Book>, db: &DB, not_cached_books: &NotCachedBooks) {
   for book in general_books {
-    let book_data = book.get_book_data();
+    let book_data = book.get_book_data(db);
     if !book_data.cached && book_data.mutool_err.is_none() {
-      book.push_to_storage();
+      not_cached_books.push(Box::new(book)).unwrap();
     }
   }
-  debug!("Number of NOT_CACHED_BOOKS: {:?}", &NOT_CACHED_BOOKS.len());
+  debug!("Number of not_cached_books: {:?}", not_cached_books.len());
 }

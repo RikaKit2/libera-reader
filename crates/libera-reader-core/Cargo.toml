@@ -6,14 +6,19 @@ license = "AGPL-3"
 repository = "https://github.com/RikaKit2/libera-reader"
 edition = "2021"
 
+[features]
+default = ["dev"]
+release = ["gxhash"]
+dev = []
+
 [dependencies]
+gxhash = { version = "3.5", optional = true, features = ["hybrid"] }
 directories = "6.0.0"
 notify = "8.0.0"
 serde = "1.0"
 tracing = "0.1"
 walkdir = "2.5.0"
 data-encoding = "2"
-gxhash = "3.4.1"
 rayon = "1.10.0"
 native_db = { version = "0.8" }
 native_model = "0.4.20"
@@ -24,7 +29,7 @@ concurrent-queue = "2.5.0"
 num_cpus = "1.16.0"
 tokio = { version = "1", features = ["full"] }
 libc = "0.2.170"
-
+crossbeam-channel = "0.5.15"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

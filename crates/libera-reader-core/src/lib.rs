@@ -1,8 +1,6 @@
-mod db;
-pub mod services;
-mod app_dirs;
+pub mod app_dirs;
+pub mod db;
+pub mod types;
 mod utils;
-mod types;
+pub mod services;
 pub mod vars;
-
-pub use crate::db::models;

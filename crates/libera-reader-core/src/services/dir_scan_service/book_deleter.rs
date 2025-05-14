@@ -1,12 +1,12 @@
 use crate::db::crud;
-use crate::models::Book;
+use crate::db::models::Book;
+use crate::types::{AppDirsType, DB};
 use measure_time_macro::measure_time;
 use tracing::debug;
 
-
 #[measure_time]
-pub(crate) fn del_outdated_books(outdated_books: Vec<Book>) {
+pub(crate) fn del_outdated_books(outdated_books: Vec<Book>, db: &DB, app_dirs: &AppDirsType) {
   for outdated_book in outdated_books {
-    crud::book::del_book_and_its_data(outdated_book);
+    crud::book::del_book(outdated_book, app_dirs, db);
   }
 }
