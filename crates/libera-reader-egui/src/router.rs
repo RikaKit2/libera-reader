@@ -16,12 +16,13 @@ pub(crate) enum Route {
   Settings,
 }
 
+#[derive(Debug)]
 pub(crate) struct Router {
-  inn: RootRoute,
+  pub(crate) inn: RootRoute,
 }
 impl Router {
   pub(crate) fn new(route: RootRoute) -> Self { Self { inn: route } }
-  pub(crate) fn change_route(&mut self, route: RootRoute) {
+  pub(crate) fn set_route(&mut self, route: RootRoute) {
     self.inn = route;
   }
   pub(crate) fn compare_with_root_route(&self, other: &Route) -> bool {
