@@ -1,11 +1,12 @@
 use crate::db::crud;
 use crate::db::models::TargetExt;
 use crate::db::models_impl::{DefaultModel, GetOrCreate};
-use native_db::{Database, ToInput};
+use native_db::ToInput;
+use crate::types::DB;
 
 
 impl TargetExt {
-  pub fn new(db: &Database) -> Self { Self::get_or_create(1, db) }
+  pub fn new(db: &DB) -> Self { Self::get_or_create(1, db) }
   pub(crate) fn contains(&self, ext: &str) -> bool {
     let ext_is_pdf = ext.eq("pdf") && self.pdf;
     let ext_is_epub = ext.eq("epub") && self.epub;
@@ -16,19 +17,19 @@ impl TargetExt {
       false
     }
   }
-  pub fn set_pdf(&mut self, value: bool, db: &Database) {
+  pub fn set_pdf(&mut self, value: bool, db: &DB) {
     let mut new_self = self.clone();
     new_self.pdf = value.clone();
     crud::update(self.clone(), new_self, db).unwrap();
     self.pdf = value;
   }
-  pub fn set_epub(&mut self, value: bool, db: &Database) {
+  pub fn set_epub(&mut self, value: bool, db: &DB) {
     let mut new_self = self.clone();
     new_self.epub = value.clone();
     crud::update(self.clone(), new_self, db).unwrap();
     self.epub = value;
   }
-  pub fn set_mobi(&mut self, value: bool, db: &Database) {
+  pub fn set_mobi(&mut self, value: bool, db: &DB) {
     let mut new_self = self.clone();
     new_self.mobi = value.clone();
     crud::update(self.clone(), new_self, db).unwrap();

@@ -12,7 +12,7 @@ impl AppDirs {
     Ok(Self { inn: dirs })
   }
   pub fn new_with_default_data_dir() -> Result<AppDirs, Vec<Error>> {
-    let proj_dirs = ProjectDirs::from("com", "RikaKit", "libera-reader").unwrap();
+    let proj_dirs = ProjectDirs::from("com", "RikaKit", "libera-reader-egui").unwrap();
     Self::new(proj_dirs.data_dir().to_path_buf())
   }
   pub fn set_base_dir(&mut self, data_dir: PathBuf) -> Result<(), Option<Vec<Error>>> {
@@ -48,7 +48,7 @@ impl Dirs {
         std::fs::create_dir_all(&data_dir).unwrap();
       }
     }
-    let path_to_db = data_dir.join("libera-reader").with_extension("redb");
+    let path_to_db = data_dir.join("libera-reader-egui").with_extension("redb");
     let thumbnails_dir = data_dir.join("thumbnails");
     let dir_of_unhashed_books = thumbnails_dir.join("unhashed_books");
     let dir_of_hashed_books = thumbnails_dir.join("hashed_books");
