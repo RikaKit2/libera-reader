@@ -4,7 +4,7 @@ version = "0.0.2"
 authors = ["RikaKit2"]
 license = "AGPL-3"
 repository = "https://github.com/RikaKit2/libera-reader"
-edition = "2021"
+edition = "2024"
 
 [features]
 default = ["dev"]
@@ -30,6 +30,7 @@ num_cpus = "1.16.0"
 tokio = { version = "1", features = ["full"] }
 libc = "0.2.170"
 crossbeam-channel = "0.5.15"
+sys-locale = "0.3.2"
 
 [dev-dependencies]
 tracing-subscriber = "0.3"

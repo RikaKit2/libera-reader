@@ -1,6 +1,6 @@
 use crate::db::crud::get_primary;
 use crate::db::models::{Book, BookData, BookDataWrapperPK, DataOfHashedBook, DataOfUnhashedBook};
-use crate::types::{AppDirsType, BookPath, MutoolErr};
+use crate::types::{APP_DIRS, BookPath, MutoolErr};
 use itertools::Itertools;
 use native_db::Database;
 use std::hash::{Hash, Hasher};
@@ -37,7 +37,7 @@ impl Book {
       book_data.cached = false;
     }, db)
   }
-  pub(crate) fn get_path_to_storage(&self, app_dirs: &AppDirsType) -> String {
+  pub(crate) fn get_path_to_storage(&self, app_dirs: &APP_DIRS) -> String {
     match &self.book_data_wrapper_pk {
       BookDataWrapperPK::UniqueSize(book_size) =>
         app_dirs.read().unwrap().inn.dir_of_unhashed_books.join(book_size).to_str().unwrap().to_string(),

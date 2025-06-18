@@ -1,5 +1,5 @@
 use crate::db::models::Book;
-use crate::types::{AppDirsType, HashSet, NotCachedBooks, TypeTargetExt, DB};
+use crate::types::{APP_DIRS, HashSet, NotCachedBooks, TARGET_EXT, DB};
 use books_separator::BookSeparator;
 use tracing::{debug, info};
 
@@ -14,7 +14,7 @@ enum BooksLocation {
   None,
 }
 
-pub(crate) fn run(path_to_scan: &String, db: &DB, target_ext: TypeTargetExt, app_dirs: AppDirsType, not_cached_books: &NotCachedBooks) {
+pub(crate) fn run(path_to_scan: &String, db: &DB, target_ext: TARGET_EXT, app_dirs: APP_DIRS, not_cached_books: &NotCachedBooks) {
   let book_separator = BookSeparator::new(&path_to_scan, db, &target_ext);
   fill_storage_of_non_cached_books(book_separator.general_books, db, not_cached_books);
   let start_time = std::time::Instant::now();

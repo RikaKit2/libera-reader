@@ -1,6 +1,6 @@
 use crate::services::data_extraction_service::DataExtractionService;
 use crate::services::notify_service::NotifyService;
-use crate::types::{AppDirsType, Error, NotCachedBooks, TypeTargetExt, DB};
+use crate::types::{APP_DIRS, Error, NotCachedBooks, TARGET_EXT, DB};
 use crate::vars::SHUTDOWN;
 use std::sync::atomic::Ordering;
 
@@ -44,12 +44,12 @@ pub struct Services {
   notify_service: NotifyService,
   data_extraction_service: DataExtractionService,
   not_cached_books: NotCachedBooks,
-  target_ext: TypeTargetExt,
-  app_dirs: AppDirsType,
+  target_ext: TARGET_EXT,
+  app_dirs: APP_DIRS,
   db: DB,
 }
 impl Services {
-  pub fn new(target_ext: TypeTargetExt, app_dirs: AppDirsType, db: DB, not_cached_books: NotCachedBooks) -> Self {
+  pub fn new(target_ext: TARGET_EXT, app_dirs: APP_DIRS, db: DB, not_cached_books: NotCachedBooks) -> Self {
     Self {
       notify_service: NotifyService::new(target_ext.clone(), app_dirs.clone()),
       data_extraction_service: DataExtractionService::new(not_cached_books.clone(), db.clone(), app_dirs.clone()),

@@ -6,4 +6,5 @@ members = [
     "crates/libera-reader-core",
     "crates/libera-reader-slint",
     "crates/measure_time_macro",
+    "crates/libera-reader-gpui",
 ]

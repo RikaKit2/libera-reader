@@ -1,7 +1,7 @@
 use crate::app_dirs::AppDirs;
 use crate::db::crud;
 use crate::db::models::TargetExt;
-use crate::types::{AppDirsType, Error, NotifyEvents, TypeTargetExt, DB};
+use crate::types::{APP_DIRS, Error, NotifyEvents, TARGET_EXT, DB};
 use crate::vars;
 use crossbeam_channel::Receiver;
 use native_db::Database;
@@ -18,11 +18,11 @@ pub struct NotifyService {
   path_to_scan: Option<String>,
   pub watcher: RecommendedWatcher,
   handle: Option<thread::JoinHandle<()>>,
-  target_ext: TypeTargetExt,
-  app_dirs: AppDirsType,
+  target_ext: TARGET_EXT,
+  app_dirs: APP_DIRS,
 }
 impl NotifyService {
-  pub fn new(target_ext: TypeTargetExt, app_dirs: AppDirsType) -> Self {
+  pub fn new(target_ext: TARGET_EXT, app_dirs: APP_DIRS) -> Self {
     let (tx, rx) = crossbeam_channel::unbounded();
     let watcher = notify::recommended_watcher(move |res| tx.send(res).unwrap()).unwrap();
     Self { notify_events: rx, path_to_scan: None, watcher, handle: None, target_ext, app_dirs }

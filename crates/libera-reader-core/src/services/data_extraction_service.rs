@@ -1,10 +1,9 @@
 use crate::db::models::Book;
 use crate::services::{get_num_of_threads, RayonTaskType, Status, Status::{NotWorking, Working}};
-use crate::types::{AppDirsType, MutoolErr, NotCachedBooks, DB};
+use crate::types::{APP_DIRS, MutoolErr, NotCachedBooks, DB};
 use crate::vars;
 use rayon::ThreadPoolBuilder;
 use std::io::{Error, ErrorKind};
-use std::os::unix::prelude::ExitStatusExt;
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::Ordering;
@@ -13,16 +12,18 @@ use std::thread;
 use std::time::Instant;
 use tokio::sync::Semaphore;
 use tracing::debug;
+#[cfg(unix)]
+use std::os::unix::prelude::ExitStatusExt;
 
 
 pub struct DataExtractionService {
   pub status: Status,
   not_cached_books: NotCachedBooks,
-  app_dirs: AppDirsType,
+  app_dirs: APP_DIRS,
   db: DB,
 }
 impl DataExtractionService {
-  pub fn new(not_cached_books: NotCachedBooks, db: DB, app_dirs: AppDirsType) -> Self {
+  pub fn new(not_cached_books: NotCachedBooks, db: DB, app_dirs: APP_DIRS) -> Self {
     Self { status: NotWorking, not_cached_books, db, app_dirs }
   }
   pub(crate) fn run(&mut self) {
@@ -61,19 +62,41 @@ impl DataExtractionService {
     match child.wait() {
       Ok(status) => match status.success() {
         true => Ok(not_cached_book),
-        false => match status.signal() {
-          None => {
+        false => {
+          #[cfg(unix)]
+          {
+            match status.signal() {
+              Some(signal) if signal == libc::SIGSEGV => {
+                eprintln!("Document caused segfault: {}", &not_cached_book.path_to_book);
+                Err((MutoolErr::SIGSEGV, not_cached_book))
+              }
+              _ => {
+                eprintln!("mutool failed for {}: {}", &not_cached_book.path_to_book, status);
+                Err((MutoolErr::OtherErr, not_cached_book))
+              }
+            }
+          }
+
+          #[cfg(windows)]
+          {
+            match status.code() {
+              Some(code) if code == 0xC0000005u32 as i32 => {
+                eprintln!("Document caused access violation: {}", &not_cached_book.path_to_book);
+                Err((MutoolErr::SIGSEGV, not_cached_book))
+              }
+              _ => {
+                eprintln!("mutool failed for {}: {}", &not_cached_book.path_to_book, status);
+                Err((MutoolErr::OtherErr, not_cached_book))
+              }
+            }
+          }
+
+          #[cfg(not(any(unix, windows)))]
+          {
             eprintln!("mutool failed for {}: {}", &not_cached_book.path_to_book, status);
             Err((MutoolErr::OtherErr, not_cached_book))
           }
-          Some(signal) => match signal.eq(&libc::SIGSEGV) {
-            true => {
-              eprintln!("Document caused segfault: {}", &not_cached_book.path_to_book);
-              Err((MutoolErr::SIGSEGV, not_cached_book))
-            }
-            false => Err((MutoolErr::OtherErr, not_cached_book)),
-          },
-        },
+        }
       },
       Err(e) => {
         eprintln!("Failed to wait for child process: {}", e);
@@ -81,7 +104,7 @@ impl DataExtractionService {
       }
     }
   }
-  fn extract_thumbnails(not_cached_books: &NotCachedBooks, app_dirs: &AppDirsType) -> Vec<Result<Box<Book>, (MutoolErr, Box<Book>)>> {
+  fn extract_thumbnails(not_cached_books: &NotCachedBooks, app_dirs: &APP_DIRS) -> Vec<Result<Box<Book>, (MutoolErr, Box<Book>)>> {
     let now = Instant::now();
     let num_workers = num_cpus::get();
     println!("Using {} worker threads", num_workers);
@@ -118,7 +141,7 @@ impl DataExtractionService {
     println!("service uptime: {:?}", elapsed);
     mutool_results
   }
-  fn run_thread(db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirsType) {
+  fn run_thread(db: DB, not_cached_books: NotCachedBooks, app_dirs: APP_DIRS) {
     thread::spawn(move || {
       let num_of_threads = get_num_of_threads(RayonTaskType::ImgExtract);
       debug!("Number of threads for data extraction service: {:?}", &num_of_threads);
