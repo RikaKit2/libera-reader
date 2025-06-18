@@ -2,9 +2,7 @@ cargo-features = ["profile-rustflags"]
 [workspace]
 resolver = "2"
 members = [
-    "crates/libera-reader-egui",
     "crates/libera-reader-core",
-    "crates/libera-reader-slint",
     "crates/measure_time_macro",
-    "crates/libera-reader-gpui",
+    "crates/libera-reader",
 ]
