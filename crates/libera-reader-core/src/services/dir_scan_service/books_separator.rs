@@ -1,5 +1,5 @@
 use crate::db::models::Book;
-use crate::types::{BookPath, HashMap, HashSet, TypeTargetExt, DB};
+use crate::types::{BookPath, HashMap, HashSet, TARGET_EXT, DB};
 use measure_time_macro::measure_time;
 use std::path::PathBuf;
 use tracing::debug;
@@ -15,7 +15,7 @@ pub(crate) struct BookSeparator {
 }
 
 impl BookSeparator {
-  pub(crate) fn new(path_to_scan: &String, db: &DB, target_ext: &TypeTargetExt) -> Self {
+  pub(crate) fn new(path_to_scan: &String, db: &DB, target_ext: &TARGET_EXT) -> Self {
     let mut books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(path_to_scan, target_ext)
       .into_iter().map(|i| (i.to_str().unwrap().to_string(), i)).collect();
     let mut books_in_db: HashMap<BookPath, Book> = Book::get_all(db).into_iter()
@@ -50,7 +50,7 @@ impl BookSeparator {
 }
 
 #[measure_time]
-fn get_books_from_disk(path_to_scan: &String, target_ext: &TypeTargetExt) -> Vec<PathBuf> {
+fn get_books_from_disk(path_to_scan: &String, target_ext: &TARGET_EXT) -> Vec<PathBuf> {
   let mut books_from_disk: Vec<PathBuf> = vec![];
   for entry in WalkDir::new(path_to_scan) {
     let entry = entry.unwrap();

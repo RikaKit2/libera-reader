@@ -8,7 +8,7 @@ use libera_reader_core::app_dirs::AppDirs;
 use libera_reader_core::db::create_db_on_disk;
 use libera_reader_core::db::models::{Settings, TargetExt};
 use libera_reader_core::services::Services;
-use libera_reader_core::types::{AppDirsType, NotCachedBooks, TypeTargetExt, DB};
+use libera_reader_core::types::{APP_DIRS, NotCachedBooks, TARGET_EXT, DB};
 use std::sync::{Arc, RwLock};
 
 pub(crate) mod main;
@@ -22,9 +22,9 @@ pub(crate) struct Pages {
   book_viewer: BookViewer,
   router: Router,
 
-  app_dirs: AppDirsType,
+  app_dirs: APP_DIRS,
   db: DB,
-  target_ext: TypeTargetExt,
+  target_ext: TARGET_EXT,
   not_cached_books: NotCachedBooks,
   services: Services,
   settings: Settings,

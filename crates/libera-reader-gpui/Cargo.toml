@@ -1,0 +1,23 @@
+[package]
+name = "libera-reader-gpui"
+version = "0.1.0"
+authors = ["RikaKit2"]
+license = "AGPL-3"
+repository = "https://github.com/RikaKit2/libera-reader"
+edition = "2024"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[dependencies]
+libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
+gpui = { git = "https://github.com/zed-industries/zed" }
+rfd = "0.15.3"
+concurrent-queue = "2.5.0"
+tracing = "0.1"
+tracing-subscriber = "0.3.19"
+anyhow = "1.0.98"
