@@ -40,17 +40,17 @@ impl RenderOnce for Btn {
     let is_active = self.get_active_status();
     let icon = svg().path(self.image_source)
       .w(px(28.0))
-      .h(px(28.0))
-      .hover(|h| h.text_color(rgb(adjust_brightness(theme.base_color_content, 1.2))));
+      .h(px(28.0));
 
     let (btn, icon) = match is_active {
       true => {
-        let img = icon.text_color(rgb(adjust_brightness(theme.base_color_content, 1.2)));
-        let btn = div().border_color(rgb(adjust_brightness(theme.primary_color, 1.2)));
+        let img = icon.text_color(rgb(theme.base_color_content));
+        let btn = div().border_color(rgb(theme.primary_color));
         (btn, img)
       }
       false => {
-        let img = icon.text_color(rgb(adjust_brightness(theme.base_color_content, 0.8)));
+        let img = icon.text_color(rgb(adjust_brightness(theme.base_color_content, 0.6)))
+          .hover(|h| h.text_color(rgb(adjust_brightness(theme.base_color_content, 0.9))));
         let btn = div().border_color(gpui::transparent_black());
         (btn, img)
       }

@@ -1,9 +1,13 @@
-use crate::ui::pages::Pages;
+use crate::ui::pages::CTX;
 use gpui::prelude::*;
-use gpui::{div, Window};
+use gpui::{App, Entity};
+use std::sync::Arc;
 
-impl Pages {
-  pub fn render_book_viewer(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-    div()
+pub(crate) struct BookViewer {
+  ctx: Arc<CTX>,
+}
+impl BookViewer {
+  pub(crate) fn new(cx: &mut App, ctx: Arc<CTX>) -> Entity<Self> {
+    cx.new(|_| Self { ctx })
   }
 }

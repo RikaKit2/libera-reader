@@ -2648,6 +2648,7 @@ dependencies = [
  "rfd",
  "tracing",
  "tracing-subscriber",
+ "unicode-segmentation",
 ]
 
 [[package]]

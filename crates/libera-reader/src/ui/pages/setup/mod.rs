@@ -1,11 +1,21 @@
-use crate::ui::pages::Pages;
+use crate::ui::pages::CTX;
 use crate::ui::utils::adjust_brightness;
 use gpui::prelude::FluentBuilder;
-use gpui::{div, rgb, Context, FontWeight, InteractiveElement, IntoElement, MouseButton, MouseDownEvent, ParentElement, Styled, Window};
+use gpui::{div, rgb, App, AppContext, Context, Entity, FontWeight, InteractiveElement, IntoElement,
+           MouseButton, MouseDownEvent, ParentElement, Render, Styled, Window};
 use libera_reader_core::db::models::{RootRoute, Route, TextId};
 use rfd::FileDialog;
+use std::sync::Arc;
 
-impl Pages {
+
+pub(crate) struct SetupPage {
+  ctx: Arc<CTX>,
+  window_of_selecting_folder_is_open: bool,
+}
+impl SetupPage {
+  pub(crate) fn new(cx: &mut App, ctx: Arc<CTX>) -> Entity<Self> {
+    cx.new(|_| Self { ctx, window_of_selecting_folder_is_open: false })
+  }
   fn select_folder(&mut self, _event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
     match self.window_of_selecting_folder_is_open {
       true => {}
@@ -13,7 +23,7 @@ impl Pages {
         match FileDialog::new().pick_folder() {
           None => {}
           Some(path) => {
-            self.settings.write().unwrap().set_path_to_scan(path.display().to_string(), &self.db);
+            self.ctx.settings.write().unwrap().set_path_to_scan(path.display().to_string(), &self.ctx.db);
             self.window_of_selecting_folder_is_open = true;
             cx.notify();
           }
@@ -22,19 +32,21 @@ impl Pages {
     }
   }
   fn handler_for_next_btn(&mut self, _event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
-    let path_to_scan = self.settings.read().unwrap().path_to_scan.is_some();
+    let path_to_scan = self.ctx.settings.read().unwrap().path_to_scan.is_some();
     match path_to_scan {
       true => {
-        self.settings.write().unwrap().set_setup_status(true, &self.db);
-        self.settings.write().unwrap().set_route(RootRoute::Main(Route::Library), &self.db);
+        self.ctx.settings.write().unwrap().set_setup_status(true, &self.ctx.db);
+        self.ctx.settings.write().unwrap().set_route(RootRoute::Main(Route::Library), &self.ctx.db);
         cx.notify();
       }
       false => {}
     }
   }
-  pub(crate) fn render_setup(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = self.settings.read().unwrap().theme.clone();
-    let i18n = self.settings.read().unwrap().language.clone();
+}
+impl Render for SetupPage {
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = self.ctx.settings.read().unwrap().theme.clone();
+    let i18n = self.ctx.settings.read().unwrap().language.clone();
     div().bg(rgb(theme.base_100)).w_full().h_full().p_6().flex().flex_col().justify_between().text_color(rgb(theme.base_color_content)).children(
       [
         div().flex().flex_col().children([
@@ -53,8 +65,8 @@ impl Pages {
             ]),
             div().flex_col().children([
               div().child(i18n.translate(TextId::TargetPath)),
-              div().when(self.settings.read().unwrap().path_to_scan.is_some(),
-                         |_| div().child(self.settings.read().unwrap().path_to_scan.clone().unwrap()))
+              div().when(self.ctx.settings.read().unwrap().path_to_scan.is_some(),
+                         |_| div().child(self.ctx.settings.read().unwrap().path_to_scan.clone().unwrap()))
             ]),
           ]),
         ]),

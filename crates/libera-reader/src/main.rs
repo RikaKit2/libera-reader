@@ -2,13 +2,11 @@ mod ui;
 
 use crate::ui::assets::Assets;
 use crate::ui::pages::Pages;
-use gpui::{prelude::*, px, size, App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions};
+use gpui::{px, size, App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions};
 use std::path::PathBuf;
 use tracing::Level;
 
-fn build_root_window(_window: &mut Window, cx: &mut App) -> Entity<Pages> {
-  cx.new(|_| Pages::new())
-}
+fn build_root_window(_window: &mut Window, cx: &mut App) -> Entity<Pages> { Pages::new(cx) }
 
 fn main() {
   let subscriber = tracing_subscriber::fmt()
