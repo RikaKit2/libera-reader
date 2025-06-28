@@ -1,9 +1,8 @@
-use crate::db::crud;
+use crate::db::crud::update_table;
 use crate::db::models::TargetExt;
 use crate::db::models_impl::{DefaultModel, GetOrCreate};
-use native_db::ToInput;
 use crate::types::DB;
-
+use native_db::ToInput;
 
 impl TargetExt {
   pub fn new(db: &DB) -> Self { Self::get_or_create(1, db) }
@@ -17,23 +16,17 @@ impl TargetExt {
       false
     }
   }
-  pub fn set_pdf(&mut self, value: bool, db: &DB) {
-    let mut new_self = self.clone();
-    new_self.pdf = value.clone();
-    crud::update(self.clone(), new_self, db).unwrap();
-    self.pdf = value;
+  pub fn invert_pdf(&mut self, db: &DB) {
+    update_table(db, Some(self.clone()), |target_ext| target_ext.pdf = !target_ext.pdf);
+    self.pdf = !self.pdf;
   }
-  pub fn set_epub(&mut self, value: bool, db: &DB) {
-    let mut new_self = self.clone();
-    new_self.epub = value.clone();
-    crud::update(self.clone(), new_self, db).unwrap();
-    self.epub = value;
+  pub fn invert_epub(&mut self, db: &DB) {
+    update_table(db, Some(self.clone()), |target_ext| target_ext.epub = !target_ext.epub);
+    self.epub = !self.epub;
   }
-  pub fn set_mobi(&mut self, value: bool, db: &DB) {
-    let mut new_self = self.clone();
-    new_self.mobi = value.clone();
-    crud::update(self.clone(), new_self, db).unwrap();
-    self.mobi = value;
+  pub fn invert_mobi(&mut self, db: &DB) {
+    update_table(db, Some(self.clone()), |target_ext| target_ext.mobi = !target_ext.mobi);
+    self.mobi = !self.mobi;
   }
 }
 impl DefaultModel for TargetExt {

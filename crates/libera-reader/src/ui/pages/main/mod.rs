@@ -1,4 +1,4 @@
-use crate::ui::pages::main::content::{BookMarks, Favorite, FileManager, History, Library, Settings, Stats};
+use crate::ui::pages::main::content::{BookMarks, Favorite, FileManager, History, Library, SettingsPage, Stats};
 use crate::ui::pages::main::side_bar::SideBar;
 use crate::ui::pages::CTX;
 use gpui::{div, App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
@@ -18,7 +18,7 @@ pub(crate) struct MainPage {
   favorite: Entity<Favorite>,
   book_marks: Entity<BookMarks>,
   stats: Entity<Stats>,
-  settings: Entity<Settings>,
+  settings: Entity<SettingsPage>,
 }
 
 impl MainPage {
@@ -34,7 +34,7 @@ impl MainPage {
         favorite: Favorite::new(c, ctx2.clone()),
         book_marks: BookMarks::new(c, ctx2.clone()),
         stats: Stats::new(c, ctx2.clone()),
-        settings: Settings::new(c, ctx2),
+        settings: SettingsPage::new(c, ctx2),
       }
     )
   }

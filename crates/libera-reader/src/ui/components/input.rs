@@ -1,13 +1,13 @@
+use crate::ui::utils::adjust_brightness;
 use gpui::{actions, div, fill, point, prelude::*, px, relative, rgb, size, App, Bounds, ClipboardItem,
            Context, CursorStyle, ElementId, ElementInputHandler, Entity, EntityInputHandler, FocusHandle,
            Focusable, GlobalElementId, Hsla, InspectorElementId, KeyBinding, LayoutId, MouseButton,
            MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString,
            Style, TextRun, UTF16Selection, UnderlineStyle, Window};
-use libera_reader_core::types::SETTINGS;
+use libera_reader_core::types::THEME;
 use std::ops::Range;
 use std::panic::Location;
 use unicode_segmentation::*;
-use crate::ui::utils::adjust_brightness;
 
 actions!(
     text_input,
@@ -37,11 +37,11 @@ pub(crate) struct TextInput {
   last_layout: Option<ShapedLine>,
   last_bounds: Option<Bounds<Pixels>>,
   is_selecting: bool,
-  settings: SETTINGS,
+  theme: THEME,
 }
 
 impl TextInput {
-  pub fn new(cx: &mut App, placeholder: SharedString, settings: SETTINGS) -> Entity<TextInput> {
+  pub fn new(cx: &mut App, placeholder: SharedString, theme: THEME) -> Entity<TextInput> {
     cx.bind_keys([
       KeyBinding::new("backspace", Backspace, None),
       KeyBinding::new("delete", Delete, None),
@@ -66,7 +66,7 @@ impl TextInput {
       last_layout: None,
       last_bounds: None,
       is_selecting: false,
-      settings,
+      theme,
     })
   }
   fn left(&mut self, _: &Left, _: &mut Window, cx: &mut Context<Self>) {
@@ -428,7 +428,7 @@ impl Element for TextElement {
     let selected_range = input.selected_range.clone();
     let cursor = input.cursor_offset();
     let style = window.text_style();
-    let theme = &self.input.read(cx).settings.read().unwrap().theme;
+    let theme = self.input.read(cx).theme.read().unwrap();
     let (display_text, text_color) = if content.is_empty() {
       (input.placeholder.clone(), rgb(theme.base_color_content))
     } else {
@@ -547,7 +547,7 @@ impl Element for TextElement {
 
 impl Render for TextInput {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = self.settings.read().unwrap().theme.clone();
+    let theme = self.theme.read().unwrap();
     div()
       .size_full()
       .flex()

@@ -1,5 +1,5 @@
 use crate::app_dirs::AppDirs;
-use crate::db::models::{Book, Settings, TargetExt};
+use crate::db::models::{Book, Settings, TargetExt, Theme};
 use concurrent_queue::ConcurrentQueue;
 use native_db::Database;
 use serde::{Deserialize, Serialize};
@@ -50,3 +50,5 @@ pub type APP_DIRS = Arc<RwLock<AppDirs>>;
 pub type NotCachedBooks = Arc<ConcurrentQueue<Box<Book>>>;
 #[allow(non_camel_case_types)]
 pub type SETTINGS = Arc<RwLock<Settings>>;
+#[allow(non_camel_case_types)]
+pub type THEME = Arc<RwLock<Theme>>;

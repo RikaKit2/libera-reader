@@ -22,7 +22,7 @@ impl SideBar {
 }
 impl Render for SideBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = self.ctx.settings.read().unwrap().theme.clone();
+    let theme = self.ctx.theme.read().unwrap();
     div()
       .bg(rgb(theme.base_300))
       .w_12()
@@ -32,31 +32,31 @@ impl Render for SideBar {
       .justify_between()
       .children([
         div().children([
-          Btn::new(Library, self.ctx.settings.clone(), "heroicons--book-open.svg", Some(Box::new({
+          Btn::new(Library, self.ctx.settings.clone(), self.ctx.theme.clone(), "heroicons--book-open.svg", Some(Box::new({
             cx.listener(move |pages, _event, _window, cx| {
               pages.mark_btn_as_active(Library);
               cx.notify();
             })
           }))),
-          Btn::new(FileManager, self.ctx.settings.clone(), "heroicons--folder.svg", Some(Box::new({
+          Btn::new(FileManager, self.ctx.settings.clone(), self.ctx.theme.clone(), "heroicons--folder.svg", Some(Box::new({
             cx.listener(move |pages, _event, _window, cx| {
               pages.mark_btn_as_active(FileManager);
               cx.notify();
             })
           }))),
-          Btn::new(History, self.ctx.settings.clone(), "heroicons--clock.svg", Some(Box::new({
+          Btn::new(History, self.ctx.settings.clone(), self.ctx.theme.clone(), "heroicons--clock.svg", Some(Box::new({
             cx.listener(move |pages, _event, _window, cx| {
               pages.mark_btn_as_active(History);
               cx.notify();
             })
           }))),
-          Btn::new(Favorite, self.ctx.settings.clone(), "heroicons--star.svg", Some(Box::new({
+          Btn::new(Favorite, self.ctx.settings.clone(), self.ctx.theme.clone(), "heroicons--star.svg", Some(Box::new({
             cx.listener(move |pages, _event, _window, cx| {
               pages.mark_btn_as_active(Favorite);
               cx.notify();
             })
           }))),
-          Btn::new(BookMarks, self.ctx.settings.clone(), "heroicons--bookmark.svg", Some(Box::new({
+          Btn::new(BookMarks, self.ctx.settings.clone(), self.ctx.theme.clone(), "heroicons--bookmark.svg", Some(Box::new({
             cx.listener(move |pages, _event, _window, cx| {
               pages.mark_btn_as_active(BookMarks);
               cx.notify();
@@ -64,13 +64,13 @@ impl Render for SideBar {
           }))),
         ]),
         div().children([
-          Btn::new(Stats, self.ctx.settings.clone(), "heroicons--chart-bar.svg", Some(Box::new({
+          Btn::new(Stats, self.ctx.settings.clone(), self.ctx.theme.clone(), "heroicons--chart-bar.svg", Some(Box::new({
             cx.listener(move |pages, _event, _window, cx| {
               pages.mark_btn_as_active(Stats);
               cx.notify();
             })
           }))),
-          Btn::new(Route::Settings, self.ctx.settings.clone(), "heroicons--cog-8-tooth.svg", Some(Box::new({
+          Btn::new(Route::Settings, self.ctx.settings.clone(), self.ctx.theme.clone(), "heroicons--cog-8-tooth.svg", Some(Box::new({
             cx.listener(move |pages, _event, _window, cx| {
               pages.mark_btn_as_active(Route::Settings);
               cx.notify();

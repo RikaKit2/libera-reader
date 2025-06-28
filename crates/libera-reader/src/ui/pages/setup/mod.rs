@@ -45,15 +45,15 @@ impl SetupPage {
 }
 impl Render for SetupPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = self.ctx.settings.read().unwrap().theme.clone();
+    let theme = &self.ctx.theme.read().unwrap();
     let i18n = self.ctx.settings.read().unwrap().language.clone();
     div().bg(rgb(theme.base_100)).w_full().h_full().p_6().flex().flex_col().justify_between().text_color(rgb(theme.base_color_content)).children(
       [
         div().flex().flex_col().children([
-          div().child(i18n.translate(TextId::SetupPageTitle)).font_weight(FontWeight::BOLD),
+          div().child(i18n.get(TextId::SetupPageTitle)).font_weight(FontWeight::BOLD),
           div().flex_col().children([
             div().gap_2().flex().children([
-              div().child(i18n.translate(TextId::MessageOfSelectingTargetDir)),
+              div().child(i18n.get(TextId::MessageOfSelectingTargetDir)),
               div().flex().px_1()
                 .rounded_sm()
                 .on_mouse_down(MouseButton::Left, cx.listener(Self::select_folder))
@@ -61,10 +61,10 @@ impl Render for SetupPage {
                 .text_color(rgb(theme.primary_content_color))
                 .bg(rgb(adjust_brightness(theme.primary_color, 0.9)))
                 .hover(|s| s.bg(rgb(adjust_brightness(theme.primary_color, 1.1))))
-                .child(i18n.translate(TextId::SetupPageSelectBtn)),
+                .child(i18n.get(TextId::SetupPageSelectBtn)),
             ]),
             div().flex_col().children([
-              div().child(i18n.translate(TextId::TargetPath)),
+              div().child(i18n.get(TextId::TargetPath)),
               div().when(self.ctx.settings.read().unwrap().path_to_scan.is_some(),
                          |_| div().child(self.ctx.settings.read().unwrap().path_to_scan.clone().unwrap()))
             ]),
@@ -78,7 +78,7 @@ impl Render for SetupPage {
             .bg(rgb(adjust_brightness(theme.info_color, 0.9)))
             .hover(|s| s.bg(rgb(adjust_brightness(theme.info_color, 1.1))))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::handler_for_next_btn))
-            .child(i18n.translate(TextId::SetupPageNextBtn))
+            .child(i18n.get(TextId::SetupPageNextBtn))
         ]),
       ]
     )

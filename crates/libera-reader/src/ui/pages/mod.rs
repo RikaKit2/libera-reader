@@ -1,13 +1,13 @@
+use crate::ui::pages::main::MainPage;
+use crate::ui::pages::setup::SetupPage;
 use concurrent_queue::ConcurrentQueue;
 use gpui::{div, App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use libera_reader_core::app_dirs::AppDirs;
 use libera_reader_core::db::create_db_on_disk;
-use libera_reader_core::db::models::{Settings, TargetExt};
+use libera_reader_core::db::models::{Settings, TargetExt, Theme};
 use libera_reader_core::services::Services;
-use libera_reader_core::types::{NotCachedBooks, APP_DIRS, DB, SETTINGS, TARGET_EXT};
+use libera_reader_core::types::{NotCachedBooks, APP_DIRS, DB, SETTINGS, TARGET_EXT, THEME};
 use std::sync::{Arc, RwLock};
-use crate::ui::pages::main::MainPage;
-use crate::ui::pages::setup::SetupPage;
 
 pub(crate) mod main;
 pub(crate) mod setup;
@@ -16,11 +16,12 @@ pub(crate) mod book_viewer;
 
 pub(crate) struct CTX {
   _app_dirs: APP_DIRS,
-  db: DB,
-  _target_ext: TARGET_EXT,
+  target_ext: TARGET_EXT,
   _not_cached_books: NotCachedBooks,
   _services: Arc<Services>,
   settings: SETTINGS,
+  theme: THEME,
+  db: DB,
 }
 impl CTX {
   pub fn new() -> Self {
@@ -34,11 +35,12 @@ impl CTX {
     let settings = Arc::new(RwLock::new(Settings::new(&db)));
     Self {
       _app_dirs: app_dirs,
-      db,
-      _target_ext: target_ext,
+      target_ext,
       _not_cached_books: not_cached_books,
       _services: services,
       settings,
+      theme: Arc::new(RwLock::new(Theme::new(&db))),
+      db,
     }
   }
 }
@@ -51,7 +53,7 @@ pub(crate) struct Pages {
 impl Pages {
   pub fn new(cx: &mut App) -> Entity<Self> {
     let ctx = Arc::from(CTX::new());
-    cx.new(|c|   Self { ctx: ctx.clone(), main_page: MainPage::new(c, ctx.clone()), setup_page: SetupPage::new(c, ctx) })
+    cx.new(|c| Self { ctx: ctx.clone(), main_page: MainPage::new(c, ctx.clone()), setup_page: SetupPage::new(c, ctx) })
   }
 }
 

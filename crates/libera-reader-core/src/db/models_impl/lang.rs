@@ -18,7 +18,7 @@ impl Lang {
     Lang::from_locale(&locale)
   }
 
-  pub fn translate(&self, id: TextId) -> &'static str {
+  pub fn get(&self, id: TextId) -> &'static str {
     match self {
       Lang::EN => match id {
         TextId::SetupPageTitle => { "Preliminary setting" }
@@ -26,6 +26,7 @@ impl Lang {
         TextId::SetupPageSelectBtn => { "Select" }
         TextId::TargetPath => { "Selected path for scanning:" }
         TextId::SetupPageNextBtn => { "Next" }
+        TextId::SettingsPageUsedFormats => { "Used Formats" }
       },
       Lang::RU => match id {
         TextId::SetupPageTitle => { "Предварительная настройка" }
@@ -33,6 +34,7 @@ impl Lang {
         TextId::SetupPageSelectBtn => { "Выбрать" }
         TextId::TargetPath => { "Выбранный путь для сканирования:" }
         TextId::SetupPageNextBtn => { "Далее" }
+        TextId::SettingsPageUsedFormats => { "Используемые форматы" }
       },
     }
   }
