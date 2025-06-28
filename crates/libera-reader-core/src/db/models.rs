@@ -12,6 +12,7 @@ pub enum TextId {
   SetupPageSelectBtn,
   TargetPath,
   SetupPageNextBtn,
+  SettingsPageUsedFormats
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
@@ -24,32 +25,6 @@ pub enum Lang {
 pub enum ColorScheme {
   Dark,
   Light,
-}
-
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
-pub struct Theme {
-  pub name: String,
-  pub color_scheme: ColorScheme,
-  pub base_100: u32,
-  pub base_200: u32,
-  pub base_300: u32,
-  pub base_color_content: u32,
-  pub primary_color: u32,
-  pub primary_content_color: u32,
-  pub secondary_color: u32,
-  pub secondary_content_color: u32,
-  pub accent_color: u32,
-  pub accent_content_color: u32,
-  pub neutral_color: u32,
-  pub neutral_content_color: u32,
-  pub info_color: u32,
-  pub info_content_color: u32,
-  pub success_color: u32,
-  pub success_content_color: u32,
-  pub warning_color: u32,
-  pub warning_content_color: u32,
-  pub error_color: u32,
-  pub error_content_color: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialOrd, PartialEq, Copy, Debug)]
@@ -77,7 +52,6 @@ pub struct Settings {
   #[primary_key]
   pub id: i32,
   pub language: Lang,
-  pub theme: Theme,
   pub path_to_scan: Option<String>,
   pub number_of_columns: i32,
   pub page_scaling_factor: f64,
@@ -165,4 +139,34 @@ pub struct TargetExt {
   pub pdf: bool,
   pub epub: bool,
   pub mobi: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[native_model(id = 7, version = 1)]
+#[native_db]
+pub struct Theme {
+  #[primary_key]
+  pub id: i32,
+  pub name: String,
+  pub color_scheme: ColorScheme,
+  pub base_100: u32,
+  pub base_200: u32,
+  pub base_300: u32,
+  pub base_color_content: u32,
+  pub primary_color: u32,
+  pub primary_content_color: u32,
+  pub secondary_color: u32,
+  pub secondary_content_color: u32,
+  pub accent_color: u32,
+  pub accent_content_color: u32,
+  pub neutral_color: u32,
+  pub neutral_content_color: u32,
+  pub info_color: u32,
+  pub info_content_color: u32,
+  pub success_color: u32,
+  pub success_content_color: u32,
+  pub warning_color: u32,
+  pub warning_content_color: u32,
+  pub error_color: u32,
+  pub error_content_color: u32,
 }

@@ -2646,6 +2646,7 @@ dependencies = [
  "gpui",
  "libera-reader-core",
  "rfd",
+ "serde",
  "tracing",
  "tracing-subscriber",
  "unicode-segmentation",

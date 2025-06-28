@@ -2,7 +2,7 @@ pub mod models;
 pub mod models_impl;
 pub(crate) mod crud;
 
-use crate::db::models::{Book, BookMark, DataOfHashedBook, DataOfUnhashedBook, Settings, TargetExt};
+use crate::db::models::{Book, BookMark, DataOfHashedBook, DataOfUnhashedBook, Settings, TargetExt, Theme};
 use native_db::{db_type, Builder, Database, Models};
 use once_cell::sync::Lazy;
 use std::path::PathBuf;
@@ -29,6 +29,7 @@ pub(crate) fn get_models() -> Models {
   models.define::<DataOfUnhashedBook>().unwrap();
   models.define::<DataOfHashedBook>().unwrap();
   models.define::<TargetExt>().unwrap();
+  models.define::<Theme>().unwrap();
   models
 }
 pub static MODELS: Lazy<Models> = Lazy::new(|| get_models());

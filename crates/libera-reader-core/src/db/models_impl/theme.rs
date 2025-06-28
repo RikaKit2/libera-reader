@@ -1,8 +1,23 @@
+use crate::db::crud::update;
 use crate::db::models::{ColorScheme, Theme};
+use crate::db::models_impl::{DefaultModel, GetOrCreate};
+use crate::types::DB;
+use native_db::ToInput;
 
 impl Theme {
+  pub fn new(db: &DB) -> Self { Self::get_or_create(1, db) }
+  pub fn set(&mut self, new_theme: Theme, db: &DB) {
+    match self.name.eq(&new_theme.name) {
+      true => {}
+      false => {
+        update::<Self>(self.clone(), new_theme.clone(), db).unwrap();
+        *self = new_theme;
+      }
+    };
+  }
   pub fn make_sunset() -> Self {
     Self {
+      id: 1,
       name: "sunset".into(),
       color_scheme: ColorScheme::Dark,
       base_100: 0x121c22,
@@ -27,8 +42,9 @@ impl Theme {
       error_content_color: 0x140f08,
     }
   }
-  pub fn make_wireframe()->Self{
-    Self{
+  pub fn make_wireframe() -> Self {
+    Self {
+      id: 1,
       name: "wireframe".into(),
       color_scheme: ColorScheme::Light,
       base_100: 0xffffff,
@@ -54,3 +70,9 @@ impl Theme {
     }
   }
 }
+impl DefaultModel for Theme {
+  fn default_model() -> Self where Self: Sized + ToInput {
+    Theme::make_sunset()
+  }
+}
+impl GetOrCreate for Theme {}
