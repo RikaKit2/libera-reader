@@ -2,10 +2,11 @@ use crate::db::crud::update;
 use crate::db::models::{ColorScheme, Theme};
 use crate::db::models_impl::{DefaultModel, GetOrCreate};
 use crate::types::DB;
+use anyhow::Result;
 use native_db::ToInput;
 
 impl Theme {
-  pub fn new(db: &DB) -> Self { Self::get_or_create(1, db) }
+  pub fn new(db: &DB) -> Result<Self> { Self::get_or_create(1, db) }
   pub fn set(&mut self, new_theme: Theme, db: &DB) {
     match self.name.eq(&new_theme.name) {
       true => {}
@@ -71,7 +72,8 @@ impl Theme {
   }
 }
 impl DefaultModel for Theme {
-  fn default_model() -> Self where Self: Sized + ToInput {
+  fn default_model() -> Self
+                     where Self: Sized + ToInput {
     Theme::make_sunset()
   }
 }

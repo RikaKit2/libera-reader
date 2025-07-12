@@ -1,22 +1,21 @@
 use crate::db::crud;
-use crate::db::models::TargetExt;
-use crate::utils::calc_file_size_in_mb;
-use measure_time_macro::measure_time;
-use native_db::Database;
+use crate::services::notify_service::NotifyEventHandler;
+use anyhow::Result;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
 use tracing::debug;
+use utils::FileSizeMeasure;
 
-#[measure_time]
-pub(crate) fn book_adding_handler(book_pathbuf: &PathBuf, db: &Database, target_ext: &Arc<RwLock<TargetExt>>) -> Duration {
-  let start_time = std::time::Instant::now();
-  let ext = book_pathbuf.extension().unwrap().to_str().unwrap().to_string();
-  if target_ext.read().unwrap().contains(&ext) {
-    let book_size = calc_file_size_in_mb(book_pathbuf);
-    crud::book::add_book(book_pathbuf, book_size, db);
+impl NotifyEventHandler {
+  //noinspection RsUnwrap
+  pub(crate) fn book_adding_handler(&self, book_pathbuf: &PathBuf) -> Result<()> {
+    let start_time = std::time::Instant::now();
+    let ext = book_pathbuf.extension().unwrap().to_str().unwrap().to_string();
+    if self.target_ext.read().unwrap().contains(&ext) {
+      let book_size = FileSizeMeasure::MB.get_file_size(book_pathbuf, 2)?.to_string();
+      crud::book::add_book(book_pathbuf, book_size, &self.db, &self.not_cached_books)?;
+    }
+    let total_time = start_time.elapsed();
+    debug!("Function book_adding_handler executed in: {:?}", &total_time);
+    Ok(())
   }
-  let total_time = start_time.elapsed();
-  debug!("Function book_adding_handler executed in: {:?}", &total_time);
-  total_time
 }

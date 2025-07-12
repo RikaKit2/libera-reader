@@ -8,10 +8,10 @@ use once_cell::sync::Lazy;
 
 #[cfg(not(target_os = "windows"))]
 #[test]
-fn notify_service_test() -> Result<()> {
+fn passive_scan_test() -> Result<()> {
   utils::create_subscriber()?;
   pub static MODELS: Lazy<Models> = Lazy::new(|| get_models().unwrap());
-  let mut fc_lib = FileCrudLib::new(TestMode::Notify, "tmp_dir_scan", &MODELS)?;
+  let mut fc_lib = FileCrudLib::new(TestMode::PassiveScan, "tmp_dir_scan", &MODELS)?;
   fc_lib.run_tests()?;
   Ok(())
 }

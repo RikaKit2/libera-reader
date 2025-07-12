@@ -14,12 +14,12 @@ codegen-units = 1
 lto = true
 
 [dependencies]
+gpui = { workspace = true }
+rfd = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+unicode-segmentation = { workspace = true }
+once_cell = { workspace = true }
+native_db = { workspace = true }
 libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
-gpui = { git = "https://github.com/zed-industries/zed" }
-rfd = "0.15.3"
-concurrent-queue = "2.5.0"
-tracing = "0.1"
-tracing-subscriber = "0.3.19"
-anyhow = "1.0.98"
-unicode-segmentation = "1.12.0"
-serde = "1.0"
+utils = { version = "0.1.0", path = "../utils" }

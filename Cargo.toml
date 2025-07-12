@@ -1,8 +1,35 @@
-cargo-features = ["profile-rustflags", "codegen-backend"]
 [workspace]
 resolver = "2"
 members = [
     "crates/libera-reader-core",
     "crates/measure_time_macro",
     "crates/libera-reader",
+    "crates/mutool-bindings",
+    "crates/utils",
 ]
+
+[workspace.dependencies]
+gxhash = "3.5"
+directories = "6.0.0"
+notify = "8.1.0"
+serde = "1.0"
+tracing = "0.1"
+walkdir = "2.5.0"
+data-encoding = "2"
+rayon = "1.10.0"
+native_db = { version = "0.8" }
+native_model = "0.4.20"
+itertools = "0.14.0"
+once_cell = "1"
+concurrent-queue = "2.5.0"
+num_cpus = "1.16.0"
+tokio = { version = "1", features = ["full"] }
+libc = "0.2.170"
+sys-locale = "0.3.2"
+anyhow = "1.0.98"
+gpui = { git = "https://github.com/zed-industries/zed" }
+rfd = "0.15.3"
+unicode-segmentation = "1.12.0"
+tracing-subscriber = "0.3.19"
+quote = "1.0"
+syn = { version = "2.0.95", features = ["full"] }

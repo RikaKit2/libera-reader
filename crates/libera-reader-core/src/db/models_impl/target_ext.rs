@@ -2,10 +2,11 @@ use crate::db::crud::update_table;
 use crate::db::models::TargetExt;
 use crate::db::models_impl::{DefaultModel, GetOrCreate};
 use crate::types::DB;
+use anyhow::Result;
 use native_db::ToInput;
 
 impl TargetExt {
-  pub fn new(db: &DB) -> Self { Self::get_or_create(1, db) }
+  pub fn new(db: &DB) -> Result<Self> { Self::get_or_create(1, db) }
   pub(crate) fn contains(&self, ext: &str) -> bool {
     let ext_is_pdf = ext.eq("pdf") && self.pdf;
     let ext_is_epub = ext.eq("epub") && self.epub;
@@ -16,24 +17,25 @@ impl TargetExt {
       false
     }
   }
-  pub fn invert_pdf(&mut self, db: &DB) {
-    update_table(db, Some(self.clone()), |target_ext| target_ext.pdf = !target_ext.pdf);
+  pub fn invert_pdf(&mut self, db: &DB) -> Result<()> {
+    update_table(db, Some(self.clone()), |target_ext| target_ext.pdf = !target_ext.pdf)?;
     self.pdf = !self.pdf;
+    Ok(())
   }
-  pub fn invert_epub(&mut self, db: &DB) {
-    update_table(db, Some(self.clone()), |target_ext| target_ext.epub = !target_ext.epub);
+  pub fn invert_epub(&mut self, db: &DB) -> Result<()> {
+    update_table(db, Some(self.clone()), |target_ext| target_ext.epub = !target_ext.epub)?;
     self.epub = !self.epub;
+    Ok(())
   }
-  pub fn invert_mobi(&mut self, db: &DB) {
-    update_table(db, Some(self.clone()), |target_ext| target_ext.mobi = !target_ext.mobi);
+  pub fn invert_mobi(&mut self, db: &DB) -> Result<()> {
+    update_table(db, Some(self.clone()), |target_ext| target_ext.mobi = !target_ext.mobi)?;
     self.mobi = !self.mobi;
+    Ok(())
   }
 }
 impl DefaultModel for TargetExt {
   fn default_model() -> Self
-  where
-    Self: Sized + ToInput,
-  {
+                     where Self: Sized + ToInput, {
     Self {
       id: 1,
       pdf: true,

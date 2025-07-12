@@ -70,7 +70,7 @@ impl Dirs {
         match std::fs::create_dir_all(necessary_dir) {
           Ok(_) => {}
           Err(err) => {
-            eprint!("\ndir: {:?}\nerror: {:?}", necessary_dir, &err);
+            error!("\ndir: {:?}\nerror: {:?}", necessary_dir, &err);
             poss_errors.push(err);
           }
         }

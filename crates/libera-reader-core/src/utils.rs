@@ -1,31 +1,21 @@
-use crate::types::{BookHash, FileSize, HashBuilder};
-use std::fs;
-use std::hash::{BuildHasher, Hasher};
-use std::io::Read;
-use std::path::PathBuf;
-
-
-pub(crate) fn calc_file_size_in_mb(path_to_file: &PathBuf) -> FileSize {
-  let metadata = fs::metadata(path_to_file).unwrap();
-  let size_mb = metadata.len() as f64 / (1024.0 * 1024.0);
-  round_num(size_mb, 6).to_string()
+pub(crate) enum RayonTask {
+  ExtractImg,
+  CalcHash,
 }
-fn round_num(x: f64, decimals: u32) -> f64 {
-  let y = 10i32.pow(decimals) as f64;
-  (x * y).round() / y
-}
-pub(crate) fn calc_file_hash(path_to_file: &PathBuf) -> BookHash {
-  let mut hasher = HashBuilder::default().build_hasher();
-  let mut file = fs::File::open(path_to_file).unwrap();
-  loop {
-    // Read the file in 1 MB chunks
-    let mut buffer = [0; 1024 * 1024];
-    let bytes_read = file.read(&mut buffer).unwrap();
-    if bytes_read == 0 {
-      break;
+impl RayonTask {
+  pub(crate) fn get_num_of_threads(&self) -> usize {
+    let cpus = num_cpus::get();
+    match self {
+      RayonTask::ExtractImg => {
+        if cpus >= 6 {
+          cpus - 2
+        } else if cpus == 1 {
+          1
+        } else {
+          cpus - 1
+        }
+      }
+      RayonTask::CalcHash => 2,
     }
-    hasher.write(&buffer[..bytes_read]);
   }
-  data_encoding::HEXLOWER.encode(&hasher.finish().to_ne_bytes())
 }
-

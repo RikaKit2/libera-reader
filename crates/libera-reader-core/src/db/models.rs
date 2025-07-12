@@ -4,7 +4,6 @@ use native_db::*;
 use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TextId {
   SetupPageTitle,
