@@ -1,5 +1,5 @@
 use crate::db::models::Book;
-use crate::types::{BookPath, HashMap, HashSet, TARGET_EXT, DB};
+use crate::types::{BookPath, HashMap, HashSet, DB, TARGET_EXT};
 use measure_time_macro::measure_time;
 use std::path::PathBuf;
 use tracing::debug;
@@ -16,10 +16,8 @@ pub(crate) struct BookSeparator {
 
 impl BookSeparator {
   pub(crate) fn new(path_to_scan: &String, db: &DB, target_ext: &TARGET_EXT) -> Self {
-    let mut books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(path_to_scan, target_ext)
-      .into_iter().map(|i| (i.to_str().unwrap().to_string(), i)).collect();
-    let mut books_in_db: HashMap<BookPath, Book> = Book::get_all(db).into_iter()
-      .map(|i| (i.path_to_book.clone(), i)).collect();
+    let mut books_on_disk: HashMap<BookPath, PathBuf> = get_books_from_disk(path_to_scan, target_ext).into_iter().map(|i| (i.to_str().unwrap().to_string(), i)).collect();
+    let mut books_in_db: HashMap<BookPath, Book> = Book::get_all(db).into_iter().map(|i| (i.path_to_book.clone(), i)).collect();
 
     let books_paths_on_disk: HashSet<BookPath> = books_on_disk.keys().cloned().collect();
     let books_paths_in_db: HashSet<BookPath> = books_in_db.keys().cloned().collect();

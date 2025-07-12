@@ -3,15 +3,19 @@ use crate::db::crud::update_table;
 use crate::db::models::{Lang, RootRoute, Route, Settings};
 use crate::db::models_impl::{DefaultModel, GetOrCreate};
 use crate::types::DB;
+use anyhow::Result;
 use native_db::ToInput;
 use tracing::debug;
 
 impl Settings {
-  pub fn new(db: &DB) -> Self { Self::get_or_create(1, db) }
-  pub fn create_if_not_exist(db: &DB) { Self::get_or_create(1, db); }
-  pub fn set_path_to_scan(&mut self, new_path_to_scan: String, db: &DB) {
+  pub fn new(db: &DB) -> Result<Self> { Self::get_or_create(1, db) }
+  pub fn create_if_not_exist(db: &DB) -> Result<()> {
+    Self::get_or_create(1, db)?;
+    Ok(())
+  }
+  pub fn set_path_to_scan(&mut self, new_path_to_scan: String, db: &DB) -> Result<()> {
     match &self.path_to_scan {
-      None => { self.set_path_to_scan_inn(new_path_to_scan, db); }
+      None => { self.set_path_to_scan_inn(new_path_to_scan, db)?; }
       Some(old_path_to_scan) => {
         match &old_path_to_scan.eq(&new_path_to_scan) {
           true => {}
@@ -19,35 +23,39 @@ impl Settings {
             let curr_path_eq_with_new = &new_path_to_scan == old_path_to_scan;
             match curr_path_eq_with_new {
               true => { debug!("old path to scan eq with old path to scan"); }
-              false => { self.set_path_to_scan_inn(new_path_to_scan, db); }
+              false => { self.set_path_to_scan_inn(new_path_to_scan, db)?; }
             };
           }
         }
       }
     }
+    Ok(())
   }
-  fn set_path_to_scan_inn(&mut self, new_path_to_scan: String, db: &DB) {
-    Self::set_path_to_scan_db_only(new_path_to_scan.clone(), Some(self.clone()), db);
+  fn set_path_to_scan_inn(&mut self, new_path_to_scan: String, db: &DB) -> Result<()> {
+    update_table(db, Some(self.clone()), |new_settings| new_settings.path_to_scan = Some(new_path_to_scan.clone()))?;
     debug!("new path to scan: {:?}", &new_path_to_scan);
     self.path_to_scan = Some(new_path_to_scan);
+    Ok(())
   }
-  pub fn set_language(&mut self, new_language: Lang, db: &DB) {
+  pub fn set_language(&mut self, new_language: Lang, db: &DB) -> Result<()> {
     match &self.language.eq(&new_language) {
       true => {}
       false => {
-        Self::set_language_db_only(new_language.clone(), Some(self.clone()), db);
+        update_table(db, Some(self.clone()), |new_settings| new_settings.language = new_language.clone())?;
         self.language = new_language;
       }
     };
+    Ok(())
   }
-  pub fn set_route(&mut self, new_route: RootRoute, db: &DB) {
+  pub fn set_route(&mut self, new_route: RootRoute, db: &DB) -> Result<()> {
     match &self.route.eq(&new_route) {
       true => {}
       false => {
-        Self::set_route_db_only(new_route.clone(), Some(self.clone()), db);
+        update_table(db, Some(self.clone()), |new_settings| new_settings.route = new_route.clone())?;
         self.route = new_route;
       }
     }
+    Ok(())
   }
   pub fn compare_route_with_other(&self, other: &Route) -> bool {
     match &self.route {
@@ -56,38 +64,23 @@ impl Settings {
       RootRoute::Setup => { false }
     }
   }
-  pub fn set_setup_status(&mut self, status: bool, db: &DB) {
+  pub fn set_setup_status(&mut self, status: bool, db: &DB) -> Result<()> {
     match &self.setup_is_done.eq(&status) {
       true => {}
       false => {
-        Self::set_setup_status_db_only(status, Some(self.clone()), db);
+        update_table(db, Some(self.clone()), |new_settings| new_settings.setup_is_done = status)?;
         self.setup_is_done = status;
       }
     }
+    Ok(())
   }
-  pub fn set_path_to_scan_db_only(new_path_to_scan: String, old_settings: Option<Self>, db: &DB) {
-    update_table(db, old_settings, |new_settings| new_settings.path_to_scan = Some(new_path_to_scan));
+  pub fn get_self(db: &DB) -> Result<Self> {
+    Ok(crud::get_primary::<Self>(1, db)?.unwrap())
   }
-  pub fn set_language_db_only(new_language: Lang, old_settings: Option<Self>, db: &DB) {
-    update_table(db, old_settings, |new_settings| new_settings.language = new_language);
-  }
-  pub fn get_path_to_scan_db_only(db: &DB) -> Option<String> {
-    Self::get_self(db).path_to_scan
-  }
-  pub fn set_route_db_only(route: RootRoute, old_settings: Option<Self>, db: &DB) {
-    update_table(db, old_settings, |new_settings| new_settings.route = route)
-  }
-  pub fn set_setup_status_db_only(status: bool, old_settings: Option<Self>, db: &DB) {
-    update_table(db, old_settings, |new_settings| new_settings.setup_is_done = status)
-  }
-  pub fn get_self(db: &DB) -> Self {
-    crud::get_primary::<Self>(1, db).unwrap()
-  }
-  // old settings must be actual, call this function until changing passed settings
-
 }
 impl DefaultModel for Settings {
-  fn default_model() -> Self where Self: Sized + ToInput {
+  fn default_model() -> Self
+                     where Self: Sized + ToInput, {
     Self {
       id: 1,
       language: Lang::detect_system_lang(),
