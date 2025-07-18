@@ -1,33 +1,28 @@
 use crate::ui::utils::adjust_brightness;
 use gpui::prelude::*;
 use gpui::{div, px, rgb, svg, App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString, Styled, Window};
+use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::{RootRoute, Route};
-use libera_reader_core::types::{SETTINGS, THEME};
 
 #[derive(IntoElement)]
 pub(crate) struct Btn {
   id: ElementId,
-  settings: SETTINGS,
-  theme: THEME,
   on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
   btn_route: Route,
   image_source: SharedString,
 }
 
 impl Btn {
-  pub fn new(route: Route, settings: SETTINGS, theme: THEME,
-             image_source: &'static str, click_event_handler: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>) -> Self {
+  pub fn new(route: Route, image_source: &'static str, click_event_handler: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>) -> Self {
     Self {
       id: image_source.into(),
-      settings,
-      theme,
       on_click: click_event_handler,
       btn_route: route,
       image_source: image_source.into(),
     }
   }
-  fn get_active_status(&self) -> bool {
-    match self.settings.read().unwrap().route {
+  fn get_active_status(&self, cx: &mut App) -> bool {
+    match cx.ctx().settings.route {
       RootRoute::Main(curr_route) => {
         curr_route.eq(&self.btn_route)
       }
@@ -37,12 +32,10 @@ impl Btn {
 }
 
 impl RenderOnce for Btn {
-  fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-    let theme = self.theme.read().unwrap();
-    let is_active = self.get_active_status();
-    let icon = svg().path(self.image_source)
-      .w(px(28.0))
-      .h(px(28.0));
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    let theme = cx.ctx().settings.theme.data();
+    let is_active = self.get_active_status(cx);
+    let icon = svg().path(self.image_source).w(px(28.0)).h(px(28.0));
 
     let (btn, icon) = match is_active {
       true => {
@@ -69,9 +62,9 @@ impl RenderOnce for Btn {
 }
 
 impl Render for Btn {
-  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = self.theme.read().unwrap();
-    let is_active = self.get_active_status();
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.ctx().settings.theme.data();
+    let is_active = self.get_active_status(cx);
 
     let icon = svg().path(self.image_source.clone())
       .w(px(28.0))
@@ -90,10 +83,6 @@ impl Render for Btn {
         (btn, img)
       }
     };
-    btn
-      .id(self.id.clone())
-      .child(icon)
-      .p_2()
-      .border_l_2()
+    btn.id(self.id.clone()).child(icon).p_2().border_l_2()
   }
 }

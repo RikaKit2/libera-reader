@@ -4,10 +4,11 @@ use gpui::{actions, div, fill, point, prelude::*, px, relative, rgb, size, App, 
            Focusable, GlobalElementId, Hsla, InspectorElementId, KeyBinding, LayoutId, MouseButton,
            MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString,
            Style, TextRun, UTF16Selection, UnderlineStyle, Window};
-use libera_reader_core::types::THEME;
+use libera_reader_core::ctx::GlobalCTX;
 use std::ops::Range;
 use std::panic::Location;
 use unicode_segmentation::*;
+use libera_reader_core::db::models::ComponentsText;
 
 actions!(
     text_input,
@@ -37,11 +38,11 @@ pub(crate) struct TextInput {
   last_layout: Option<ShapedLine>,
   last_bounds: Option<Bounds<Pixels>>,
   is_selecting: bool,
-  theme: THEME,
 }
 
 impl TextInput {
-  pub fn new(cx: &mut App, placeholder: SharedString, theme: THEME) -> Entity<TextInput> {
+  pub fn new(cx: &mut App) -> Entity<TextInput> {
+    let placeholder: SharedString = cx.i18n(ComponentsText::SearchPlaceholder).into();
     cx.bind_keys([
       KeyBinding::new("backspace", Backspace, None),
       KeyBinding::new("delete", Delete, None),
@@ -66,7 +67,6 @@ impl TextInput {
       last_layout: None,
       last_bounds: None,
       is_selecting: false,
-      theme,
     })
   }
   fn left(&mut self, _: &Left, _: &mut Window, cx: &mut Context<Self>) {
@@ -428,7 +428,7 @@ impl Element for TextElement {
     let selected_range = input.selected_range.clone();
     let cursor = input.cursor_offset();
     let style = window.text_style();
-    let theme = self.input.read(cx).theme.read().unwrap();
+    let theme = cx.ctx().settings.theme.data();
     let (display_text, text_color) = if content.is_empty() {
       (input.placeholder.clone(), rgb(theme.base_color_content))
     } else {
@@ -547,7 +547,7 @@ impl Element for TextElement {
 
 impl Render for TextInput {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = self.theme.read().unwrap();
+    let theme = cx.ctx().settings.theme.data();
     div()
       .size_full()
       .flex()

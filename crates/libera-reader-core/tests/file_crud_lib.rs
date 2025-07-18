@@ -1,6 +1,6 @@
 use anyhow::Result;
 use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::models::{Book, Settings};
+use libera_reader_core::db::models::Book;
 use native_db::Models;
 use std::fs::{create_dir, remove_dir_all, rename, File};
 use std::path::PathBuf;
@@ -39,7 +39,6 @@ impl FileCrudLib {
     let tmp_dir = proj_root_dir.join("test_files").join(tmp_dir_name);
     Self::drop_files(&tmp_dir);
     let ctx = Ctx::new_for_test(models, tmp_dir.clone())?;
-    Settings::create_if_not_exist(&ctx.db)?;
     Ok(Self {
       first_book: tmp_dir.join(&FIRST_BOOK),
       second_book: tmp_dir.join(&SECOND_BOOK),
@@ -151,7 +150,7 @@ impl FileCrudLib {
     Ok(())
   }
   pub fn run_tests(&mut self) -> Result<()> {
-    self.ctx.settings.write().unwrap().set_path_to_scan(self.tmp_dir.to_string2(), &self.ctx.db)?;
+    self.ctx.settings.set_path_to_scan(self.tmp_dir.to_string2())?;
 
     match self.test_mode {
       TestMode::Notify => { self.ctx.services.run_notify(self.tmp_dir.to_string2())?; }

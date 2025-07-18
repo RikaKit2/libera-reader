@@ -1,8 +1,8 @@
 mod del_book;
 mod add_book;
-
 use crate::db::crud;
-use crate::db::models::{Book, BookDataWrapperPK, DataOfHashedBook, DataOfHashedBookKey, DataOfUnhashedBook};
+use crate::db::models::data_of_hashed_book::DataOfHashedBookKey;
+use crate::db::models::{Book, BookDataWrapperPK, DataOfHashedBook, DataOfUnhashedBook};
 use crate::types::{BookPath, BookSize, DB};
 pub use add_book::add_book;
 use anyhow::Result;
@@ -42,7 +42,6 @@ pub(crate) fn get_books_located_in_dir(path_to_dir: String, db: &DB) -> Result<V
   let books: Vec<Book> = r_conn.scan().primary().unwrap().start_with(path_to_dir)?.try_collect()?;
   Ok(books)
 }
-
 pub(crate) fn update_the_books_directory(old_dir_path: &PathBuf, new_dir_path: &PathBuf, db: &DB) -> Result<()> {
   for old_book in get_books_located_in_dir(old_dir_path.to_str().unwrap().to_string(), db)? {
     let mut new_book = old_book.clone();

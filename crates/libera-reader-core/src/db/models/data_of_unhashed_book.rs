@@ -1,11 +1,23 @@
 use crate::db::crud;
 use crate::db::crud::insert;
-use crate::db::models::{BookData, DataOfHashedBook, DataOfUnhashedBook};
-use crate::db::models_impl::GetBookData;
+use crate::db::models::book_data::BookData;
+use crate::db::models::data_of_hashed_book::DataOfHashedBook;
+use crate::db::models::GetBookData;
 use crate::types::{BookHash, BookPath, BookSize};
-use native_db::Database;
+use native_db::*;
+#[allow(unused_imports)]
+use native_model::{native_model, Model};
+use serde::{Deserialize, Serialize};
 
-
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[native_model(id = 3, version = 1)]
+#[native_db]
+pub struct DataOfUnhashedBook {
+  #[primary_key]
+  pub book_size: BookSize,
+  pub book_hash: Option<BookHash>,
+  pub book_data: BookData,
+}
 impl DataOfUnhashedBook {
   pub fn new(file_size: BookSize, books_pk: Vec<BookPath>) -> Self {
     DataOfUnhashedBook {

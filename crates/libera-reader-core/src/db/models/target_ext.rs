@@ -1,10 +1,22 @@
 use crate::db::crud::update_table;
-use crate::db::models::TargetExt;
-use crate::db::models_impl::{DefaultModel, GetOrCreate};
+use crate::db::models::{DefaultModel, GetOrCreate};
 use crate::types::DB;
 use anyhow::Result;
-use native_db::ToInput;
+use native_db::*;
+#[allow(unused_imports)]
+use native_model::{native_model, Model};
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[native_model(id = 6, version = 1)]
+#[native_db]
+pub struct TargetExt {
+  #[primary_key]
+  pub id: i32,
+  pub pdf: bool,
+  pub epub: bool,
+  pub mobi: bool,
+}
 impl TargetExt {
   pub fn new(db: &DB) -> Result<Self> { Self::get_or_create(1, db) }
   pub(crate) fn contains(&self, ext: &str) -> bool {

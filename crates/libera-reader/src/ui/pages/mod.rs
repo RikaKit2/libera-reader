@@ -24,8 +24,8 @@ impl Pages {
 
 impl Render for Pages {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let path_to_scan = cx.ctx().settings.read().unwrap().path_to_scan.is_some();
-    let setup_status = cx.ctx().settings.read().unwrap().setup_is_done.clone();
+    let path_to_scan = cx.ctx().settings.path_to_scan.is_some();
+    let setup_status = cx.ctx().settings.setup_is_done.clone();
     match path_to_scan && setup_status {
       true => { div().w_full().h_full().child(self.main_page.clone()) }
       false => { div().w_full().h_full().child(self.setup_page.clone()) }

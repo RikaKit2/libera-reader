@@ -3,7 +3,7 @@ use crate::ui::components::styled::Size;
 use crate::ui::utils::adjust_brightness;
 use gpui::{div, prelude::FluentBuilder as _, relative, rems, rgb, svg, AnyElement, App, Div, ElementId, InteractiveElement,
            IntoElement, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled, Window};
-use libera_reader_core::types::THEME;
+use libera_reader_core::ctx::GlobalCTX;
 
 #[derive(IntoElement)]
 pub struct Checkbox {
@@ -15,11 +15,10 @@ pub struct Checkbox {
   disabled: bool,
   size: Size,
   on_click: Option<Box<dyn Fn(&bool, &mut Window, &mut App) + 'static>>,
-  theme: THEME,
 }
 
 impl Checkbox {
-  pub fn new(id: impl Into<ElementId>, theme: THEME) -> Self {
+  pub fn new(id: impl Into<ElementId>) -> Self {
     Self {
       id: id.into(),
       base: div(),
@@ -29,7 +28,6 @@ impl Checkbox {
       disabled: false,
       size: Size::default(),
       on_click: None,
-      theme,
     }
   }
 
@@ -69,8 +67,8 @@ impl ParentElement for Checkbox {
 }
 
 impl RenderOnce for Checkbox {
-  fn render(self, _: &mut Window, _cx: &mut App) -> impl IntoElement {
-    let theme = self.theme.read().unwrap();
+  fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+    let theme = cx.ctx().settings.theme.data();
     let (color, icon_color) = match self.disabled {
       true => { (adjust_brightness(theme.base_color_content, 0.5), adjust_brightness(theme.primary_content_color, 0.5)) }
       false => { (theme.base_color_content, theme.primary_content_color) }

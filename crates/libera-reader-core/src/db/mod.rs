@@ -1,8 +1,12 @@
 pub mod models;
-pub mod models_impl;
 pub(crate) mod crud;
 
-use crate::db::models::{Book, BookMark, DataOfHashedBook, DataOfUnhashedBook, Settings, TargetExt, Theme};
+use crate::db::models::book::Book;
+use crate::db::models::book_mark::BookMark;
+use crate::db::models::data_of_hashed_book::DataOfHashedBook;
+use crate::db::models::data_of_unhashed_book::DataOfUnhashedBook;
+use crate::db::models::settings::Settings;
+use crate::db::models::target_ext::TargetExt;
 use anyhow::Result;
 use native_db::{db_type, Builder, Database, Models};
 use std::path::PathBuf;
@@ -29,6 +33,5 @@ pub fn get_models() -> Result<Models> {
   models.define::<DataOfUnhashedBook>()?;
   models.define::<DataOfHashedBook>()?;
   models.define::<TargetExt>()?;
-  models.define::<Theme>()?;
   Ok(models)
 }

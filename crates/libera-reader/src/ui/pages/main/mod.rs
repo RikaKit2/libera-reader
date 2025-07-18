@@ -6,7 +6,6 @@ use libera_reader_core::db::models::{RootRoute, Route};
 
 pub(crate) mod content;
 pub(crate) mod side_bar;
-mod header;
 
 pub(crate) struct MainPage {
   side_bar: Entity<SideBar>,
@@ -38,7 +37,7 @@ impl MainPage {
 
 impl Render for MainPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let curr_route = cx.ctx().settings.read().unwrap().route.clone();
+    let curr_route = cx.ctx().settings.route.clone();
     div().w_full().h_full().flex().children([
       div().w_12().h_full().child(self.side_bar.clone()),
       match curr_route {
