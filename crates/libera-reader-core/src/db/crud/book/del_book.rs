@@ -1,6 +1,6 @@
-use crate::db::models::{Book, BookDataWrapperPK, BookDataWrapperPK::RepeatingSize, BookDataWrapperPK::UniqueSize,
-                        DataOfHashedBook, DataOfUnhashedBook};
-use crate::db::{crud, models_impl::GetBookData};
+use crate::db::crud;
+use crate::db::models::{Book, BookDataWrapperPK, BookDataWrapperPK::RepeatingSize,
+                        BookDataWrapperPK::UniqueSize, DataOfHashedBook, DataOfUnhashedBook, GetBookData};
 use crate::types::{BookPath, APP_DIRS, DB};
 use anyhow::Result;
 use native_db::ToInput;

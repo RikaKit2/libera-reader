@@ -1,25 +1,53 @@
-use crate::db::crud::update;
-use crate::db::models::{ColorScheme, Theme};
-use crate::db::models_impl::{DefaultModel, GetOrCreate};
-use crate::types::DB;
-use anyhow::Result;
-use native_db::ToInput;
+use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Clone)]
+pub enum Theme {
+  Sunset,
+  Wireframe
+}
 impl Theme {
-  pub fn new(db: &DB) -> Result<Self> { Self::get_or_create(1, db) }
-  pub fn set(&mut self, new_theme: Theme, db: &DB) {
-    match self.name.eq(&new_theme.name) {
-      true => {}
-      false => {
-        update::<Self>(self.clone(), new_theme.clone(), db).unwrap();
-        *self = new_theme;
-      }
-    };
+  pub fn data(&self) -> ThemeData {
+    match self {
+      Theme::Sunset => ThemeData::make_sunset(),
+      Theme::Wireframe => ThemeData::make_wireframe(),
+    }
   }
+}
+#[derive(Clone)]
+pub enum ColorScheme {
+  Dark,
+  Light,
+}
+
+#[derive(Clone)]
+pub struct ThemeData {
+  pub name: Theme,
+  pub color_scheme: ColorScheme,
+  pub base_100: u32,
+  pub base_200: u32,
+  pub base_300: u32,
+  pub base_color_content: u32,
+  pub primary_color: u32,
+  pub primary_content_color: u32,
+  pub secondary_color: u32,
+  pub secondary_content_color: u32,
+  pub accent_color: u32,
+  pub accent_content_color: u32,
+  pub neutral_color: u32,
+  pub neutral_content_color: u32,
+  pub info_color: u32,
+  pub info_content_color: u32,
+  pub success_color: u32,
+  pub success_content_color: u32,
+  pub warning_color: u32,
+  pub warning_content_color: u32,
+  pub error_color: u32,
+  pub error_content_color: u32,
+}
+impl ThemeData {
   pub fn make_sunset() -> Self {
     Self {
-      id: 1,
-      name: "sunset".into(),
+      name: Theme::Sunset,
       color_scheme: ColorScheme::Dark,
       base_100: 0x121c22,
       base_200: 0x0e171e,
@@ -45,8 +73,7 @@ impl Theme {
   }
   pub fn make_wireframe() -> Self {
     Self {
-      id: 1,
-      name: "wireframe".into(),
+      name: Theme::Wireframe,
       color_scheme: ColorScheme::Light,
       base_100: 0xffffff,
       base_200: 0xf5f5f5,
@@ -71,10 +98,3 @@ impl Theme {
     }
   }
 }
-impl DefaultModel for Theme {
-  fn default_model() -> Self
-                     where Self: Sized + ToInput {
-    Theme::make_sunset()
-  }
-}
-impl GetOrCreate for Theme {}

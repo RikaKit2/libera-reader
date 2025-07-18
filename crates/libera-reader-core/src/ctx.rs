@@ -1,13 +1,14 @@
-use std::path::PathBuf;
 use crate::app_dirs::AppDirs;
+use crate::db::models::{GetText, TargetExt};
 use crate::db::{create_db_in_memory, create_db_on_disk};
-use crate::db::models::{Settings, TargetExt, Theme};
 use crate::services::Services;
-use crate::types::{NotCachedBooks, APP_DIRS, DB, SETTINGS, TARGET_EXT, THEME};
+use crate::settings::SETTINGS;
+use crate::types::{NotCachedBooks, APP_DIRS, DB, TARGET_EXT};
 use anyhow::Result;
 use concurrent_queue::ConcurrentQueue;
 use gpui::{App, Global};
 use native_db::Models;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 pub struct Ctx {
@@ -16,7 +17,6 @@ pub struct Ctx {
   pub settings: SETTINGS,
   pub services: Services,
   pub app_dirs: APP_DIRS,
-  pub theme: THEME,
   pub db: DB,
 }
 impl Ctx {
@@ -31,9 +31,8 @@ impl Ctx {
       not_cached_books: not_cached_books.clone(),
       target_ext: target_ext.clone(),
       services: Services::new(not_cached_books, target_ext, app_dirs.clone(), db.clone())?,
-      settings: Arc::new(RwLock::new(Settings::new(&db)?)),
+      settings: SETTINGS::new(db.clone())?,
       app_dirs,
-      theme: Arc::new(RwLock::new(Theme::new(&db)?)),
       db,
     })
   }
@@ -48,9 +47,8 @@ impl Ctx {
       not_cached_books: not_cached_books.clone(),
       target_ext: target_ext.clone(),
       services: Services::new(not_cached_books, target_ext, app_dirs.clone(), db.clone())?,
-      settings: Arc::new(RwLock::new(Settings::new(&db)?)),
+      settings: SETTINGS::new(db.clone())?,
       app_dirs,
-      theme: Arc::new(RwLock::new(Theme::new(&db)?)),
       db,
     })
   }
@@ -72,9 +70,15 @@ impl Ctx {
 impl Global for Ctx {}
 pub trait GlobalCTX {
   fn ctx(&self) -> &Ctx;
+  fn ctx_mut(&mut self) -> &mut Ctx;
+  fn i18n<T: GetText>(&self, target_enum: T) -> &'static str;
 }
 impl GlobalCTX for App {
-  fn ctx(&self) -> &Ctx {
-    Ctx::global(self)
+  fn ctx(&self) -> &Ctx { Ctx::global(self) }
+  fn ctx_mut(&mut self) -> &mut Ctx {
+    Ctx::global_mut(self)
+  }
+  fn i18n<T: GetText>(&self, target_enum: T) -> &'static str {
+    self.ctx().settings.language.get(target_enum)
   }
 }

@@ -13,39 +13,39 @@ impl SideBar {
     cx.new(|_| Self {})
   }
   fn mark_btn_as_active(&mut self, route: Route, cx: &mut App) {
-    cx.ctx().settings.write().unwrap().set_route(RootRoute::Main(route), &cx.ctx().db).unwrap();
+    cx.ctx_mut().settings.set_route(RootRoute::Main(route)).unwrap();
   }
 }
 impl Render for SideBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().theme.read().unwrap();
+    let theme = cx.ctx().settings.theme.data();
     div().bg(rgb(theme.base_300)).w_12().h_full().flex().flex_col().justify_between().children([
       div().children([
-        Btn::new(Library, cx.ctx().settings.clone(), cx.ctx().theme.clone(), "heroicons--book-open.svg", Some(Box::new({
+        Btn::new(Library, "heroicons--book-open.svg", Some(Box::new({
           cx.listener(move |pages, _event, _window, cx| {
             pages.mark_btn_as_active(Library, cx);
             cx.notify();
           })
         }))),
-        Btn::new(FileManager, cx.ctx().settings.clone(), cx.ctx().theme.clone(), "heroicons--folder.svg", Some(Box::new({
+        Btn::new(FileManager, "heroicons--folder.svg", Some(Box::new({
           cx.listener(move |pages, _event, _window, cx| {
             pages.mark_btn_as_active(FileManager, cx);
             cx.notify();
           })
         }))),
-        Btn::new(History, cx.ctx().settings.clone(), cx.ctx().theme.clone(), "heroicons--clock.svg", Some(Box::new({
+        Btn::new(History, "heroicons--clock.svg", Some(Box::new({
           cx.listener(move |pages, _event, _window, cx| {
             pages.mark_btn_as_active(History, cx);
             cx.notify();
           })
         }))),
-        Btn::new(Favorite, cx.ctx().settings.clone(), cx.ctx().theme.clone(), "heroicons--star.svg", Some(Box::new({
+        Btn::new(Favorite, "heroicons--star.svg", Some(Box::new({
           cx.listener(move |pages, _event, _window, cx| {
             pages.mark_btn_as_active(Favorite, cx);
             cx.notify();
           })
         }))),
-        Btn::new(BookMarks, cx.ctx().settings.clone(), cx.ctx().theme.clone(), "heroicons--bookmark.svg", Some(Box::new({
+        Btn::new(BookMarks, "heroicons--bookmark.svg", Some(Box::new({
           cx.listener(move |pages, _event, _window, cx| {
             pages.mark_btn_as_active(BookMarks, cx);
             cx.notify();
@@ -53,13 +53,13 @@ impl Render for SideBar {
         }))),
       ]),
       div().children([
-        Btn::new(Stats, cx.ctx().settings.clone(), cx.ctx().theme.clone(), "heroicons--chart-bar.svg", Some(Box::new({
+        Btn::new(Stats, "heroicons--chart-bar.svg", Some(Box::new({
           cx.listener(move |pages, _event, _window, cx| {
             pages.mark_btn_as_active(Stats, cx);
             cx.notify();
           })
         }))),
-        Btn::new(Route::Settings, cx.ctx().settings.clone(), cx.ctx().theme.clone(), "heroicons--cog-8-tooth.svg", Some(Box::new({
+        Btn::new(Route::Settings, "heroicons--cog-8-tooth.svg", Some(Box::new({
           cx.listener(move |pages, _event, _window, cx| {
             pages.mark_btn_as_active(Route::Settings, cx);
             cx.notify();

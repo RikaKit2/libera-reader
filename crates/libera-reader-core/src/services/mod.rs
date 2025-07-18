@@ -1,10 +1,8 @@
 use crate::services::notify_service::NotifyEventHandler;
+use crate::types::{NotCachedBooks, APP_DIRS, DB, TARGET_EXT};
 use anyhow::Result;
 use notify::RecommendedWatcher;
-use crate::types::{NotCachedBooks, APP_DIRS, DB, TARGET_EXT};
 
-mod data_extraction_service;
-mod data_extraction_service2;
 mod notify_service;
 mod passive_scan_service;
 

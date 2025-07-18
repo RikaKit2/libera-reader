@@ -5,3 +5,4 @@ mod utils;
 pub mod services;
 pub mod vars;
 pub mod ctx;
+pub mod settings;

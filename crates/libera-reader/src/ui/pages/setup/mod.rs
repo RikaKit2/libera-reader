@@ -3,7 +3,7 @@ use gpui::prelude::FluentBuilder;
 use gpui::{div, rgb, App, AppContext, Context, Entity, FontWeight, InteractiveElement, IntoElement,
            MouseButton, MouseDownEvent, ParentElement, Render, Styled, Window};
 use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::models::{RootRoute, Route, TextId};
+use libera_reader_core::db::models::{RootRoute, Route, SetupText};
 use rfd::FileDialog;
 
 pub(crate) struct SetupPage {
@@ -20,7 +20,7 @@ impl SetupPage {
         match FileDialog::new().pick_folder() {
           None => {}
           Some(path) => {
-            cx.ctx().settings.write().unwrap().set_path_to_scan(path.display().to_string(), &cx.ctx().db).unwrap();
+            cx.ctx_mut().settings.set_path_to_scan(path.display().to_string()).unwrap();
             self.window_of_selecting_folder_is_open = true;
             cx.notify();
           }
@@ -29,11 +29,11 @@ impl SetupPage {
     }
   }
   fn handler_for_next_btn(&mut self, _event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
-    let path_to_scan = cx.ctx().settings.read().unwrap().path_to_scan.is_some();
+    let path_to_scan = cx.ctx().settings.path_to_scan.is_some();
     match path_to_scan {
       true => {
-        cx.ctx().settings.write().unwrap().set_setup_status(true, &cx.ctx().db).unwrap();
-        cx.ctx().settings.write().unwrap().set_route(RootRoute::Main(Route::Library), &cx.ctx().db).unwrap();
+        cx.ctx_mut().settings.set_setup_status(true).unwrap();
+        cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
         cx.notify();
       }
       false => {}
@@ -42,15 +42,14 @@ impl SetupPage {
 }
 impl Render for SetupPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = &cx.ctx().theme.read().unwrap();
-    let i18n = cx.ctx().settings.read().unwrap().language.clone();
+    let theme = cx.ctx().settings.theme.data();
     div().bg(rgb(theme.base_100)).w_full().h_full().p_6().flex().flex_col().justify_between().text_color(rgb(theme.base_color_content)).children(
       [
         div().flex().flex_col().children([
-          div().child(i18n.get(TextId::SetupPageTitle)).font_weight(FontWeight::BOLD),
+          div().child(cx.i18n(SetupText::Title)).font_weight(FontWeight::BOLD),
           div().flex_col().children([
             div().gap_2().flex().children([
-              div().child(i18n.get(TextId::MessageOfSelectingTargetDir)),
+              div().child(cx.i18n(SetupText::TargetDir)),
               div().flex().px_1()
                 .rounded_sm()
                 .on_mouse_down(MouseButton::Left, cx.listener(Self::select_folder))
@@ -58,12 +57,12 @@ impl Render for SetupPage {
                 .text_color(rgb(theme.primary_content_color))
                 .bg(rgb(adjust_brightness(theme.primary_color, 0.9)))
                 .hover(|s| s.bg(rgb(adjust_brightness(theme.primary_color, 1.1))))
-                .child(i18n.get(TextId::SetupPageSelectBtn)),
+                .child(cx.i18n(SetupText::SelectBtn)),
             ]),
             div().flex_col().children([
-              div().child(i18n.get(TextId::TargetPath)),
-              div().when(cx.ctx().settings.read().unwrap().path_to_scan.is_some(),
-                         |_| div().child(cx.ctx().settings.read().unwrap().path_to_scan.clone().unwrap()))
+              div().child(cx.i18n(SetupText::TargetPath)),
+              div().when(cx.ctx().settings.path_to_scan.is_some(),
+                         |_| div().child(cx.ctx().settings.path_to_scan.clone().unwrap()))
             ]),
           ]),
         ]),
@@ -75,7 +74,7 @@ impl Render for SetupPage {
             .bg(rgb(adjust_brightness(theme.info_color, 0.9)))
             .hover(|s| s.bg(rgb(adjust_brightness(theme.info_color, 1.1))))
             .on_mouse_down(MouseButton::Left, cx.listener(Self::handler_for_next_btn))
-            .child(i18n.get(TextId::SetupPageNextBtn))
+            .child(cx.i18n(SetupText::NextBtn)),
         ]),
       ]
     )

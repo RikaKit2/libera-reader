@@ -1,11 +1,31 @@
 use crate::db::crud::get_primary;
-use crate::db::models::{Book, BookData, BookDataWrapperPK, DataOfHashedBook, DataOfUnhashedBook};
+use crate::db::models::book_data::BookData;
+use crate::db::models::book_data_wrapper_pk::BookDataWrapperPK;
+use crate::db::models::data_of_hashed_book::DataOfHashedBook;
+use crate::db::models::data_of_unhashed_book::DataOfUnhashedBook;
 use crate::types::{BookPath, MutoolErr, APP_DIRS, DB};
 use anyhow::Result;
 use itertools::Itertools;
+use native_db::*;
+#[allow(unused_imports)]
+use native_model::{native_model, Model};
+use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[native_model(id = 5, version = 1)]
+#[native_db]
+pub struct Book {
+  #[primary_key]
+  pub path_to_book: String,
+  pub path_to_dir: String,
+  pub dir_name: String,
+  pub book_name: String,
+  pub ext: String,
+  pub path_is_valid: bool,
+  pub book_data_wrapper_pk: BookDataWrapperPK,
+}
 impl Book {
   pub(crate) fn from_pathbuf(future_book: &PathBuf, book_data_type: BookDataWrapperPK) -> Self {
     Self {
