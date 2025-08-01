@@ -1,12 +1,12 @@
-pub(crate) enum RayonTask {
-  ExtractImg,
+pub(crate) enum MultiThreadTask {
+  _ExtractImg,
   CalcHash,
 }
-impl RayonTask {
+impl MultiThreadTask {
   pub(crate) fn get_num_of_threads(&self) -> usize {
     let cpus = num_cpus::get();
     match self {
-      RayonTask::ExtractImg => {
+      MultiThreadTask::_ExtractImg => {
         if cpus >= 6 {
           cpus - 2
         } else if cpus == 1 {
@@ -15,7 +15,7 @@ impl RayonTask {
           cpus - 1
         }
       }
-      RayonTask::CalcHash => 2,
+      MultiThreadTask::CalcHash => 2,
     }
   }
 }

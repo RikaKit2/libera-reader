@@ -29,7 +29,7 @@ impl SetupPage {
     }
   }
   fn handler_for_next_btn(&mut self, _event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
-    let path_to_scan = cx.ctx().settings.path_to_scan.is_some();
+    let path_to_scan = cx.ctx().settings.read().path_to_scan.is_some();
     match path_to_scan {
       true => {
         cx.ctx_mut().settings.set_setup_status(true).unwrap();
@@ -42,7 +42,7 @@ impl SetupPage {
 }
 impl Render for SetupPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().settings.theme.data();
+    let theme = cx.ctx().settings.read().theme.data();
     div().bg(rgb(theme.base_100)).w_full().h_full().p_6().flex().flex_col().justify_between().text_color(rgb(theme.base_color_content)).children(
       [
         div().flex().flex_col().children([
@@ -61,8 +61,8 @@ impl Render for SetupPage {
             ]),
             div().flex_col().children([
               div().child(cx.i18n(SetupText::TargetPath)),
-              div().when(cx.ctx().settings.path_to_scan.is_some(),
-                         |_| div().child(cx.ctx().settings.path_to_scan.clone().unwrap()))
+              div().when(cx.ctx().settings.read().path_to_scan.is_some(),
+                         |_| div().child(cx.ctx().settings.read().path_to_scan.clone().unwrap()))
             ]),
           ]),
         ]),

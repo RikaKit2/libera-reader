@@ -22,7 +22,7 @@ impl Btn {
     }
   }
   fn get_active_status(&self, cx: &mut App) -> bool {
-    match cx.ctx().settings.route {
+    match cx.ctx().settings.read().route {
       RootRoute::Main(curr_route) => {
         curr_route.eq(&self.btn_route)
       }
@@ -33,7 +33,7 @@ impl Btn {
 
 impl RenderOnce for Btn {
   fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-    let theme = cx.ctx().settings.theme.data();
+    let theme = cx.ctx().settings.read().theme.data();
     let is_active = self.get_active_status(cx);
     let icon = svg().path(self.image_source).w(px(28.0)).h(px(28.0));
 
@@ -63,7 +63,7 @@ impl RenderOnce for Btn {
 
 impl Render for Btn {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().settings.theme.data();
+    let theme = cx.ctx().settings.read().theme.data();
     let is_active = self.get_active_status(cx);
 
     let icon = svg().path(self.image_source.clone())

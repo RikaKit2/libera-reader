@@ -21,10 +21,9 @@ once_cell = { workspace = true }
 concurrent-queue = { workspace = true }
 num_cpus = { workspace = true }
 tokio = { workspace = true }
-libc = { workspace = true }
 sys-locale = { workspace = true }
 anyhow = { workspace = true }
 gpui = { workspace = true }
-measure_time_macro = { version = "0.1.0", path = "../measure_time_macro" }
 utils = { version = "0.1.0", path = "../utils" }
+mutool-bindings = { version = "0.1.0", path = "../mutool-bindings" }
 

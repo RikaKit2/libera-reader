@@ -7,29 +7,31 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone)]
 #[native_model(id = 1, version = 1)]
 #[native_db]
-pub struct Settings {
+pub struct SettingsModel {
   #[primary_key]
-  pub id: i32,
+  pub id: u32,
   pub language: Lang,
   pub path_to_scan: Option<String>,
+  pub old_path_to_scan: Option<String>,
   pub theme: Theme,
   pub pdf: bool,
   pub epub: bool,
   pub mobi: bool,
-  pub number_of_columns: i32,
+  pub number_of_columns: u32,
   pub page_scaling_factor: f64,
   pub thumbnails_scaling_factor: f64,
-  pub workers_num: i32,
+  pub workers_num: u32,
   pub route: RootRoute,
   pub setup_is_done: bool,
 }
-impl DefaultModel for Settings {
+impl DefaultModel for SettingsModel {
   fn default_model() -> Self
                      where Self: Sized + ToInput, {
     Self {
       id: 1,
       language: Lang::detect_system_lang(),
       path_to_scan: None,
+      old_path_to_scan: None,
       theme: Theme::Sunset,
       pdf: true,
       epub: false,
@@ -43,4 +45,4 @@ impl DefaultModel for Settings {
     }
   }
 }
-impl GetOrCreate for Settings {}
+impl GetOrCreate for SettingsModel {}

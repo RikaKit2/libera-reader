@@ -6,3 +6,10 @@ edition = "2024"
 [dependencies]
 anyhow = { workspace = true }
 utils = { version = "0.1.0", path = "../utils" }
+reqwest = { workspace = true }
+zip = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+libc = { workspace = true }
+serde = { workspace = true }

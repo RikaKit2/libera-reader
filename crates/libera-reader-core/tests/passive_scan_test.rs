@@ -7,8 +7,8 @@ use native_db::Models;
 use once_cell::sync::Lazy;
 
 #[cfg(not(target_os = "windows"))]
-#[test]
-fn passive_scan_test() -> Result<()> {
+#[tokio::test(flavor = "current_thread")]
+async fn passive_scan_test() -> Result<()> {
   utils::create_subscriber()?;
   pub static MODELS: Lazy<Models> = Lazy::new(|| get_models().unwrap());
   let mut fc_lib = FileCrudLib::new(TestMode::PassiveScan, "tmp_dir_scan", &MODELS)?;

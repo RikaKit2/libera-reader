@@ -68,7 +68,7 @@ impl ParentElement for Checkbox {
 
 impl RenderOnce for Checkbox {
   fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-    let theme = cx.ctx().settings.theme.data();
+    let theme = cx.ctx().settings.read().theme.data();
     let (color, icon_color) = match self.disabled {
       true => { (adjust_brightness(theme.base_color_content, 0.5), adjust_brightness(theme.primary_content_color, 0.5)) }
       false => { (theme.base_color_content, theme.primary_content_color) }

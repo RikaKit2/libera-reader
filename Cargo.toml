@@ -2,7 +2,6 @@
 resolver = "2"
 members = [
     "crates/libera-reader-core",
-    "crates/measure_time_macro",
     "crates/libera-reader",
     "crates/mutool-bindings",
     "crates/utils",
@@ -12,7 +11,7 @@ members = [
 gxhash = "3.5"
 directories = "6.0.0"
 notify = "8.1.0"
-serde = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
 walkdir = "2.5.0"
 data-encoding = "2"
@@ -31,5 +30,7 @@ gpui = { git = "https://github.com/zed-industries/zed" }
 rfd = "0.15.3"
 unicode-segmentation = "1.12.0"
 tracing-subscriber = "0.3.19"
-quote = "1.0"
-syn = { version = "2.0.95", features = ["full"] }
+reqwest = { version = "0.12", features = ["stream"] }
+zip = "4"
+tempfile = "3"
+tokio-stream = "0.1"

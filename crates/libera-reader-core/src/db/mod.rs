@@ -5,8 +5,7 @@ use crate::db::models::book::Book;
 use crate::db::models::book_mark::BookMark;
 use crate::db::models::data_of_hashed_book::DataOfHashedBook;
 use crate::db::models::data_of_unhashed_book::DataOfUnhashedBook;
-use crate::db::models::settings::Settings;
-use crate::db::models::target_ext::TargetExt;
+use crate::db::models::settings::SettingsModel;
 use anyhow::Result;
 use native_db::{db_type, Builder, Database, Models};
 use std::path::PathBuf;
@@ -27,11 +26,10 @@ pub fn create_db_in_memory(models: &'static Models) -> Result<Database<'static>>
 
 pub fn get_models() -> Result<Models> {
   let mut models = Models::new();
-  models.define::<Settings>()?;
+  models.define::<SettingsModel>()?;
   models.define::<BookMark>()?;
   models.define::<Book>()?;
   models.define::<DataOfUnhashedBook>()?;
   models.define::<DataOfHashedBook>()?;
-  models.define::<TargetExt>()?;
   Ok(models)
 }
