@@ -15,20 +15,6 @@ impl AppDirs {
     let proj_dirs = ProjectDirs::from("com", "RikaKit", "libera-reader").unwrap();
     Self::new(proj_dirs.data_dir().to_path_buf())
   }
-  pub fn set_base_dir(&mut self, data_dir: PathBuf) -> Result<(), Option<Vec<Error>>> {
-    match &self.inn.data_dir != &data_dir {
-      true => { Err(None) }
-      false => {
-        match Dirs::new(data_dir) {
-          Ok(app_dirs) => {
-            self.inn = app_dirs;
-            Ok(())
-          }
-          Err(e) => { Err(Some(e)) }
-        }
-      }
-    }
-  }
 }
 pub struct Dirs {
   pub data_dir: PathBuf,

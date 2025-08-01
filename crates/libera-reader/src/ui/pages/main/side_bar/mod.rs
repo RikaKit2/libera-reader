@@ -18,7 +18,7 @@ impl SideBar {
 }
 impl Render for SideBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().settings.theme.data();
+    let theme = cx.ctx().settings.read().theme.data();
     div().bg(rgb(theme.base_300)).w_12().h_full().flex().flex_col().justify_between().children([
       div().children([
         Btn::new(Library, "heroicons--book-open.svg", Some(Box::new({

@@ -9,7 +9,7 @@ impl NotifyEventHandler {
     let start_time = std::time::Instant::now();
     match crud::get_primary::<Book>(path_to_book, &self.db)? {
       None => { debug!("book_deletion_handler: book not found: {path_to_book}") }
-      Some(old_book) => { crud::book::del_book(old_book, &self.app_dirs, &self.db)?; }
+      Some(old_book) => { Book::remove(old_book, &self.db)?; }
     };
     let total_time = start_time.elapsed();
     debug!("Function book_deletion_handler executed in: {:?}", &total_time);

@@ -15,7 +15,7 @@ impl NotifyEventHandler {
         Ok(self.book_adding_handler(new_path)?)
       }
       Some(book_from_db) => {
-        let new_book = Book::from_pathbuf(&new_path, book_from_db.book_data_wrapper_pk.clone());
+        let new_book = Book::from_pathbuf(&new_path, book_from_db.book_data_pk.clone());
         Ok(crud::update(book_from_db, new_book, &self.db)?)
       }
     };

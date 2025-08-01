@@ -1,35 +1,38 @@
-use crate::types::{BookPath, MutoolErr};
+use crate::types::BookPath;
+use mutool_bindings::MUToolResult;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BookData {
-  pub cached: bool,
-  pub mutool_err: Option<MutoolErr>,
+  pub books_pk: Vec<BookPath>,
+  pub thumbnail: Option<Vec<usize>>,
+  pub mutool_err: Option<MUToolResult>,
+  pub is_deleted: bool,
+  pub favorite: bool,
+  pub in_history: bool,
   pub title: Option<String>,
   pub author: Option<String>,
-  pub page_count: Option<i32>,
-  pub in_history: bool,
-  pub favorite: bool,
-  pub last_page_number: i32,
+  pub page_count: Option<usize>,
+  pub last_page_number: usize,
   pub latest_opening_in: Option<String>,
-  pub books_pk: Vec<BookPath>,
 }
 
 impl BookData {
   pub(crate) fn new(books_pk: Vec<BookPath>) -> Self {
     Self {
-      cached: false,
+      books_pk,
+      thumbnail: None,
       mutool_err: None,
+      is_deleted: false,
+      favorite: false,
+      in_history: false,
       title: None,
       author: None,
       page_count: None,
-      in_history: false,
-      favorite: false,
       last_page_number: 0,
       latest_opening_in: None,
-      books_pk,
     }
   }
 }

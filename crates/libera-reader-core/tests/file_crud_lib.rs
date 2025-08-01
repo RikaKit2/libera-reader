@@ -38,7 +38,8 @@ impl FileCrudLib {
     let proj_root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let tmp_dir = proj_root_dir.join("test_files").join(tmp_dir_name);
     Self::drop_files(&tmp_dir);
-    let ctx = Ctx::new_for_test(models, tmp_dir.clone())?;
+    let mut ctx = Ctx::new_for_test(models, tmp_dir.clone())?;
+    ctx.settings.set_path_to_scan(tmp_dir.clone().to_string2())?;
     Ok(Self {
       first_book: tmp_dir.join(&FIRST_BOOK),
       second_book: tmp_dir.join(&SECOND_BOOK),
@@ -54,7 +55,7 @@ impl FileCrudLib {
     assert!(File::create(&self.first_book).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan(&self.tmp_dir.clone().to_string2())?; }
+      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
     };
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name))?;
     Ok(())
@@ -69,7 +70,7 @@ impl FileCrudLib {
       }
       TestMode::PassiveScan => {
         assert!(rename(&self.first_book, &self.second_book).is_ok());
-        self.ctx.services.run_passive_scan(&self.tmp_dir.clone().to_string2())?;
+        self.ctx.services.run_passive_scan()?;
       }
     };
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&SECOND_BOOK, &book.book_name))?;
@@ -87,7 +88,7 @@ impl FileCrudLib {
       }
       TestMode::PassiveScan => {
         assert!(rename(&self.second_book, &book_in_first_dir).is_ok());
-        self.ctx.services.run_passive_scan(&self.tmp_dir.clone().to_string2())?;
+        self.ctx.services.run_passive_scan()?;
       }
     }
     self.second_book = book_in_first_dir;
@@ -99,7 +100,7 @@ impl FileCrudLib {
     assert!(rename(&self.fist_dir, &self.second_dir).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan(&self.tmp_dir.clone().to_string2())?; }
+      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
     }
 
     self.second_book = self.tmp_dir.join(&SECOND_DIR).join(&SECOND_BOOK);
@@ -113,7 +114,7 @@ impl FileCrudLib {
     assert!(rename(&self.second_book, &self.first_book).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan(&self.tmp_dir.clone().to_string2())?; }
+      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
     }
 
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name))?;
@@ -124,7 +125,7 @@ impl FileCrudLib {
     assert!(remove_dir_all(&self.second_dir).is_ok());
     match self.test_mode {
       TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)); }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan(&self.tmp_dir.clone().to_string2())?; }
+      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
     }
 
     assert_eq!(Book::get_by_path(&self.first_book.to_string2(), &self.ctx.db)?, None, "there shouldn't be a book");
@@ -153,7 +154,7 @@ impl FileCrudLib {
     self.ctx.settings.set_path_to_scan(self.tmp_dir.to_string2())?;
 
     match self.test_mode {
-      TestMode::Notify => { self.ctx.services.run_notify(self.tmp_dir.to_string2())?; }
+      TestMode::Notify => { self.ctx.services.run_notify()?; }
       TestMode::PassiveScan => {}
     }
     self.create_first_book()?;
@@ -176,5 +177,5 @@ impl EasyString for PathBuf {
   }
 }
 impl Drop for FileCrudLib {
-  fn drop(&mut self) { self.ctx.services.stop().unwrap(); }
+  fn drop(&mut self) { self.ctx.services.stop().unwrap() }
 }

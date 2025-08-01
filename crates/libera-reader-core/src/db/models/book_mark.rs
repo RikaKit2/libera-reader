@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[native_db]
 pub struct BookMark {
   #[primary_key]
-  pub id: i32,
+  pub id: u32,
   pub title: String,
   pub content: String,
-  pub page_number: i32,
+  pub page_number: u32,
   pub book_data_link: String,
   pub time_created: String,
   pub time_updated: String,
