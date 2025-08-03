@@ -1,14 +1,13 @@
-use crate::db::crud::insert;
-use crate::db::models::{Book, BookDataPK, DataOfUnhashedBook};
+use crate::db::models::Book;
 use crate::services::State;
 use crate::types::{BookPath, BookSize, HashMap, HashSet};
-use crate::utils::MultiThreadTask;
 use anyhow::Result;
+use dashmap::DashMap;
+use gxhash::GxBuildHasher;
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use std::path::PathBuf;
-use std::thread;
-use tracing::{debug, info};
+use tracing::info;
 use utils::get_file_size;
 use walkdir::WalkDir;
 
@@ -19,8 +18,8 @@ enum BooksLocation {
   None,
 }
 type UniqueSizeBooks = Vec<(BookSize, PathBuf)>;
-type BooksForHashing = Vec<(BookSize, PathBuf)>;
-type BooksGroupedBySize = HashMap<BookSize, Vec<PathBuf>>;
+type BooksForHashing = Vec<(BookSize, Vec<PathBuf>)>;
+type BooksGroupedBySize = DashMap<BookSize, Vec<PathBuf>, GxBuildHasher>;
 
 impl State {
   //noinspection RsUnwrap
@@ -56,9 +55,10 @@ impl State {
               books_in_db.remove(book_path).unwrap()
             ).collect();
 
-            debug!("Number of new books: {:?}", new_books.len());
-            debug!("Number of general_books: {:?}", general_books.len());
-            debug!("Number of outdated books: {:?}", outdated_books.len());
+            info!("Number of new books: {:?}", new_books.len());
+            info!("Number of general_books: {:?}", general_books.len());
+            info!("Number of outdated books: {:?}", outdated_books.len());
+            self.cache_general_books(general_books)?;
             self.remove_outdated_books_from_db(outdated_books)?;
             self.insert_new_books_to_db(new_books)?;
           }
@@ -81,27 +81,33 @@ impl State {
     }
   }
   fn group_books_by_size(&self, books: Vec<PathBuf>) -> Result<BooksGroupedBySize> {
-    let mut res: BooksGroupedBySize = Default::default();
-    for i in books {
-      let book_size = get_file_size(&i)?;
+    let res: BooksGroupedBySize = Default::default();
+    books.into_par_iter().for_each(|i| {
+      let book_size = get_file_size(&i).unwrap();
       match res.get_mut(&book_size) {
-        Some(data) => { data.push(i); }
+        Some(mut data) => { data.push(i); }
         None => { res.insert(book_size, vec![i]); }
       }
-    }
+    });
     Ok(res)
   }
-  fn classify_books(&self, books_grouped_by_size: BooksGroupedBySize) -> (UniqueSizeBooks, BooksForHashing) {
+  fn classify_books(&self, books: Vec<PathBuf>) -> Result<(UniqueSizeBooks, BooksForHashing)> {
+    let start_time = std::time::Instant::now();
     let mut unique_size_books: UniqueSizeBooks = vec![];
     let mut books_for_hashing: BooksForHashing = vec![];
-    for (book_size, books) in books_grouped_by_size {
+    let mut num_of_books_for_hashing: usize = 0;
+    for (book_size, books) in self.group_books_by_size(books)? {
       if books.len() == 1 {
         unique_size_books.push((book_size, books[0].clone()));
       } else if books.len() > 1 {
-        books_for_hashing.push((book_size, books[0].clone()));
+        num_of_books_for_hashing += books.len();
+        books_for_hashing.push((book_size, books));
       }
     }
-    (unique_size_books, books_for_hashing)
+    info!("Total time of classify_books: {:?}", start_time.elapsed());
+    info!("Number of new books for hashing: {:?}", num_of_books_for_hashing);
+    info!("Number of new unique size books: {:?}", unique_size_books.len());
+    Ok((unique_size_books, books_for_hashing))
   }
   fn get_books_from_disk(&self, path_to_scan: &String) -> Vec<PathBuf> {
     let start_time = std::time::Instant::now();
@@ -121,36 +127,65 @@ impl State {
         };
       }
     };
-    debug!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
+    info!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
     books_from_disk
   }
   fn insert_new_books_to_db(&self, new_books: Vec<PathBuf>) -> Result<()> {
-    let books_grouped_by_size = self.group_books_by_size(new_books)?;
-    let (unique_size_books, books_for_hashing) = self.classify_books(books_grouped_by_size);
-    debug!("Number of books for hashing: {:?}", books_for_hashing.len());
-    debug!("Number of books of a unique size: {:?}", unique_size_books.len());
-    for (book_size, book_pathbuf) in unique_size_books {
-      let book_data_pk = BookDataPK::UniqueSize(book_size.clone());
-      let new_book = Book::from_pathbuf(&book_pathbuf, book_data_pk);
-      let data = DataOfUnhashedBook::new(book_size.clone(), vec![new_book.full_path.clone()]);
-      insert::<DataOfUnhashedBook>(data, &self.db)?;
-      insert::<Book>(new_book, &self.db)?;
-    }
-    let db = self.db.clone();
-    thread::spawn(move || {
-      let num_of_threads = MultiThreadTask::CalcHash.get_num_of_threads();
-      debug!("Number of threads for hash calculation: {:?}", &num_of_threads);
-      ThreadPoolBuilder::new().num_threads(num_of_threads).build().unwrap().install(|| {
-        books_for_hashing.into_par_iter().for_each(|(book_size, book_pathbuf)| {
-          Book::insert_to_db(&book_pathbuf, book_size, &db).unwrap()
-        });
-      });
-    });
+    info!("Number of new books: {:?}", new_books.len());
+    let (unique_size_books, books_for_hashing) = self.classify_books(new_books)?;
+    self.insert_books_for_hashing(books_for_hashing);
+    self.insert_unique_books(unique_size_books)?;
     Ok(())
   }
   fn remove_outdated_books_from_db(&self, books: Vec<Book>) -> Result<()> {
-    for book in books {
-      Book::remove(book, &self.db)?
+    books.into_par_iter().for_each(|i| Book::remove(i, &self.db).unwrap());
+    Ok(())
+  }
+  fn insert_unique_books(&self, unique_size_books: UniqueSizeBooks) -> Result<()> {
+    if unique_size_books.len() > 0 {
+      let start_time = std::time::Instant::now();
+      unique_size_books.into_par_iter().for_each(|(book_size, book_pathbuf)| {
+        Book::insert_to_db(&book_pathbuf, book_size, &self.db, &self.not_cached_books).unwrap();
+      });
+      info!("Total time of adding unique books: {:?}", start_time.elapsed());
+    }
+    Ok(())
+  }
+  fn insert_books_for_hashing(&self, books_for_hashing: BooksForHashing) {
+    if books_for_hashing.len() > 0 {
+      let db = self.db.clone();
+      let not_cached_books = self.not_cached_books.clone();
+      tokio::spawn(async move {
+        let start_time = std::time::Instant::now();
+        let num_of_threads = num_cpus::get();
+        info!("Number of threads for hash calculation: {:?}", &num_of_threads);
+        ThreadPoolBuilder::new().num_threads(num_of_threads).build().unwrap().install(|| {
+          books_for_hashing.into_par_iter().for_each(|(book_size, books)| {
+            for book_pathbuf in books {
+              Book::insert_to_db(&book_pathbuf, book_size, &db, &not_cached_books).unwrap()
+            }
+          });
+        });
+        info!("Total time of hashing books: {:?}", start_time.elapsed());
+      });
+    }
+  }
+  fn cache_general_books(&self, books: Vec<Book>) -> Result<()> {
+    if books.len() > 1 {
+      let db = self.db.clone();
+      let not_cached_books = self.not_cached_books.clone();
+      tokio::spawn(async move {
+        let start_time = std::time::Instant::now();
+        for book in books {
+          let book_data = book.get_book_data(&db).unwrap();
+          match book_data.thumbnail.is_none() && book_data.mutool_err.is_none() {
+            true => { not_cached_books.push(Box::new(book)).unwrap(); }
+            false => {}
+          }
+        }
+        info!("Total time of adding general books to not_cached_books: {:?}", start_time.elapsed());
+        info!("Number of not_cached_books: {:?}", not_cached_books.len());
+      });
     }
     Ok(())
   }

@@ -3,7 +3,7 @@ use crate::db::models::Book;
 use crate::services::notify_service::NotifyEventHandler;
 use anyhow::Result;
 use std::path::PathBuf;
-use tracing::{debug, error};
+use tracing::{error, info};
 
 
 impl NotifyEventHandler {
@@ -20,7 +20,7 @@ impl NotifyEventHandler {
       }
     };
     let total_time = start_time.elapsed();
-    debug!("Function book_path_update_handler executed in: {:?}", &total_time);
+    info!("Function book_path_update_handler executed in: {:?}", &total_time);
     res
   }
 }

@@ -9,13 +9,13 @@ use crate::db::models::settings::SettingsModel;
 use anyhow::Result;
 use native_db::{db_type, Builder, Database, Models};
 use std::path::PathBuf;
-use tracing::debug;
+use tracing::info;
 
 pub fn create_db_on_disk<'a>(path_to_db: PathBuf, models: &'static Models) -> db_type::Result<Database<'a>> {
   match path_to_db.exists() {
     true => { Builder::new().open(models, path_to_db) }
     false => {
-      debug!("Creating a DB");
+      info!("Creating a DB");
       Builder::new().create(models, path_to_db)
     }
   }

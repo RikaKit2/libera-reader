@@ -17,8 +17,8 @@ pub enum Status {
   NotWorking,
 }
 pub struct State {
-  pub data_extraction_service_working_status: Status,
-  pub notify_service_working_status: Status,
+  data_extraction_service_working_status: Status,
+  notify_service_working_status: Status,
   not_cached_books: NotCachedBooks,
   settings: Settings,
   watcher: RecommendedWatcher,
@@ -28,11 +28,12 @@ pub struct State {
 
 impl State {
   pub fn new(settings: Settings, app_dirs: APP_DIRS, db: DB) -> Result<Self> {
+    let not_cached_books = NotCachedBooks::new(ConcurrentQueue::unbounded());
     Ok(Self {
       data_extraction_service_working_status: Status::NotWorking,
       notify_service_working_status: Status::NotWorking,
-      watcher: notify::recommended_watcher(NotifyEventHandler::new(settings.clone(), db.clone()))?,
-      not_cached_books: NotCachedBooks::new(ConcurrentQueue::unbounded()),
+      watcher: notify::recommended_watcher(NotifyEventHandler::new(settings.clone(), not_cached_books.clone(), db.clone()))?,
+      not_cached_books,
       settings,
       app_dirs,
       db,
@@ -49,11 +50,11 @@ impl SERVICES {
   pub fn run(&self) -> Result<()> {
     let services = self.inn.clone();
     thread::spawn(move || {
-      let rt = Builder::new_current_thread().enable_all().build().unwrap();
+      let rt = Builder::new_multi_thread().enable_all().build().unwrap();
       rt.block_on(async {
         services.write().unwrap().run_passive_scan().unwrap();
         services.write().unwrap().run_notify().unwrap();
-        // services.write().unwrap().run_data_extraction_service().await;
+        // services.write().unwrap().run_data_extraction_service();
       });
     });
     Ok(())

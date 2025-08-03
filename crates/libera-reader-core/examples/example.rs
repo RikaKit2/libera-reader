@@ -9,7 +9,7 @@ use std::io;
 
 
 fn main() -> Result<()> {
-  utils::create_debug_subscriber()?;
+  utils::create_subscriber()?;
   pub static MODELS: Lazy<Models> = Lazy::new(|| get_models().unwrap());
   let mut ctx = Ctx::new(&MODELS)?;
   let path_to_scan_is_some= ctx.settings.read().path_to_scan.is_some();

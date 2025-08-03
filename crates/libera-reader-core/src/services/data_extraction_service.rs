@@ -1,13 +1,13 @@
 use crate::services::{State, Status::{NotWorking, Working}};
 use crate::types::{NotCachedBooks, APP_DIRS, DB};
-use mutool_bindings::{extract_img, MUToolResult};
+use mutool_bindings::{extract_img, MuToolResult};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
-use tracing::{debug, error};
+use tracing::{error, info};
 
 impl State {
-  pub async fn run_data_extraction_service(&mut self) {
+  pub fn run_data_extraction_service(&mut self) {
     match &self.data_extraction_service_working_status {
       Working => {}
       NotWorking => {
@@ -17,18 +17,17 @@ impl State {
     }
   }
 }
-
-
 async fn run_thread(db: DB, not_cached_books: NotCachedBooks, app_dirs: APP_DIRS) {
-  // let available_threads: usize = RayonTask::ExtractImg.get_num_of_threads();
-  let available_threads: usize = 4;
-  debug!("Number of threads: {available_threads}");
+  let available_threads: usize = num_cpus::get();
+  info!("Number of threads: {available_threads}");
   let semaphore = Arc::new(Semaphore::new(available_threads));
 
   loop {
-    match not_cached_books.pop() {
-      Ok(book) => {
-        debug!("{:?}", &book.full_path);
+    match not_cached_books.is_empty() {
+      true => {}
+      false => {
+        let book = not_cached_books.pop().unwrap();
+        info!("{:?}", &book.full_path);
         let permit = match semaphore.clone().acquire_owned().await {
           Ok(p) => p,
           Err(_) => break,
@@ -41,18 +40,15 @@ async fn run_thread(db: DB, not_cached_books: NotCachedBooks, app_dirs: APP_DIRS
           match extract_img(&PathBuf::from(&book.full_path), 20, &path_to_thumbnail).await {
             Ok(status) => {
               match status {
-                MUToolResult::Success => { book.mark_as_cached(&db).unwrap(); }
+                MuToolResult::Success => { book.mark_as_cached(&db).unwrap(); }
                 _ => { book.mark_as_broken(status, &db).unwrap(); }
               }
             }
-            Err(e) => {
-              error!("mutool failed: {}", e);
-            }
+            Err(e) => { error!("mutool failed: {}", e); }
           }
           drop(permit);
         });
       }
-      Err(_) => {}
     }
   }
 }

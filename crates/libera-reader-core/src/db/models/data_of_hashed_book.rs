@@ -7,6 +7,7 @@ use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
+use mutool_bindings::MuToolResult;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[native_model(id = 4, version = 1)]
@@ -20,10 +21,15 @@ pub struct DataOfHashedBook {
 }
 impl DataOfHashedBook {
   pub fn new(book_hash: BookHash, book_size: BookSize, books_pk: Vec<BookPath>) -> Self {
+    let mut book_data = BookData::new(books_pk);
+    match book_size == 0 {
+      true => { book_data.mutool_err = Some(MuToolResult::FileIsEmpty) }
+      false => {}
+    };
     DataOfHashedBook {
       book_hash,
       book_size,
-      book_data: BookData::new(books_pk),
+      book_data,
     }
   }
   pub(crate) fn new_with_other_book_data(book_hash: BookHash, book_size: BookSize, book_data: BookData) -> Self {
