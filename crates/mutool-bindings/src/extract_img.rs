@@ -1,18 +1,13 @@
-use crate::MUToolResult;
-use crate::MUToolResult::{OtherErr, Success, SIGSEGV};
+use crate::MuToolResult;
 use anyhow::Result;
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
 use utils::get_file_size;
 
-async fn file_is_empty(path: &PathBuf) -> Result<bool> {
-  let size = get_file_size(path)?;
-  Ok(size == 0)
-}
-
-pub async fn extract_img(path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf) -> Result<MUToolResult> {
-  match file_is_empty(path_to_book).await? {
+pub async fn extract_img(path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf) -> Result<MuToolResult> {
+  let book_size = get_file_size(path_to_book)?;
+  match book_size == 0 {
     true => Err(anyhow::anyhow!("Book file is empty")),
     false => {
       match path_to_book.exists() {
@@ -28,37 +23,7 @@ pub async fn extract_img(path_to_book: &PathBuf, resolution: u32, path_to_thumbn
             .spawn()?;
 
           let status = child.wait().await?;
-
-          match status.success() {
-            true => Ok(Success),
-            false => {
-              #[cfg(unix)]
-              {
-                use std::os::unix::process::ExitStatusExt;
-                match status.signal() {
-                  Some(signal) if signal == libc::SIGSEGV => {
-                    Ok(SIGSEGV)
-                  }
-                  _ => Ok(OtherErr),
-                }
-              }
-
-              #[cfg(windows)]
-              {
-                match status.code() {
-                  Some(code) if code == 0xC0000005u32 as i32 => {
-                    Ok(Status::SIGSEGV)
-                  }
-                  _ => Ok(Status::OtherErr),
-                }
-              }
-
-              #[cfg(not(any(unix, windows)))]
-              {
-                Ok(Status::OtherErr)
-              }
-            }
-          }
+          Ok(MuToolResult::from_process_exit_status(status))
         },
       }
     },

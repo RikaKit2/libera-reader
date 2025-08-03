@@ -1,4 +1,4 @@
-use crate::db::crud::update_table;
+use crate::db::crud::update;
 use crate::db::models::{GetOrCreate, Lang, RootRoute, SettingsModel};
 use crate::types::DB;
 use anyhow::Result;
@@ -14,50 +14,55 @@ impl Settings {
   pub fn read(&self) -> RwLockReadGuard<'_, SettingsModel> {
     self.inn.read().unwrap()
   }
-  pub fn write(&mut self) -> RwLockWriteGuard<'_, SettingsModel> { self.inn.write().unwrap() }
+  fn write(&mut self) -> RwLockWriteGuard<'_, SettingsModel> { self.inn.write().unwrap() }
   pub fn set_path_to_scan(&mut self, new_path: String) -> Result<()> {
-    let flag = match &self.read().path_to_scan {
-      None => { true }
-      Some(old_path) => { old_path.eq(&new_path) }
-    };
-    match flag {
-      true => {
-        update_table(&self.db, Some(self.read().clone()), |model| model.path_to_scan = Some(new_path.clone()))?;
-        self.write().path_to_scan = Some(new_path);
+    let path_to_scan = self.read().path_to_scan.clone();
+    let old_model = self.read().clone();
+    match path_to_scan {
+      None => { self.write().path_to_scan = Some(new_path); }
+      Some(old_path_to_scan) => {
+        match old_path_to_scan.eq(&new_path) {
+          true => {}
+          false => {
+            let mut lock = self.write();
+            lock.path_to_scan = Some(new_path);
+            lock.old_path_to_scan = Some(old_path_to_scan);
+          }
+        }
       }
-      false => {}
     }
+    update(old_model, self.read().clone(), &self.db)?;
     Ok(())
   }
   pub fn set_language(&mut self, lang: Lang) -> Result<()> {
-    let lang_eq = self.read().language.eq(&lang);
-    match lang_eq {
+    let old_model = self.read().clone();
+    match old_model.language.eq(&lang) {
       true => {}
       false => {
-        update_table(&self.db, Some(self.read().clone()), |model| model.language = lang.clone())?;
         self.write().language = lang;
+        update(old_model, self.read().clone(), &self.db)?;
       }
     };
     Ok(())
   }
   pub fn set_route(&mut self, new_route: RootRoute) -> Result<()> {
-    let route_eq = self.read().route.eq(&new_route);
-    match route_eq {
+    let old_model = self.read().clone();
+    match old_model.route.eq(&new_route) {
       true => {}
       false => {
-        update_table(&self.db, Some(self.read().clone()), |model| model.route = new_route.clone())?;
         self.write().route = new_route;
+        update(old_model, self.read().clone(), &self.db)?;
       }
     }
     Ok(())
   }
   pub fn set_setup_status(&mut self, status: bool) -> Result<()> {
-    let setup_eq = self.read().setup_is_done.eq(&status);
-    match setup_eq {
+    let old_model = self.read().clone();
+    match old_model.setup_is_done.eq(&status) {
       true => {}
       false => {
-        update_table(&self.db, Some(self.read().clone()), |model| model.setup_is_done = status)?;
         self.write().setup_is_done = status;
+        update(old_model, self.read().clone(), &self.db)?;
       }
     }
     Ok(())
@@ -74,22 +79,21 @@ impl Settings {
     }
   }
   pub fn invert_pdf(&mut self) -> Result<()> {
-    update_table(&self.db, Some(self.read().clone()), |target_ext| target_ext.pdf = !target_ext.pdf)?;
-    let old_value = self.read().pdf;
-    self.write().pdf = !old_value;
+    let old_model = self.read().clone();
+    self.write().pdf = !old_model.pdf;
+    update(old_model, self.read().clone(), &self.db)?;
     Ok(())
   }
   pub fn invert_epub(&mut self) -> Result<()> {
-    update_table(&self.db, Some(self.read().clone()), |target_ext| target_ext.epub = !target_ext.epub)?;
-    let old_value = self.read().epub;
-    self.write().epub = !old_value;
+    let old_model = self.read().clone();
+    self.write().epub = !old_model.epub;
+    update(old_model, self.read().clone(), &self.db)?;
     Ok(())
   }
   pub fn invert_mobi(&mut self) -> Result<()> {
-    update_table(&self.db, Some(self.read().clone()), |target_ext| target_ext.mobi = !target_ext.mobi)?;
-    let old_value = self.read().mobi;
-    self.write().mobi = !old_value;
+    let old_model = self.read().clone();
+    self.write().mobi = !old_model.mobi;
+    update(old_model, self.read().clone(), &self.db)?;
     Ok(())
   }
 }
-

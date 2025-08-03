@@ -1,4 +1,3 @@
-use crate::types::DB;
 use anyhow::Result;
 use native_db::{db_type, Database, ToInput, ToKey};
 
@@ -27,15 +26,4 @@ pub(crate) fn remove<T: ToInput>(item: T, db: &Database) -> Result<T, db_type::E
       Err(e)
     }
   }
-}
-pub(crate) fn update_table<FN, Table: ToInput + Clone>(db: &DB, table: Option<Table>, changing_fn: FN) -> Result<()>
-                                                       where FN: FnOnce(&mut Table) {
-  let old_table = match table {
-    None => { get_primary::<Table>(1, db)?.unwrap() }
-    Some(res) => { res }
-  };
-  let mut new_table = old_table.clone();
-  changing_fn(&mut new_table);
-  update::<Table>(old_table, new_table, db)?;
-  Ok(())
 }

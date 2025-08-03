@@ -6,10 +6,10 @@ use crate::db::crud::get_primary;
 use crate::db::models::book_data::BookData;
 use crate::db::models::book_data_pk::BookDataPK;
 use crate::db::models::{DataOfHashedBook, DataOfUnhashedBook};
-use crate::types::{BookPath, APP_DIRS, DB};
+use crate::types::{BookPath, BookSize, APP_DIRS, DB};
 use anyhow::Result;
 use itertools::Itertools;
-use mutool_bindings::MUToolResult;
+use mutool_bindings::MuToolResult;
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
@@ -27,7 +27,6 @@ pub struct Book {
   pub dir_name: String,
   pub book_name: String,
   pub ext: String,
-  pub path_is_valid: bool,
   pub book_data_pk: BookDataPK,
 }
 impl Book {
@@ -39,7 +38,6 @@ impl Book {
       dir_name: future_book.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string(),
       ext: future_book.extension().unwrap().to_str().unwrap().to_string(),
       book_data_pk: book_data,
-      path_is_valid: true,
     }
   }
   pub(crate) fn mark_as_cached(self, db: &DB) -> Result<()> {
@@ -47,19 +45,43 @@ impl Book {
       book_data.thumbnail = Some(vec![]);
     }, db)
   }
-  pub(crate) fn mark_as_broken(self, mutool_err: MUToolResult, db: &DB) -> Result<()> {
+  pub(crate) fn mark_as_broken(self, mutool_err: MuToolResult, db: &DB) -> Result<()> {
     self.book_data_pk.update(|book_data: &mut BookData| {
       book_data.mutool_err = Some(mutool_err);
     }, db)
   }
   pub(crate) fn path_to_thumbnail(&self, app_dirs: &APP_DIRS) -> PathBuf {
     match &self.book_data_pk {
-      BookDataPK::UniqueSize(book_size) => app_dirs.read().unwrap().inn.dir_of_unhashed_books.join(book_size.to_string()).with_extension("png"),
-      BookDataPK::RepeatingSize(book_hash) => app_dirs.read().unwrap().inn.dir_of_hashed_books.join(book_hash).with_extension("png")
+      BookDataPK::UniqueSize(book_size) => app_dirs.read().dir_of_unhashed_books.join(book_size.to_string()).with_extension("png"),
+      BookDataPK::RepeatingSize(book_hash) => app_dirs.read().dir_of_hashed_books.join(book_hash).with_extension("png")
     }
+  }
+  pub fn get_book_data(&self, db: &DB) -> Result<BookData> {
+    Ok(match &self.book_data_pk {
+      BookDataPK::UniqueSize(book_size) => { get_primary::<DataOfUnhashedBook>(book_size.clone(), db)?.unwrap().book_data }
+      BookDataPK::RepeatingSize(book_hash) => { get_primary::<DataOfHashedBook>(book_hash.clone(), db)?.unwrap().book_data }
+    })
   }
   pub fn get_by_path(path_to_book: &BookPath, db: &DB) -> Result<Option<Book>> {
     Ok(get_primary::<Book>(path_to_book.clone(), db)?)
+  }
+  pub(crate) fn get_by_size(book_size: BookSize, db: &DB) -> Result<Vec<Book>> {
+    let mut res = vec![];
+    match get_primary::<DataOfUnhashedBook>(book_size, db)? {
+      None => {
+        for i in DataOfHashedBook::find_by_size(book_size, db)? {
+          for book_path in i.book_data.books_pk {
+            let book = Book::get_by_path(&book_path, db)?.unwrap();
+            res.push(book);
+          }
+        }
+      }
+      Some(data_of_book_with_such_size) => {
+        let book = Book::get_by_path(&data_of_book_with_such_size.book_data.books_pk[0], db)?.unwrap();
+        res.push(book);
+      }
+    }
+    Ok(res)
   }
   pub(crate) fn get_books_located_in_dir(path_to_dir: String, db: &DB) -> Result<Vec<Book>> {
     let r_conn = db.r_transaction()?;

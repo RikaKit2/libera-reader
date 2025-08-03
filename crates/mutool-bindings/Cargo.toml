@@ -13,3 +13,4 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 libc = { workspace = true }
 serde = { workspace = true }
+indicatif = { workspace = true }

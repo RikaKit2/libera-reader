@@ -1,7 +1,7 @@
 use crate::db::models::Book;
 use crate::services::{State, Status};
 use crate::settings::Settings;
-use crate::types::DB;
+use crate::types::{NotCachedBooks, DB};
 use anyhow::Result;
 use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
 use notify::{Event, EventHandler, EventKind, RecursiveMode, Watcher};
@@ -37,11 +37,12 @@ impl State {
 
 pub(crate) struct NotifyEventHandler {
   settings: Settings,
+  not_cached_books: NotCachedBooks,
   db: DB,
 }
 impl NotifyEventHandler {
-  pub fn new(settings: Settings, db: DB) -> Self {
-    Self { settings, db }
+  pub fn new(settings: Settings, not_cached_books: NotCachedBooks, db: DB) -> Self {
+    Self { settings, not_cached_books, db }
   }
   fn event_processing(&mut self, event: Event) {
     match event {

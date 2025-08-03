@@ -8,7 +8,7 @@ use anyhow::Result;
 use gpui::{App, Global};
 use native_db::Models;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 pub struct Ctx {
   pub settings: Settings,
@@ -19,9 +19,9 @@ pub struct Ctx {
 impl Ctx {
   pub fn new(models: &'static Models) -> Result<Self> {
     let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
-    let db: DB = Arc::new(create_db_on_disk(app_dirs.inn.path_to_db.clone(), models)?);
+    let db: DB = Arc::new(create_db_on_disk(app_dirs.read().path_to_db.clone(), models)?);
 
-    let app_dirs = Arc::new(RwLock::new(app_dirs));
+    let app_dirs = Arc::new(app_dirs);
     let settings = Settings::new(db.clone())?;
     Ok(Self {
       services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?,
@@ -34,7 +34,7 @@ impl Ctx {
     let app_dirs = AppDirs::new(path_to_data_dir).unwrap();
     let db = Arc::new(create_db_in_memory(models)?);
 
-    let app_dirs = Arc::new(RwLock::new(app_dirs));
+    let app_dirs = Arc::new(app_dirs);
     let settings = Settings::new(db.clone())?;
     Ok(Self {
       services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?,
