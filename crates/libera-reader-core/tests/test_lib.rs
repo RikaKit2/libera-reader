@@ -2,7 +2,6 @@ use anyhow::Result;
 use libera_reader_core::ctx::Ctx;
 use libera_reader_core::db::models::Book;
 use mutool_bindings::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
-use native_db::Models;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::{create_dir, remove_dir_all, rename};
@@ -38,12 +37,12 @@ pub struct TestLib {
   ctx: Ctx,
 }
 impl TestLib {
-  pub async fn new(test_mode: TestMode, tmp_dir_name: &str, models: &'static Models) -> Result<Self> {
+  pub async fn new(test_mode: TestMode, tmp_dir_name: &str) -> Result<Self> {
     let proj_root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let test_files = proj_root_dir.join("test_files");
     let tmp_dir = test_files.join(tmp_dir_name);
     Self::drop_files(&tmp_dir).await;
-    let mut ctx = Ctx::new_for_test(models, tmp_dir.clone())?;
+    let mut ctx = Ctx::new_for_test(tmp_dir.clone())?;
     ctx.settings.set_path_to_scan(tmp_dir.clone().to_string2())?;
     download_mutool_if_missing_blocking(&test_files).await?;
     Ok(Self {

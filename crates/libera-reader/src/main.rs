@@ -5,20 +5,16 @@ use crate::ui::pages::Pages;
 use anyhow::Result;
 use gpui::{px, size, App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions};
 use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::get_models;
-use native_db::Models;
-use once_cell::sync::Lazy;
 use std::path::PathBuf;
 use utils::create_subscriber;
 
-pub static MODELS: Lazy<Models> = Lazy::new(|| get_models().unwrap());
 fn build_root_window(_window: &mut Window, cx: &mut App) -> Entity<Pages> { Pages::new(cx) }
 
 fn main() -> Result<()> {
   create_subscriber()?;
   let path_to_assets = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets").join("icons");
   Application::new().with_assets(Assets::new(path_to_assets)).run(|cx: &mut App| {
-    Ctx::init(cx, &MODELS);
+    Ctx::init(cx);
     let bounds = Bounds::centered(None, size(px(700.0), px(400.0)), cx);
     let window_options = WindowOptions {
       window_bounds: Some(WindowBounds::Windowed(bounds)),

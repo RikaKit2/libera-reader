@@ -2,7 +2,6 @@ use crate::db::models::book_data::BookData;
 use crate::db::models::GetBookData;
 use crate::types::{BookHash, BookPath, BookSize, DB};
 use anyhow::Result;
-use itertools::Itertools;
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
@@ -40,12 +39,7 @@ impl DataOfHashedBook {
     }
   }
   pub(crate) fn find_by_size(book_size: BookSize, db: &DB) -> Result<Vec<Self>> {
-    let res: Vec<DataOfHashedBook> = db.r_transaction()?
-      .scan()
-      .secondary(DataOfHashedBookKey::book_size)?
-      .start_with(book_size.clone())?
-      .try_collect()?;
-    Ok(res)
+    Ok(db.scan_secondary_by::<BookSize, DataOfHashedBook>(book_size, DataOfHashedBookKey::book_size)?)
   }
 }
 impl GetBookData for DataOfHashedBook {

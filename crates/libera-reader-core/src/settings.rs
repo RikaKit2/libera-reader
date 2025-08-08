@@ -1,4 +1,3 @@
-use crate::db::crud::update;
 use crate::db::models::{GetOrCreate, Lang, RootRoute, SettingsModel};
 use crate::types::DB;
 use anyhow::Result;
@@ -31,7 +30,7 @@ impl Settings {
         }
       }
     }
-    update(old_model, self.read().clone(), &self.db)?;
+    self.db.update(old_model, self.read().clone())?;
     Ok(())
   }
   pub fn set_language(&mut self, lang: Lang) -> Result<()> {
@@ -40,7 +39,7 @@ impl Settings {
       true => {}
       false => {
         self.write().language = lang;
-        update(old_model, self.read().clone(), &self.db)?;
+        self.db.update(old_model, self.read().clone())?;
       }
     };
     Ok(())
@@ -51,7 +50,7 @@ impl Settings {
       true => {}
       false => {
         self.write().route = new_route;
-        update(old_model, self.read().clone(), &self.db)?;
+        self.db.update(old_model, self.read().clone())?;
       }
     }
     Ok(())
@@ -62,7 +61,7 @@ impl Settings {
       true => {}
       false => {
         self.write().setup_is_done = status;
-        update(old_model, self.read().clone(), &self.db)?;
+        self.db.update(old_model, self.read().clone())?;
       }
     }
     Ok(())
@@ -81,19 +80,19 @@ impl Settings {
   pub fn invert_pdf(&mut self) -> Result<()> {
     let old_model = self.read().clone();
     self.write().pdf = !old_model.pdf;
-    update(old_model, self.read().clone(), &self.db)?;
+    self.db.update(old_model, self.read().clone())?;
     Ok(())
   }
   pub fn invert_epub(&mut self) -> Result<()> {
     let old_model = self.read().clone();
     self.write().epub = !old_model.epub;
-    update(old_model, self.read().clone(), &self.db)?;
+    self.db.update(old_model, self.read().clone())?;
     Ok(())
   }
   pub fn invert_mobi(&mut self) -> Result<()> {
     let old_model = self.read().clone();
     self.write().mobi = !old_model.mobi;
-    update(old_model, self.read().clone(), &self.db)?;
+    self.db.update(old_model, self.read().clone())?;
     Ok(())
   }
 }

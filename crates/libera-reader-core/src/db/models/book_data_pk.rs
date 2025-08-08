@@ -1,4 +1,3 @@
-use crate::db::crud;
 use crate::db::models::book_data::BookData;
 use crate::db::models::data_of_hashed_book::DataOfHashedBook;
 use crate::db::models::data_of_unhashed_book::DataOfUnhashedBook;
@@ -16,16 +15,16 @@ impl BookDataPK {
                           where F: FnOnce(&mut BookData) {
     match self {
       BookDataPK::UniqueSize(book_size) => {
-        let wrapper = crud::get_primary::<DataOfUnhashedBook>(book_size, db)?.unwrap();
+        let wrapper = db.get_primary::<DataOfUnhashedBook>(book_size)?.unwrap();
         let mut new_wrapper = wrapper.clone();
         book_data_change_func(&mut new_wrapper.book_data);
-        crud::update(wrapper, new_wrapper, db)?;
+        db.update(wrapper, new_wrapper)?;
       }
       BookDataPK::RepeatingSize(book_hash) => {
-        let wrapper = crud::get_primary::<DataOfHashedBook>(book_hash, db)?.unwrap();
+        let wrapper = db.get_primary::<DataOfHashedBook>(book_hash)?.unwrap();
         let mut new_wrapper = wrapper.clone();
         book_data_change_func(&mut new_wrapper.book_data);
-        crud::update(wrapper, new_wrapper, db)?;
+        db.update(wrapper, new_wrapper)?;
       }
     }
     Ok(())

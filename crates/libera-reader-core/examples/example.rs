@@ -1,18 +1,14 @@
 use anyhow::Result;
 use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::get_models;
-use native_db::Models;
-use once_cell::sync::Lazy;
+use std::io;
 use std::thread::sleep;
 use std::time::Duration;
-use std::io;
 
 
 fn main() -> Result<()> {
   utils::create_subscriber()?;
-  pub static MODELS: Lazy<Models> = Lazy::new(|| get_models().unwrap());
-  let mut ctx = Ctx::new(&MODELS)?;
-  let path_to_scan_is_some= ctx.settings.read().path_to_scan.is_some();
+  let mut ctx = Ctx::new()?;
+  let path_to_scan_is_some = ctx.settings.read().path_to_scan.is_some();
   match path_to_scan_is_some {
     true => { ctx.services.run()?; }
     false => {

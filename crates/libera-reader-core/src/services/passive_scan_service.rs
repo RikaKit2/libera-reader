@@ -132,9 +132,11 @@ impl State {
   }
   fn insert_new_books_to_db(&self, new_books: Vec<PathBuf>) -> Result<()> {
     info!("Number of new books: {:?}", new_books.len());
-    let (unique_size_books, books_for_hashing) = self.classify_books(new_books)?;
-    self.insert_books_for_hashing(books_for_hashing);
-    self.insert_unique_books(unique_size_books)?;
+    if new_books.len() > 0 {
+      let (unique_size_books, books_for_hashing) = self.classify_books(new_books)?;
+      self.insert_books_for_hashing(books_for_hashing);
+      self.insert_unique_books(unique_size_books)?;
+    }
     Ok(())
   }
   fn remove_outdated_books_from_db(&self, books: Vec<Book>) -> Result<()> {

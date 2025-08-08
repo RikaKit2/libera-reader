@@ -1,12 +1,11 @@
 use crate::app_dirs::AppDirs;
 use crate::db::models::GetText;
-use crate::db::{create_db_in_memory, create_db_on_disk};
+use crate::db::DataBase;
 use crate::services::SERVICES;
 use crate::settings::Settings;
 use crate::types::{APP_DIRS, DB};
 use anyhow::Result;
 use gpui::{App, Global};
-use native_db::Models;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -17,10 +16,9 @@ pub struct Ctx {
   pub db: DB,
 }
 impl Ctx {
-  pub fn new(models: &'static Models) -> Result<Self> {
+  pub fn new() -> Result<Self> {
     let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
-    let db: DB = Arc::new(create_db_on_disk(app_dirs.read().path_to_db.clone(), models)?);
-
+    let db: DB = Arc::new(DataBase::new(app_dirs.read().path_to_db.clone())?);
     let app_dirs = Arc::new(app_dirs);
     let settings = Settings::new(db.clone())?;
     Ok(Self {
@@ -30,10 +28,9 @@ impl Ctx {
       db,
     })
   }
-  pub fn new_for_test(models: &'static Models, path_to_data_dir: PathBuf) -> Result<Self> {
+  pub fn new_for_test(path_to_data_dir: PathBuf) -> Result<Self> {
     let app_dirs = AppDirs::new(path_to_data_dir).unwrap();
-    let db = Arc::new(create_db_in_memory(models)?);
-
+    let db: DB = Arc::new(DataBase::new(app_dirs.read().path_to_db.clone())?);
     let app_dirs = Arc::new(app_dirs);
     let settings = Settings::new(db.clone())?;
     Ok(Self {
@@ -43,8 +40,8 @@ impl Ctx {
       db,
     })
   }
-  pub fn init(cx: &mut App, models: &'static Models) {
-    cx.set_global::<Self>(Self::new(models).unwrap())
+  pub fn init(cx: &mut App, ) {
+    cx.set_global::<Self>(Self::new().unwrap())
   }
   #[inline(always)]
   pub fn global(cx: &App) -> &Self {
