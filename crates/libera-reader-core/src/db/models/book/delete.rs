@@ -1,4 +1,3 @@
-use crate::db::crud::{get_primary, remove, update};
 use crate::db::models::{Book, BookDataPK, DataOfHashedBook, DataOfUnhashedBook, GetBookData};
 use crate::types::DB;
 use anyhow::Result;
@@ -11,24 +10,24 @@ impl Book {
       if book_data.favorite == true || book_data.in_history == true {
         let mut new_pk_data = data.clone();
         new_pk_data.get_book_data_mut().is_deleted = true;
-        update::<T>(data, new_pk_data, db)?;
+        db.update::<T>(data, new_pk_data)?;
       } else {
-        remove::<T>(data, db)?;
-        remove::<Book>(book, db)?;
+        db.remove::<T>(data)?;
+        db.remove::<Book>(book)?;
       }
       Ok(())
     }
     match &self.book_data_pk {
       BookDataPK::UniqueSize(book_size) => {
-        let old_pk_data = get_primary::<DataOfUnhashedBook>(book_size.clone(), db)?.unwrap();
+        let old_pk_data = db.get_primary::<DataOfUnhashedBook>(book_size.clone())?.unwrap();
         inn_delete(old_pk_data, self, db)?;
       }
       BookDataPK::RepeatingSize(book_hash) => {
-        let old_pk_data = get_primary::<DataOfHashedBook>(book_hash.clone(), db)?.unwrap();
+        let old_pk_data = db.get_primary::<DataOfHashedBook>(book_hash.clone())?.unwrap();
         if old_pk_data.book_data.books_pk.len() == 1 {
           inn_delete(old_pk_data, self, db)?;
         } else if old_pk_data.book_data.books_pk.len() > 1 {
-          remove::<Book>(self, db)?;
+          db.remove::<Book>(self)?;
         }
       }
     }

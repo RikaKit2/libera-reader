@@ -52,8 +52,12 @@ impl SERVICES {
     thread::spawn(move || {
       let rt = Builder::new_multi_thread().enable_all().build().unwrap();
       rt.block_on(async {
-        services.write().unwrap().run_passive_scan().unwrap();
-        services.write().unwrap().run_notify().unwrap();
+        let mut lock = services.write().unwrap();
+        lock.run_passive_scan().unwrap();
+        lock.db.compact().unwrap();
+        lock.db.save_to_storage().unwrap();
+        lock.db.reload_db().unwrap();
+        lock.run_notify().unwrap();
         // services.write().unwrap().run_data_extraction_service();
       });
     });
