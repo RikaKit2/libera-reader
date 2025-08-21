@@ -25,6 +25,7 @@ sys-locale = { workspace = true }
 anyhow = { workspace = true }
 gpui = { workspace = true }
 dashmap = { workspace = true }
+sysinfo = { workspace = true }
 utils = { version = "0.1.0", path = "../utils" }
 mutool-bindings = { version = "0.1.0", path = "../mutool-bindings" }
 

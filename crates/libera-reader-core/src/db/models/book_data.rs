@@ -1,5 +1,5 @@
 use crate::types::BookPath;
-use mutool_bindings::MuToolResult;
+use mutool_bindings::mutool_status::MuToolError;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BookData {
   pub books_pk: Vec<BookPath>,
-  pub thumbnail: Option<Vec<usize>>,
-  pub mutool_err: Option<MuToolResult>,
+  pub cached: bool,
+  pub mutool_err: Option<MuToolError>,
   pub is_deleted: bool,
   pub favorite: bool,
   pub in_history: bool,
@@ -23,7 +23,7 @@ impl BookData {
   pub(crate) fn new(books_pk: Vec<BookPath>) -> Self {
     Self {
       books_pk,
-      thumbnail: None,
+      cached: false,
       mutool_err: None,
       is_deleted: false,
       favorite: false,

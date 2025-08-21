@@ -22,7 +22,7 @@ impl Book {
         let old_pk_data = db.get_primary::<DataOfUnhashedBook>(book_size.clone())?.unwrap();
         inn_delete(old_pk_data, self, db)?;
       }
-      BookDataPK::RepeatingSize(book_hash) => {
+      BookDataPK::Hashed(book_hash) => {
         let old_pk_data = db.get_primary::<DataOfHashedBook>(book_hash.clone())?.unwrap();
         if old_pk_data.book_data.books_pk.len() == 1 {
           inn_delete(old_pk_data, self, db)?;

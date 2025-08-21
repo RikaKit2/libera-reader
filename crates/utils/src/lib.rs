@@ -1,6 +1,6 @@
 use anyhow::Result;
 use std::fs;
-use std::hash::{BuildHasher, Hasher};
+use std::hash::Hasher;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use tracing::Level;
@@ -41,7 +41,7 @@ pub fn create_debug_subscriber() ->Result<()> {
   Ok(())
 }
 pub fn calc_file_hash<P: AsRef<Path>>(path_to_file: P) -> Result<String> {
-  let mut hasher = gxhash::GxBuildHasher::default().build_hasher();
+  let mut hasher = std::collections::hash_map::DefaultHasher::new();
   let mut file = fs::File::open(path_to_file)?;
   loop {
     // Read the file in 1 MB chunks

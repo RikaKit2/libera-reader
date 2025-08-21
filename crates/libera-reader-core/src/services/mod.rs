@@ -16,7 +16,7 @@ pub enum Status {
   Working,
   NotWorking,
 }
-pub struct State {
+pub struct Services {
   data_extraction_service_working_status: Status,
   notify_service_working_status: Status,
   not_cached_books: NotCachedBooks,
@@ -26,7 +26,7 @@ pub struct State {
   db: DB,
 }
 
-impl State {
+impl Services {
   pub fn new(settings: Settings, app_dirs: APP_DIRS, db: DB) -> Result<Self> {
     let not_cached_books = NotCachedBooks::new(ConcurrentQueue::unbounded());
     Ok(Self {
@@ -41,26 +41,44 @@ impl State {
   }
 }
 pub struct SERVICES {
-  inn: Arc<RwLock<State>>
+  inn: Arc<RwLock<Services>>,
+  worker: Option<thread::JoinHandle<()>>,
 }
 impl SERVICES {
   pub fn new(settings: Settings, app_dirs: APP_DIRS, db: DB) -> Result<Self> {
-    Ok(Self { inn: Arc::new(RwLock::new(State::new(settings, app_dirs, db)?)) })
+    Ok(Self { inn: Arc::new(RwLock::new(Services::new(settings, app_dirs, db)?)), worker: None })
   }
-  pub fn run(&self) -> Result<()> {
-    let services = self.inn.clone();
-    thread::spawn(move || {
-      let rt = Builder::new_multi_thread().enable_all().build().unwrap();
-      rt.block_on(async {
-        let mut lock = services.write().unwrap();
-        lock.run_passive_scan().unwrap();
-        lock.db.compact().unwrap();
-        lock.db.save_to_storage().unwrap();
-        lock.db.reload_db().unwrap();
-        lock.run_notify().unwrap();
-        // services.write().unwrap().run_data_extraction_service();
-      });
-    });
+  pub fn run(&mut self) -> Result<()> {
+    match &self.worker {
+      None => {
+        let services = self.inn.clone();
+        let worker = thread::spawn(move || {
+          let rt = Builder::new_multi_thread().enable_all().build().unwrap();
+          rt.block_on(async {
+            let mut lock = services.write().unwrap();
+            lock.run_passive_scan().unwrap();
+            lock.db.compact().unwrap();
+            lock.db.save_to_storage().unwrap();
+            lock.db.reload_db().unwrap();
+            lock.run_notify().unwrap();
+            match lock.run_data_extraction_service().await {
+              None => {}
+              Some(j) => { j.await.unwrap(); }
+            };
+          });
+        });
+        self.worker = Some(worker);
+      }
+      Some(j) => {
+        match j.is_finished() {
+          true => { 
+            self.worker = None;
+            self.run()?
+          }
+          false => {}
+        }
+      }
+    }
     Ok(())
   }
   pub fn run_passive_scan(&mut self) -> Result<()> {
