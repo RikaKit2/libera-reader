@@ -1,12 +1,11 @@
 use crate::db::models::book_data::BookData;
 use crate::db::models::GetBookData;
-use crate::types::{BookHash, BookPath, BookSize, DB};
-use anyhow::Result;
+use crate::types::{BookHash, BookPath, BookSize};
+use mutool_bindings::mutool_status::MuToolError;
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
-use mutool_bindings::MuToolResult;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[native_model(id = 4, version = 1)]
@@ -22,7 +21,7 @@ impl DataOfHashedBook {
   pub fn new(book_hash: BookHash, book_size: BookSize, books_pk: Vec<BookPath>) -> Self {
     let mut book_data = BookData::new(books_pk);
     match book_size == 0 {
-      true => { book_data.mutool_err = Some(MuToolResult::FileIsEmpty) }
+      true => { book_data.mutool_err = Some(MuToolError::FileIsEmpty) }
       false => {}
     };
     DataOfHashedBook {
@@ -37,9 +36,6 @@ impl DataOfHashedBook {
       book_size,
       book_data
     }
-  }
-  pub(crate) fn find_by_size(book_size: BookSize, db: &DB) -> Result<Vec<Self>> {
-    Ok(db.scan_secondary_by::<BookSize, DataOfHashedBook>(book_size, DataOfHashedBookKey::book_size)?)
   }
 }
 impl GetBookData for DataOfHashedBook {

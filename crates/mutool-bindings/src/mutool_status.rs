@@ -1,25 +1,26 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum MuToolResult {
-  Success,
+pub enum MuToolError {
   SIGSEGV,
   FileIsEmpty,
+  IoError,
   OtherErr,
+  MutoolNotFound
 }
-impl MuToolResult {
-  pub(crate) fn from_process_exit_status(status: std::process::ExitStatus) -> Self {
+impl MuToolError {
+  pub(crate) fn from_process_exit_status(status: std::process::ExitStatus) -> Result<(), Self> {
     match status.success() {
-      true => Self::Success,
+      true => Ok(()),
       false => {
         #[cfg(unix)]
         {
           use std::os::unix::process::ExitStatusExt;
           match status.signal() {
             Some(signal) if signal == libc::SIGSEGV => {
-              Self::SIGSEGV
+              Err(Self::SIGSEGV)
             }
-            _ => Self::OtherErr,
+            _ => Err(Self::OtherErr)
           }
         }
 
@@ -27,15 +28,15 @@ impl MuToolResult {
         {
           match status.code() {
             Some(code) if code == 0xC0000005u32 as i32 => {
-              Self::SIGSEGV
+              Err(Self::SIGSEGV)
             }
-            _ => Self::OtherErr,
+            _ => Err(Self::OtherErr),
           }
         }
 
         #[cfg(not(any(unix, windows)))]
         {
-          Self::OtherErr
+          Err(Self::OtherErr)
         }
       }
     }

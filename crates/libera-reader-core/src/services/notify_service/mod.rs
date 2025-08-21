@@ -1,5 +1,5 @@
 use crate::db::models::Book;
-use crate::services::{State, Status};
+use crate::services::{Services, Status};
 use crate::settings::Settings;
 use crate::types::{NotCachedBooks, DB};
 use anyhow::Result;
@@ -8,7 +8,7 @@ use notify::{Event, EventHandler, EventKind, RecursiveMode, Watcher};
 
 mod handlers;
 
-impl State {
+impl Services {
   pub fn run_notify(&mut self) -> Result<()> {
     match self.notify_service_working_status {
       Status::Working => {}

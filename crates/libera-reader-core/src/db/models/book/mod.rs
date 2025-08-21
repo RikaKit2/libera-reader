@@ -1,12 +1,13 @@
 mod insert_to_db;
 mod delete;
 
+use std::error::Error;
 use crate::db::models::book_data::BookData;
 use crate::db::models::book_data_pk::BookDataPK;
 use crate::db::models::{DataOfHashedBook, DataOfUnhashedBook};
 use crate::types::{BookPath, BookSize, APP_DIRS, DB};
 use anyhow::Result;
-use mutool_bindings::MuToolResult;
+use mutool_bindings::mutool_status::MuToolError;
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
@@ -38,26 +39,42 @@ impl Book {
       book_data_pk: book_data,
     }
   }
-  pub(crate) fn mark_as_cached(self, db: &DB) -> Result<()> {
+  pub(crate) fn mark_as_cached(self, db: &DB) -> std::result::Result<(), Box<dyn Error>> {
     self.book_data_pk.update(|book_data: &mut BookData| {
-      book_data.thumbnail = Some(vec![]);
+      book_data.cached = true;
     }, db)
   }
-  pub(crate) fn mark_as_broken(self, mutool_err: MuToolResult, db: &DB) -> Result<()> {
+  pub(crate) fn mark_as_broken(self, mutool_err: MuToolError, db: &DB) -> std::result::Result<(), Box<dyn Error>> {
     self.book_data_pk.update(|book_data: &mut BookData| {
       book_data.mutool_err = Some(mutool_err);
     }, db)
   }
-  pub(crate) fn path_to_thumbnail(&self, app_dirs: &APP_DIRS) -> PathBuf {
+  pub(crate) fn path_to_thumbnail_for_mutool(&self, app_dirs: &APP_DIRS) -> PathBuf {
+    self.path_to_thumbnail(app_dirs).with_extension("png")
+  }
+  pub fn path_to_optimized_thumbnail(&self, app_dirs: &APP_DIRS) -> PathBuf {
+    self.path_to_thumbnail(app_dirs).with_extension("jpeg")
+  }
+  fn path_to_thumbnail(&self, app_dirs: &APP_DIRS) -> PathBuf {
     match &self.book_data_pk {
-      BookDataPK::UniqueSize(book_size) => app_dirs.read().dir_of_unhashed_books.join(book_size.to_string()).with_extension("png"),
-      BookDataPK::RepeatingSize(book_hash) => app_dirs.read().dir_of_hashed_books.join(book_hash).with_extension("png")
+      BookDataPK::UniqueSize(book_size) => app_dirs.read().dir_of_unhashed_books.join(book_size.to_string()),
+      BookDataPK::Hashed(book_hash) => app_dirs.read().dir_of_hashed_books.join(book_hash)
     }
   }
-  pub fn get_book_data(&self, db: &DB) -> Result<BookData> {
+  pub fn get_book_data(&self, db: &DB) -> Result<Option<BookData>> {
     Ok(match &self.book_data_pk {
-      BookDataPK::UniqueSize(book_size) => { db.get_primary::<DataOfUnhashedBook>(book_size.clone())?.unwrap().book_data }
-      BookDataPK::RepeatingSize(book_hash) => { db.get_primary::<DataOfHashedBook>(book_hash.clone())?.unwrap().book_data }
+      BookDataPK::UniqueSize(book_size) => {
+        match db.get_primary::<DataOfUnhashedBook>(book_size.clone())? {
+          None => { None }
+          Some(data) => { Some(data.book_data) }
+        }
+      }
+      BookDataPK::Hashed(book_hash) => {
+        match db.get_primary::<DataOfHashedBook>(book_hash.clone())? {
+          None => { None }
+          Some(data) => { Some(data.book_data) }
+        }
+      }
     })
   }
   pub fn get_by_path(path_to_book: &BookPath, db: &DB) -> Result<Option<Book>> {
@@ -66,14 +83,7 @@ impl Book {
   pub(crate) fn get_by_size(book_size: BookSize, db: &DB) -> Result<Vec<Book>> {
     let mut res = vec![];
     match db.get_primary::<DataOfUnhashedBook>(book_size)? {
-      None => {
-        for i in DataOfHashedBook::find_by_size(book_size, db)? {
-          for book_path in i.book_data.books_pk {
-            let book = Book::get_by_path(&book_path, db)?.unwrap();
-            res.push(book);
-          }
-        }
-      }
+      None => {}
       Some(data_of_book_with_such_size) => {
         let book = Book::get_by_path(&data_of_book_with_such_size.book_data.books_pk[0], db)?.unwrap();
         res.push(book);
@@ -102,7 +112,7 @@ impl Book {
     let res = all_books.into_iter().filter(|book| {
       let book_data = match &book.book_data_pk {
         BookDataPK::UniqueSize(book_size) => { db.get_primary::<DataOfUnhashedBook>(book_size.clone()).unwrap().unwrap().book_data }
-        BookDataPK::RepeatingSize(book_hash) => { db.get_primary::<DataOfHashedBook>(book_hash.clone()).unwrap().unwrap().book_data }
+        BookDataPK::Hashed(book_hash) => { db.get_primary::<DataOfHashedBook>(book_hash.clone()).unwrap().unwrap().book_data }
       };
       book_data.is_deleted == false
     }).collect();

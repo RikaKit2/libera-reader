@@ -58,7 +58,7 @@ impl TestLib {
   }
   pub async fn create_first_book(&mut self) -> Result<()> {
     info!("Create first book");
-    create_empty_book(&get_path_to_mutool(&self.test_files_dir), &self.first_book).await?;
+    create_empty_book(&get_path_to_mutool(&self.test_files_dir), &self.first_book).await.unwrap();
     match self.test_mode {
       TestMode::Notify => { tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
       TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
