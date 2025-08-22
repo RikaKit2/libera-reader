@@ -1,5 +1,5 @@
 use crate::db::models::{Book, BookDataPK, DataOfHashedBook, DataOfUnhashedBook, GetBookData};
-use crate::types::DB;
+use crate::db::DB;
 use anyhow::Result;
 use native_db::ToInput;
 

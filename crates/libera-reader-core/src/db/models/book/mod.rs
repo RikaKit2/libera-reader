@@ -1,17 +1,19 @@
-mod insert_to_db;
-mod delete;
+mod insert;
+mod remove;
 
-use std::error::Error;
+use crate::app_dirs::AppDirs;
 use crate::db::models::book_data::BookData;
 use crate::db::models::book_data_pk::BookDataPK;
 use crate::db::models::{DataOfHashedBook, DataOfUnhashedBook};
-use crate::types::{BookPath, BookSize, APP_DIRS, DB};
+use crate::db::DB;
+use crate::types::{BookPath, BookSize};
 use anyhow::Result;
 use mutool_bindings::mutool_status::MuToolError;
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{native_model, Model};
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use tracing::info;
@@ -39,6 +41,9 @@ impl Book {
       book_data_pk: book_data,
     }
   }
+  pub(crate) fn to_pathbuf(&self) -> PathBuf {
+    PathBuf::from(&self.full_path)
+  }
   pub(crate) fn mark_as_cached(self, db: &DB) -> std::result::Result<(), Box<dyn Error>> {
     self.book_data_pk.update(|book_data: &mut BookData| {
       book_data.cached = true;
@@ -49,13 +54,13 @@ impl Book {
       book_data.mutool_err = Some(mutool_err);
     }, db)
   }
-  pub(crate) fn path_to_thumbnail_for_mutool(&self, app_dirs: &APP_DIRS) -> PathBuf {
+  pub(crate) fn path_to_thumbnail_for_mutool(&self, app_dirs: &AppDirs) -> PathBuf {
     self.path_to_thumbnail(app_dirs).with_extension("png")
   }
-  pub fn path_to_optimized_thumbnail(&self, app_dirs: &APP_DIRS) -> PathBuf {
+  pub fn path_to_optimized_thumbnail(&self, app_dirs: &AppDirs) -> PathBuf {
     self.path_to_thumbnail(app_dirs).with_extension("jpeg")
   }
-  fn path_to_thumbnail(&self, app_dirs: &APP_DIRS) -> PathBuf {
+  fn path_to_thumbnail(&self, app_dirs: &AppDirs) -> PathBuf {
     match &self.book_data_pk {
       BookDataPK::UniqueSize(book_size) => app_dirs.read().dir_of_unhashed_books.join(book_size.to_string()),
       BookDataPK::Hashed(book_hash) => app_dirs.read().dir_of_hashed_books.join(book_hash)

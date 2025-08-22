@@ -1,10 +1,11 @@
 use crate::db::models::{Book, BookDataPK, DataOfHashedBook, DataOfUnhashedBook};
-use crate::types::{BookSize, NotCachedBooks, DB};
+use crate::db::DB;
+use crate::types::{BookSize, NotCachedBooks};
 use std::path::PathBuf;
 use utils::calc_file_hash;
 
 impl Book {
-  pub(crate) fn insert_to_db(book_pathbuf: &PathBuf, book_size: BookSize, db: &DB, not_cached_books: &NotCachedBooks) {
+  pub(crate) fn insert(book_pathbuf: &PathBuf, book_size: BookSize, db: &DB, not_cached_books: &NotCachedBooks) {
     let mut books_with_such_size = Book::get_by_size(book_size, db).unwrap();
     let num_of_books_with_such_size = books_with_such_size.len();
     if num_of_books_with_such_size == 0 {
@@ -18,10 +19,9 @@ impl Book {
   pub(crate) fn insert_to_books_of_unique_size(book_pathbuf: &PathBuf, book_size: BookSize, db: &DB, not_cached_books: &NotCachedBooks) {
     let new_book = Book::from_pathbuf(book_pathbuf, BookDataPK::UniqueSize(book_size.clone()));
     let book_data = DataOfUnhashedBook::new(book_size, vec![new_book.full_path.clone()]);
-    db.insert::<Book>(new_book.clone()).unwrap();
+    db.insert::<Book>(new_book).unwrap();
     db.insert::<DataOfUnhashedBook>(book_data).unwrap();
-    not_cached_books.push(Box::new(new_book)).unwrap();
-    
+    not_cached_books.push(Box::new(book_pathbuf.clone())).unwrap();
   }
   fn replace_another_book_of_this_size(book_pathbuf: &PathBuf, other_book: Book, book_size: BookSize, db: &DB, not_cached_books: &NotCachedBooks) {
     let data_of_book_with_such_size = db.get_primary::<DataOfUnhashedBook>(book_size).unwrap().unwrap();
@@ -43,14 +43,14 @@ impl Book {
         old_book_data.books_pk.clear();
         old_book_data.books_pk.extend(vec![new_book.full_path.clone(), full_path_to_updated_book.clone()]);
 
-        db.insert::<Book>(new_book.clone()).unwrap();
+        db.insert::<Book>(new_book).unwrap();
         let other_book_is_cached = old_book_data.cached;
         let new_book_data = DataOfHashedBook::new_with_other_book_data(hash_of_updated_book, book_size, old_book_data);
         db.insert::<DataOfHashedBook>(new_book_data).unwrap();
         match other_book_is_cached {
           true => {}
           false => {
-            not_cached_books.push(Box::new(new_book)).unwrap();
+            not_cached_books.push(Box::new(book_pathbuf.clone())).unwrap();
           }
         };
       }
@@ -61,12 +61,11 @@ impl Book {
 
         db.insert::<DataOfHashedBook>(book_data_of_updated_book).unwrap();
         db.insert::<DataOfHashedBook>(book_data_of_new_book).unwrap();
-        db.insert::<Book>(new_book.clone()).unwrap();
-        not_cached_books.push(Box::new(new_book)).unwrap();
-        not_cached_books.push(Box::new(other_book.clone())).unwrap();
+        db.insert::<Book>(new_book).unwrap();
+        not_cached_books.push(Box::new(book_pathbuf.clone())).unwrap();
+        not_cached_books.push(Box::new(other_book.to_pathbuf())).unwrap();
       }
     }
-    
   }
   pub(crate) fn insert_to_hashed_books(book_pathbuf: &PathBuf, book_size: BookSize, db: &DB, not_cached_books: &NotCachedBooks) {
     let hash_of_new_book = calc_file_hash(&book_pathbuf).unwrap();
@@ -75,14 +74,14 @@ impl Book {
       None => {
         let new_book_data = DataOfHashedBook::new(hash_of_new_book, book_size, vec![new_book.full_path.clone()]);
         db.insert::<DataOfHashedBook>(new_book_data).unwrap();
-        db.insert::<Book>(new_book.clone()).unwrap();
-        not_cached_books.push(Box::new(new_book)).unwrap();
+        db.insert::<Book>(new_book).unwrap();
+        not_cached_books.push(Box::new(book_pathbuf.clone())).unwrap();
       }
       Some(other_book_data) => {
         match other_book_data.book_data.cached {
           true => {
-            db.insert::<Book>(new_book.clone()).unwrap();
-            not_cached_books.push(Box::new(new_book)).unwrap();
+            db.insert::<Book>(new_book).unwrap();
+            not_cached_books.push(Box::new(book_pathbuf.clone())).unwrap();
           }
           false => {}
         }

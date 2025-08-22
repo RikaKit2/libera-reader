@@ -12,7 +12,7 @@ impl NotifyEventHandler {
     let ext = book_pathbuf.extension().unwrap().to_str().unwrap().to_string();
     if self.settings.contains_ext(&ext) {
       let book_size = get_file_size(book_pathbuf)?;
-      Book::insert_to_db(book_pathbuf, book_size, &self.db, &self.not_cached_books);
+      Book::insert(book_pathbuf, book_size, &self.db, &self.not_cached_books);
     }
     let total_time = start_time.elapsed();
     info!("Function book_adding_handler executed in: {:?}", &total_time);

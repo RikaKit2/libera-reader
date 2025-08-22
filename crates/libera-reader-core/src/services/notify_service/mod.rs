@@ -1,7 +1,8 @@
 use crate::db::models::Book;
+use crate::db::DB;
 use crate::services::{Services, Status};
 use crate::settings::Settings;
-use crate::types::{NotCachedBooks, DB};
+use crate::types::NotCachedBooks;
 use anyhow::Result;
 use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
 use notify::{Event, EventHandler, EventKind, RecursiveMode, Watcher};
@@ -89,4 +90,3 @@ impl EventHandler for NotifyEventHandler {
     self.event_processing(event.unwrap())
   }
 }
-

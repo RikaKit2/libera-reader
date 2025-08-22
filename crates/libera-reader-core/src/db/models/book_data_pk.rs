@@ -1,7 +1,8 @@
 use crate::db::models::book_data::BookData;
 use crate::db::models::data_of_hashed_book::DataOfHashedBook;
 use crate::db::models::data_of_unhashed_book::DataOfUnhashedBook;
-use crate::types::{BookHash, BookSize, DB};
+use crate::db::DB;
+use crate::types::{BookHash, BookSize};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]

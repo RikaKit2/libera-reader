@@ -179,7 +179,7 @@ impl Services {
             None => { error!("book_data is none") }
             Some(book_data) => {
               match book_data.cached == false && book_data.mutool_err.is_none() {
-                true => { not_cached_books.push(Box::new(book)).unwrap(); }
+                true => { not_cached_books.push(Box::new(book.to_pathbuf())).unwrap(); }
                 false => {}
               }
             }

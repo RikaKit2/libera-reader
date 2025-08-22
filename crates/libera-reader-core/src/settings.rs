@@ -1,5 +1,5 @@
 use crate::db::models::{GetOrCreate, Lang, RootRoute, SettingsModel};
-use crate::types::DB;
+use crate::db::DB;
 use anyhow::Result;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
