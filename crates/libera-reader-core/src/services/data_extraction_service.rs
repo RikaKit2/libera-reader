@@ -1,5 +1,8 @@
+use crate::app_dirs::AppDirs;
+use crate::db::models::Book;
+use crate::db::DB;
 use crate::services::{Services, Status::{NotWorking, Working}};
-use crate::types::{NotCachedBooks, APP_DIRS, DB};
+use crate::types::NotCachedBooks;
 use mutool_bindings::extract_img::extract_img;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -27,7 +30,7 @@ impl Services {
   }
 }
 
-async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: APP_DIRS) {
+async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs) {
   let available_threads: usize = num_cpus::get();
   info!("Num of threads for data_extraction_service: {}", &available_threads);
   let semaphore = Arc::new(Semaphore::new(available_threads));
@@ -39,38 +42,41 @@ async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: APP_DIRS) {
       let start_time = std::time::Instant::now();
       let mut tasks = Vec::new();
 
-      for book in not_cached_books.try_iter() {
+      for pathbuf in not_cached_books.try_iter() {
         let semaphore = Arc::clone(&semaphore);
         let app_dirs = app_dirs.clone();
         let db = db.clone();
-
-        let task = tokio::spawn(async move {
-          let permit = semaphore.acquire().await.unwrap();
-          let path_to_thumbnail = book.path_to_thumbnail_for_mutool(&app_dirs);
-          let path = book.full_path.clone();
-          match extract_img(&PathBuf::from(&book.full_path), 20, &path_to_thumbnail).await {
-            Ok(_) => {
-              match book.mark_as_cached(&db) {
-                Ok(_) => {}
-                Err(err) => {
-                  error!("Error while marking book as cached: {}\npath: {}", err.to_string(), &path);
+        match Book::get_by_path(&pathbuf.to_str().unwrap().to_string(), &db).unwrap() {
+          None => {}
+          Some(book) => {
+            let task = tokio::spawn(async move {
+              let permit = semaphore.acquire().await.unwrap();
+              let path_to_thumbnail = book.path_to_thumbnail_for_mutool(&app_dirs);
+              let path = book.full_path.clone();
+              match extract_img(&PathBuf::from(&book.full_path), 20, &path_to_thumbnail).await {
+                Ok(_) => {
+                  match book.mark_as_cached(&db) {
+                    Ok(_) => {}
+                    Err(err) => {
+                      error!("Error while marking book as cached: {}\npath: {}", err.to_string(), &path);
+                    }
+                  }
+                }
+                Err(mutool_err) => {
+                  eprint!("{:?}", &mutool_err);
+                  match book.mark_as_broken(mutool_err, &db) {
+                    Ok(_) => {}
+                    Err(err) => {
+                      error!("Error while marking book as broken: {}\npath: {}", err.to_string(), &path);
+                    }
+                  }
                 }
               }
-            }
-            Err(mutool_err) => {
-              eprint!("{:?}", &mutool_err);
-              match book.mark_as_broken(mutool_err, &db) {
-                Ok(_) => {}
-                Err(err) => {
-                  error!("Error while marking book as broken: {}\npath: {}", err.to_string(), &path);
-                }
-              }
-            }
+              drop(permit);
+            });
+            tasks.push(task);
           }
-          drop(permit);
-        });
-
-        tasks.push(task);
+        }
       }
 
       for task in tasks {

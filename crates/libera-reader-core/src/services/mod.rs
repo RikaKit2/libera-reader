@@ -1,6 +1,8 @@
+use crate::app_dirs::AppDirs;
+use crate::db::DB;
 use crate::services::notify_service::NotifyEventHandler;
 use crate::settings::Settings;
-use crate::types::{NotCachedBooks, APP_DIRS, DB};
+use crate::types::NotCachedBooks;
 use anyhow::Result;
 use concurrent_queue::ConcurrentQueue;
 use notify::RecommendedWatcher;
@@ -22,12 +24,12 @@ pub struct Services {
   not_cached_books: NotCachedBooks,
   settings: Settings,
   watcher: RecommendedWatcher,
-  app_dirs: APP_DIRS,
+  app_dirs: AppDirs,
   db: DB,
 }
 
 impl Services {
-  pub fn new(settings: Settings, app_dirs: APP_DIRS, db: DB) -> Result<Self> {
+  pub fn new(settings: Settings, app_dirs: AppDirs, db: DB) -> Result<Self> {
     let not_cached_books = NotCachedBooks::new(ConcurrentQueue::unbounded());
     Ok(Self {
       data_extraction_service_working_status: Status::NotWorking,
@@ -45,7 +47,7 @@ pub struct SERVICES {
   worker: Option<thread::JoinHandle<()>>,
 }
 impl SERVICES {
-  pub fn new(settings: Settings, app_dirs: APP_DIRS, db: DB) -> Result<Self> {
+  pub fn new(settings: Settings, app_dirs: AppDirs, db: DB) -> Result<Self> {
     Ok(Self { inn: Arc::new(RwLock::new(Services::new(settings, app_dirs, db)?)), worker: None })
   }
   pub fn run(&mut self) -> Result<()> {
@@ -71,7 +73,7 @@ impl SERVICES {
       }
       Some(j) => {
         match j.is_finished() {
-          true => { 
+          true => {
             self.worker = None;
             self.run()?
           }

@@ -10,7 +10,7 @@ pub mod book_mark;
 pub mod book;
 
 use crate::db::models::book_data::BookData;
-use crate::types::DB;
+use crate::db::DB;
 use anyhow::Result;
 pub use book::Book;
 pub use book_data_pk::BookDataPK;

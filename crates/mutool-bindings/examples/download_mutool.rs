@@ -1,7 +1,7 @@
 use anyhow::Result;
+use mutool_bindings::download_mutool_if_missing_blocking;
 use std::io;
 use std::path::PathBuf;
-use mutool_bindings::download_mutool_if_missing_blocking;
 
 #[tokio::main]
 async fn main() -> Result<()> {

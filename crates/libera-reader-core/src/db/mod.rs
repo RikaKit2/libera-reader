@@ -27,11 +27,11 @@ fn get_models() -> Result<Models> {
 
 static MODELS: Lazy<Models> = Lazy::new(|| get_models().unwrap());
 
-pub(crate) enum DB {
+pub(crate) enum DBType {
   InMemory(Database<'static>),
   InFile(Database<'static>),
 }
-impl DB {
+impl DBType {
   pub(crate) fn new_in_memory() -> Self {
     Self::InMemory(Builder::new().create_in_memory(&MODELS).unwrap())
   }
@@ -52,40 +52,40 @@ impl DB {
   }
 }
 #[derive(Clone)]
-pub struct DataBase {
-  inn: Arc<RwLock<DB>>,
+pub struct DB {
+  inn: Arc<RwLock<DBType>>,
   path_to_db: Arc<RwLock<PathBuf>>,
 }
-impl DataBase {
+impl DB {
   pub fn new(path_to_db: PathBuf) -> Result<Self> {
     let db = match path_to_db.exists() {
-      true => { DB::new_in_file(&path_to_db) }
-      false => { DB::new_in_memory() }
+      true => { DBType::new_in_file(&path_to_db) }
+      false => { DBType::new_in_memory() }
     };
     Ok(Self {
       inn: Arc::new(RwLock::new(db)),
       path_to_db: Arc::new(RwLock::new(path_to_db)),
     })
   }
-  fn read(&self) -> RwLockReadGuard<'_, DB> {
+  fn read(&self) -> RwLockReadGuard<'_, DBType> {
     self.inn.read().unwrap()
   }
-  fn write(&self) -> RwLockWriteGuard<'_, DB> {
+  fn write(&self) -> RwLockWriteGuard<'_, DBType> {
     self.inn.write().unwrap()
   }
   //noinspection RsUnwrap
   pub(crate) fn save_to_storage(&self) -> Result<()> {
     match self.inn.read().unwrap().deref() {
-      DB::InMemory(db) => { db.snapshot(&MODELS, &self.path_to_db.read().unwrap())?; }
-      DB::InFile(_) => {}
+      DBType::InMemory(db) => { db.snapshot(&MODELS, &self.path_to_db.read().unwrap())?; }
+      DBType::InFile(_) => {}
     }
     Ok(())
   }
   //noinspection RsUnwrap
   pub(crate) fn reload_db(&self) -> Result<()> {
     let db_in_memory = match self.read().deref() {
-      DB::InMemory(_) => true,
-      DB::InFile(_) => false,
+      DBType::InMemory(_) => true,
+      DBType::InFile(_) => false,
     };
 
     if db_in_memory {
@@ -96,7 +96,7 @@ impl DataBase {
       let before = sys.process(pid).map(|p| p.memory() as f64 / (1024.0 * 1024.0)).unwrap_or(0.0);
 
       let mut db = self.inn.write().unwrap();
-      *db.deref_mut() = DB::new_in_file(&self.path_to_db.read().unwrap().clone());
+      *db.deref_mut() = DBType::new_in_file(&self.path_to_db.read().unwrap().clone());
 
       sys.refresh_all();
       let after = sys.process(pid).map(|p| p.memory() as f64 / (1024.0 * 1024.0)).unwrap_or(0.0);

@@ -10,8 +10,7 @@ use std::path::PathBuf;
 pub fn get_path_to_mutool(path_to_storage_dir: &PathBuf) -> PathBuf {
   if cfg!(windows) {
     path_to_storage_dir.join("mutool.exe")
-  }
-  else {
+  } else {
     path_to_storage_dir.join("mutool")
   }
 }

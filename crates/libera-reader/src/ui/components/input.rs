@@ -5,10 +5,10 @@ use gpui::{actions, div, fill, point, prelude::*, px, relative, rgb, size, App, 
            MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString,
            Style, TextRun, UTF16Selection, UnderlineStyle, Window};
 use libera_reader_core::ctx::GlobalCTX;
+use libera_reader_core::db::models::ComponentsText;
 use std::ops::Range;
 use std::panic::Location;
 use unicode_segmentation::*;
-use libera_reader_core::db::models::ComponentsText;
 
 actions!(
     text_input,
