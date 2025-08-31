@@ -1,7 +1,7 @@
-use crate::db::models::{lang::Lang, route::RootRoute, theme::Theme, DefaultModel, GetOrCreate};
+use crate::db::models::{DefaultModel, GetOrCreate, lang::Lang, route::RootRoute, theme::Theme};
 use native_db::*;
 #[allow(unused_imports)]
-use native_model::{native_model, Model};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -26,7 +26,9 @@ pub struct SettingsModel {
 }
 impl DefaultModel for SettingsModel {
   fn default_model() -> Self
-                     where Self: Sized + ToInput, {
+  where
+    Self: Sized + ToInput,
+  {
     Self {
       id: 1,
       language: Lang::detect_system_lang(),

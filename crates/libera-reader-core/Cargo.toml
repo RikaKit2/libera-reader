@@ -12,8 +12,6 @@ directories = { workspace = true }
 notify = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
-walkdir = { workspace = true }
-rayon = { workspace = true }
 native_db = { workspace = true }
 native_model = { workspace = true }
 itertools = { workspace = true }
@@ -26,6 +24,7 @@ anyhow = { workspace = true }
 gpui = { workspace = true }
 dashmap = { workspace = true }
 sysinfo = { workspace = true }
+jwalk = { workspace = true }
 utils = { version = "0.1.0", path = "../utils" }
 mutool-bindings = { version = "0.1.0", path = "../mutool-bindings" }
 

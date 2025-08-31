@@ -19,7 +19,5 @@ rfd = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 unicode-segmentation = { workspace = true }
-once_cell = { workspace = true }
-native_db = { workspace = true }
 libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
 utils = { version = "0.1.0", path = "../utils" }

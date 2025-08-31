@@ -1,12 +1,12 @@
 use crate::ui::pages::main::MainPage;
 use crate::ui::pages::setup::SetupPage;
-use gpui::{div, App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
+use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use libera_reader_core::ctx::GlobalCTX;
 
-pub(crate) mod main;
-pub(crate) mod setup;
 #[path = "book-viewer/mod.rs"]
 pub(crate) mod book_viewer;
+pub(crate) mod main;
+pub(crate) mod setup;
 
 pub(crate) struct Pages {
   main_page: Entity<MainPage>,
@@ -15,10 +15,7 @@ pub(crate) struct Pages {
 
 impl Pages {
   pub fn new(cx: &mut App) -> Entity<Self> {
-    cx.new(|c| Self {
-      main_page: MainPage::new(c),
-      setup_page: SetupPage::new(c),
-    })
+    cx.new(|c| Self { main_page: MainPage::new(c), setup_page: SetupPage::new(c) })
   }
 }
 
@@ -27,8 +24,8 @@ impl Render for Pages {
     let path_to_scan = cx.ctx().settings.read().path_to_scan.is_some();
     let setup_status = cx.ctx().settings.read().setup_is_done.clone();
     match path_to_scan && setup_status {
-      true => { div().w_full().h_full().child(self.main_page.clone()) }
-      false => { div().w_full().h_full().child(self.setup_page.clone()) }
+      true => div().w_full().h_full().child(self.main_page.clone()),
+      false => div().w_full().h_full().child(self.setup_page.clone()),
     }
   }
 }

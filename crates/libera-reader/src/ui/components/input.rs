@@ -1,32 +1,16 @@
 use crate::ui::utils::adjust_brightness;
-use gpui::{actions, div, fill, point, prelude::*, px, relative, rgb, size, App, Bounds, ClipboardItem,
-           Context, CursorStyle, ElementId, ElementInputHandler, Entity, EntityInputHandler, FocusHandle,
-           Focusable, GlobalElementId, Hsla, InspectorElementId, KeyBinding, LayoutId, MouseButton,
-           MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString,
-           Style, TextRun, UTF16Selection, UnderlineStyle, Window};
+use gpui::{
+  App, Bounds, ClipboardItem, Context, CursorStyle, ElementId, ElementInputHandler, Entity, EntityInputHandler, FocusHandle, Focusable, GlobalElementId, Hsla,
+  InspectorElementId, KeyBinding, LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point, ShapedLine, SharedString,
+  Style, TextRun, UTF16Selection, UnderlineStyle, Window, actions, div, fill, point, prelude::*, px, relative, rgb, size,
+};
 use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::ComponentsText;
 use std::ops::Range;
 use std::panic::Location;
 use unicode_segmentation::*;
 
-actions!(
-    text_input,
-    [
-        Backspace,
-        Delete,
-        Left,
-        Right,
-        SelectLeft,
-        SelectRight,
-        SelectAll,
-        Home,
-        End,
-        Paste,
-        Cut,
-        Copy,
-    ]
-);
+actions!(text_input, [Backspace, Delete, Left, Right, SelectLeft, SelectRight, SelectAll, Home, End, Paste, Cut, Copy,]);
 
 pub(crate) struct TextInput {
   focus_handle: FocusHandle,
@@ -111,12 +95,7 @@ impl TextInput {
     }
     self.replace_text_in_range(None, "", window, cx)
   }
-  fn on_mouse_down(
-    &mut self,
-    event: &MouseDownEvent,
-    _window: &mut Window,
-    cx: &mut Context<Self>,
-  ) {
+  fn on_mouse_down(&mut self, event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
     self.is_selecting = true;
 
     if event.modifiers.shift {
@@ -140,16 +119,12 @@ impl TextInput {
   }
   fn copy(&mut self, _: &Copy, _: &mut Window, cx: &mut Context<Self>) {
     if !self.selected_range.is_empty() {
-      cx.write_to_clipboard(ClipboardItem::new_string(
-        (&self.content[self.selected_range.clone()]).to_string(),
-      ));
+      cx.write_to_clipboard(ClipboardItem::new_string((&self.content[self.selected_range.clone()]).to_string()));
     }
   }
   fn cut(&mut self, _: &Cut, window: &mut Window, cx: &mut Context<Self>) {
     if !self.selected_range.is_empty() {
-      cx.write_to_clipboard(ClipboardItem::new_string(
-        (&self.content[self.selected_range.clone()]).to_string(),
-      ));
+      cx.write_to_clipboard(ClipboardItem::new_string((&self.content[self.selected_range.clone()]).to_string()));
       self.replace_text_in_range(None, "", window, cx)
     }
   }
@@ -158,19 +133,14 @@ impl TextInput {
     cx.notify()
   }
   fn cursor_offset(&self) -> usize {
-    if self.selection_reversed {
-      self.selected_range.start
-    } else {
-      self.selected_range.end
-    }
+    if self.selection_reversed { self.selected_range.start } else { self.selected_range.end }
   }
   fn index_for_mouse_position(&self, position: Point<Pixels>) -> usize {
     if self.content.is_empty() {
       return 0;
     }
 
-    let (Some(bounds), Some(line)) = (self.last_bounds.as_ref(), self.last_layout.as_ref())
-    else {
+    let (Some(bounds), Some(line)) = (self.last_bounds.as_ref(), self.last_layout.as_ref()) else {
       return 0;
     };
     if position.y < bounds.top() {
@@ -228,17 +198,10 @@ impl TextInput {
     self.offset_from_utf16(range_utf16.start)..self.offset_from_utf16(range_utf16.end)
   }
   fn previous_boundary(&self, offset: usize) -> usize {
-    self.content
-      .grapheme_indices(true)
-      .rev()
-      .find_map(|(idx, _)| (idx < offset).then_some(idx))
-      .unwrap_or(0)
+    self.content.grapheme_indices(true).rev().find_map(|(idx, _)| (idx < offset).then_some(idx)).unwrap_or(0)
   }
   fn next_boundary(&self, offset: usize) -> usize {
-    self.content
-      .grapheme_indices(true)
-      .find_map(|(idx, _)| (idx > offset).then_some(idx))
-      .unwrap_or(self.content.len())
+    self.content.grapheme_indices(true).find_map(|(idx, _)| (idx > offset).then_some(idx)).unwrap_or(self.content.len())
   }
   fn _reset(&mut self) {
     self.content = "".into();
@@ -253,81 +216,40 @@ impl TextInput {
 
 impl EntityInputHandler for TextInput {
   fn text_for_range(
-    &mut self,
-    range_utf16: Range<usize>,
-    actual_range: &mut Option<Range<usize>>,
-    _window: &mut Window,
-    _cx: &mut Context<Self>,
+    &mut self, range_utf16: Range<usize>, actual_range: &mut Option<Range<usize>>, _window: &mut Window, _cx: &mut Context<Self>,
   ) -> Option<String> {
     let range = self.range_from_utf16(&range_utf16);
     actual_range.replace(self.range_to_utf16(&range));
     Some(self.content[range].to_string())
   }
 
-  fn selected_text_range(
-    &mut self,
-    _ignore_disabled_input: bool,
-    _window: &mut Window,
-    _cx: &mut Context<Self>,
-  ) -> Option<UTF16Selection> {
-    Some(UTF16Selection {
-      range: self.range_to_utf16(&self.selected_range),
-      reversed: self.selection_reversed,
-    })
+  fn selected_text_range(&mut self, _ignore_disabled_input: bool, _window: &mut Window, _cx: &mut Context<Self>) -> Option<UTF16Selection> {
+    Some(UTF16Selection { range: self.range_to_utf16(&self.selected_range), reversed: self.selection_reversed })
   }
 
-  fn marked_text_range(
-    &self,
-    _window: &mut Window,
-    _cx: &mut Context<Self>,
-  ) -> Option<Range<usize>> {
-    self.marked_range
-      .as_ref()
-      .map(|range| self.range_to_utf16(range))
+  fn marked_text_range(&self, _window: &mut Window, _cx: &mut Context<Self>) -> Option<Range<usize>> {
+    self.marked_range.as_ref().map(|range| self.range_to_utf16(range))
   }
 
   fn unmark_text(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
     self.marked_range = None;
   }
 
-  fn replace_text_in_range(
-    &mut self,
-    range_utf16: Option<Range<usize>>,
-    new_text: &str,
-    _: &mut Window,
-    cx: &mut Context<Self>,
-  ) {
-    let range = range_utf16
-      .as_ref()
-      .map(|range_utf16| self.range_from_utf16(range_utf16))
-      .or(self.marked_range.clone())
-      .unwrap_or(self.selected_range.clone());
+  fn replace_text_in_range(&mut self, range_utf16: Option<Range<usize>>, new_text: &str, _: &mut Window, cx: &mut Context<Self>) {
+    let range = range_utf16.as_ref().map(|range_utf16| self.range_from_utf16(range_utf16)).or(self.marked_range.clone()).unwrap_or(self.selected_range.clone());
 
-    self.content =
-      (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
-        .into();
+    self.content = (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..]).into();
     self.selected_range = range.start + new_text.len()..range.start + new_text.len();
     self.marked_range.take();
     cx.notify();
   }
 
   fn replace_and_mark_text_in_range(
-    &mut self,
-    range_utf16: Option<Range<usize>>,
-    new_text: &str,
-    new_selected_range_utf16: Option<Range<usize>>,
-    _window: &mut Window,
-    cx: &mut Context<Self>,
+    &mut self, range_utf16: Option<Range<usize>>, new_text: &str, new_selected_range_utf16: Option<Range<usize>>, _window: &mut Window, cx: &mut Context<Self>,
   ) {
-    let range = range_utf16
-      .as_ref()
-      .map(|range_utf16| self.range_from_utf16(range_utf16))
-      .or(self.marked_range.clone())
-      .unwrap_or(self.selected_range.clone());
+    let range = range_utf16.as_ref().map(|range_utf16| self.range_from_utf16(range_utf16)).or(self.marked_range.clone()).unwrap_or(self.selected_range.clone());
 
-    self.content =
-      (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
-        .into();
+    self.content = (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..]).into();
     if !new_text.is_empty() {
       self.marked_range = Some(range.start..range.start + new_text.len());
     } else {
@@ -342,33 +264,16 @@ impl EntityInputHandler for TextInput {
     cx.notify();
   }
 
-  fn bounds_for_range(
-    &mut self,
-    range_utf16: Range<usize>,
-    bounds: Bounds<Pixels>,
-    _window: &mut Window,
-    _cx: &mut Context<Self>,
-  ) -> Option<Bounds<Pixels>> {
+  fn bounds_for_range(&mut self, range_utf16: Range<usize>, bounds: Bounds<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) -> Option<Bounds<Pixels>> {
     let last_layout = self.last_layout.as_ref()?;
     let range = self.range_from_utf16(&range_utf16);
     Some(Bounds::from_corners(
-      point(
-        bounds.left() + last_layout.x_for_index(range.start),
-        bounds.top(),
-      ),
-      point(
-        bounds.left() + last_layout.x_for_index(range.end),
-        bounds.bottom(),
-      ),
+      point(bounds.left() + last_layout.x_for_index(range.start), bounds.top()),
+      point(bounds.left() + last_layout.x_for_index(range.end), bounds.bottom()),
     ))
   }
 
-  fn character_index_for_point(
-    &mut self,
-    point: Point<Pixels>,
-    _window: &mut Window,
-    _cx: &mut Context<Self>,
-  ) -> Option<usize> {
+  fn character_index_for_point(&mut self, point: Point<Pixels>, _window: &mut Window, _cx: &mut Context<Self>) -> Option<usize> {
     let line_point = self.last_bounds?.localize(&point)?;
     let last_layout = self.last_layout.as_ref()?;
 
@@ -407,83 +312,56 @@ impl Element for TextElement {
     None
   }
 
-  fn request_layout(&mut self, _id: Option<&GlobalElementId>,
-                    _inspector_id: Option<&InspectorElementId>,
-                    window: &mut Window,
-                    cx: &mut App) -> (LayoutId, Self::RequestLayoutState) {
+  fn request_layout(
+    &mut self, _id: Option<&GlobalElementId>, _inspector_id: Option<&InspectorElementId>, window: &mut Window, cx: &mut App,
+  ) -> (LayoutId, Self::RequestLayoutState) {
     let mut style = Style::default();
     style.size.width = relative(1.).into();
     style.size.height = window.line_height().into();
     (window.request_layout(style, [], cx), ())
   }
 
-  fn prepaint(&mut self, _id: Option<&GlobalElementId>,
-              _inspector_id: Option<&InspectorElementId>,
-              bounds: Bounds<Pixels>,
-              _request_layout: &mut Self::RequestLayoutState,
-              window: &mut Window,
-              cx: &mut App) -> Self::PrepaintState {
+  fn prepaint(
+    &mut self, _id: Option<&GlobalElementId>, _inspector_id: Option<&InspectorElementId>, bounds: Bounds<Pixels>,
+    _request_layout: &mut Self::RequestLayoutState, window: &mut Window, cx: &mut App,
+  ) -> Self::PrepaintState {
     let input = self.input.read(cx);
     let content = input.content.clone();
     let selected_range = input.selected_range.clone();
     let cursor = input.cursor_offset();
     let style = window.text_style();
     let theme = cx.ctx().settings.read().theme.data();
-    let (display_text, text_color) = if content.is_empty() {
-      (input.placeholder.clone(), rgb(theme.base_color_content))
-    } else {
-      (content.clone(), style.color.to_rgb())
-    };
+    let (display_text, text_color) =
+      if content.is_empty() { (input.placeholder.clone(), rgb(theme.base_color_content)) } else { (content.clone(), style.color.to_rgb()) };
 
-    let run = TextRun {
-      len: display_text.len(),
-      font: style.font(),
-      color: Hsla::from(text_color),
-      background_color: None,
-      underline: None,
-      strikethrough: None,
-    };
+    let run =
+      TextRun { len: display_text.len(), font: style.font(), color: Hsla::from(text_color), background_color: None, underline: None, strikethrough: None };
     let runs = if let Some(marked_range) = input.marked_range.as_ref() {
       vec![
-        TextRun {
-          len: marked_range.start,
-          ..run.clone()
-        },
+        TextRun { len: marked_range.start, ..run.clone() },
         TextRun {
           len: marked_range.end - marked_range.start,
-          underline: Some(UnderlineStyle {
-            color: Some(run.color),
-            thickness: px(1.0),
-            wavy: false,
-          }),
+          underline: Some(UnderlineStyle { color: Some(run.color), thickness: px(1.0), wavy: false }),
           ..run.clone()
         },
-        TextRun {
-          len: display_text.len() - marked_range.end,
-          ..run.clone()
-        },
+        TextRun { len: display_text.len() - marked_range.end, ..run.clone() },
       ]
-        .into_iter()
-        .filter(|run| run.len > 0)
-        .collect()
+      .into_iter()
+      .filter(|run| run.len > 0)
+      .collect()
     } else {
       vec![run]
     };
 
     let font_size = style.font_size.to_pixels(window.rem_size());
-    let line = window
-      .text_system()
-      .shape_line(display_text, font_size, &runs);
+    let line = window.text_system().shape_line(display_text, font_size, &runs);
 
     let cursor_pos = line.x_for_index(cursor);
     let (selection, cursor) = if selected_range.is_empty() {
       (
         None,
         Some(fill(
-          Bounds::new(
-            point(bounds.left() + cursor_pos, bounds.top()),
-            size(px(2.), bounds.bottom() - bounds.top()),
-          ),
+          Bounds::new(point(bounds.left() + cursor_pos, bounds.top()), size(px(2.), bounds.bottom() - bounds.top())),
           rgb(theme.base_color_content), // The color of the text separator
         )),
       )
@@ -491,46 +369,28 @@ impl Element for TextElement {
       (
         Some(fill(
           Bounds::from_corners(
-            point(
-              bounds.left() + line.x_for_index(selected_range.start),
-              bounds.top(),
-            ),
-            point(
-              bounds.left() + line.x_for_index(selected_range.end),
-              bounds.bottom(),
-            ),
+            point(bounds.left() + line.x_for_index(selected_range.start), bounds.top()),
+            point(bounds.left() + line.x_for_index(selected_range.end), bounds.bottom()),
           ),
           rgb(0x0b5764), // This is the color of the fill when highlighting the color of the text
         )),
         None,
       )
     };
-    PrepaintState {
-      line: Some(line),
-      cursor,
-      selection,
-    }
+    PrepaintState { line: Some(line), cursor, selection }
   }
 
-  fn paint(&mut self, _id: Option<&GlobalElementId>,
-           _inspector_id: Option<&InspectorElementId>,
-           bounds: Bounds<Pixels>,
-           _request_layout: &mut Self::RequestLayoutState,
-           prepaint: &mut Self::PrepaintState,
-           window: &mut Window,
-           cx: &mut App) {
+  fn paint(
+    &mut self, _id: Option<&GlobalElementId>, _inspector_id: Option<&InspectorElementId>, bounds: Bounds<Pixels>,
+    _request_layout: &mut Self::RequestLayoutState, prepaint: &mut Self::PrepaintState, window: &mut Window, cx: &mut App,
+  ) {
     let focus_handle = self.input.read(cx).focus_handle.clone();
-    window.handle_input(
-      &focus_handle,
-      ElementInputHandler::new(bounds, self.input.clone()),
-      cx,
-    );
+    window.handle_input(&focus_handle, ElementInputHandler::new(bounds, self.input.clone()), cx);
     if let Some(selection) = prepaint.selection.take() {
       window.paint_quad(selection)
     }
     let line = prepaint.line.take().unwrap();
-    line.paint(bounds.origin, window.line_height(), window, cx)
-      .unwrap();
+    line.paint(bounds.origin, window.line_height(), window, cx).unwrap();
 
     if focus_handle.is_focused(window) {
       if let Some(cursor) = prepaint.cursor.take() {
@@ -594,8 +454,9 @@ impl Render for TextInput {
               .h(px(24.0))
               .line_height(px(24.0))
               .text_color(rgb(theme.base_color_content))
-              .child(TextElement { input: cx.entity().clone() })
-          ))
+              .child(TextElement { input: cx.entity().clone() }),
+          ),
+      )
   }
 }
 

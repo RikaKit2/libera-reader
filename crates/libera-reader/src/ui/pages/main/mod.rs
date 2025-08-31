@@ -1,6 +1,6 @@
 use crate::ui::pages::main::content::{BookMarks, Favorite, FileManager, History, Library, SettingsPage, Stats};
 use crate::ui::pages::main::side_bar::SideBar;
-use gpui::{div, App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
+use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::{RootRoute, Route};
 
@@ -20,18 +20,16 @@ pub(crate) struct MainPage {
 
 impl MainPage {
   pub(crate) fn new(cx: &mut App) -> Entity<Self> {
-    cx.new(|c|
-      Self {
-        side_bar: SideBar::new(c),
-        library: Library::new(c),
-        file_manager: FileManager::new(c),
-        history: History::new(c),
-        favorite: Favorite::new(c),
-        book_marks: BookMarks::new(c),
-        stats: Stats::new(c),
-        settings: SettingsPage::new(c),
-      }
-    )
+    cx.new(|c| Self {
+      side_bar: SideBar::new(c),
+      library: Library::new(c),
+      file_manager: FileManager::new(c),
+      history: History::new(c),
+      favorite: Favorite::new(c),
+      book_marks: BookMarks::new(c),
+      stats: Stats::new(c),
+      settings: SettingsPage::new(c),
+    })
   }
 }
 
@@ -41,19 +39,17 @@ impl Render for MainPage {
     div().w_full().h_full().flex().children([
       div().w_12().h_full().child(self.side_bar.clone()),
       match curr_route {
-        RootRoute::Main(route) => {
-          match route {
-            Route::Library => { div().w_full().h_full().child(self.library.clone()) }
-            Route::FileManager => { div().w_full().h_full().child(self.file_manager.clone()) }
-            Route::History => { div().w_full().h_full().child(self.history.clone()) }
-            Route::Favorite => { div().w_full().h_full().child(self.favorite.clone()) }
-            Route::BookMarks => { div().w_full().h_full().child(self.book_marks.clone()) }
-            Route::Stats => { div().w_full().h_full().child(self.stats.clone()) }
-            Route::Settings => { div().w_full().h_full().child(self.settings.clone()) }
-          }
-        }
-        _ => { div() }
-      }
+        RootRoute::Main(route) => match route {
+          Route::Library => div().w_full().h_full().child(self.library.clone()),
+          Route::FileManager => div().w_full().h_full().child(self.file_manager.clone()),
+          Route::History => div().w_full().h_full().child(self.history.clone()),
+          Route::Favorite => div().w_full().h_full().child(self.favorite.clone()),
+          Route::BookMarks => div().w_full().h_full().child(self.book_marks.clone()),
+          Route::Stats => div().w_full().h_full().child(self.stats.clone()),
+          Route::Settings => div().w_full().h_full().child(self.settings.clone()),
+        },
+        _ => div(),
+      },
     ])
   }
 }

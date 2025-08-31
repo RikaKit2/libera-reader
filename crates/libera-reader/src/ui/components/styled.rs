@@ -16,4 +16,3 @@ impl From<Pixels> for Size {
     Size::Size(size)
   }
 }
-

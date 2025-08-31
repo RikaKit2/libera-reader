@@ -16,4 +16,3 @@ pub enum RootRoute {
   BookViewer,
   Setup,
 }
-

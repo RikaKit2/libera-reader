@@ -3,12 +3,14 @@ mod ui;
 use crate::ui::assets::Assets;
 use crate::ui::pages::Pages;
 use anyhow::Result;
-use gpui::{px, size, App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions};
+use gpui::{App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
 use libera_reader_core::ctx::Ctx;
 use std::path::PathBuf;
 use utils::create_subscriber;
 
-fn build_root_window(_window: &mut Window, cx: &mut App) -> Entity<Pages> { Pages::new(cx) }
+fn build_root_window(_window: &mut Window, cx: &mut App) -> Entity<Pages> {
+  Pages::new(cx)
+}
 
 fn main() -> Result<()> {
   create_subscriber()?;

@@ -1,10 +1,10 @@
-pub(crate) mod library;
+pub(crate) mod bookmarks;
+pub(crate) mod favorite;
 pub(crate) mod file_manager;
 pub(crate) mod history;
-pub(crate) mod favorite;
-pub(crate) mod bookmarks;
-pub(crate) mod stats;
+pub(crate) mod library;
 pub(crate) mod settings_page;
+pub(crate) mod stats;
 pub(crate) use bookmarks::BookMarks;
 pub(crate) use favorite::Favorite;
 pub(crate) use file_manager::FileManager;

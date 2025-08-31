@@ -13,3 +13,4 @@ cranelift-x86_64-pc-windows-msvc/
 cranelift-x86_64-unknown-linux-gnu/
 crates/libera-reader-core/test_files/mutool
 crates/libera-reader-core/test_files/mutool.exe
+.zed/

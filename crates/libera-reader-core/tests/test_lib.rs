@@ -21,7 +21,6 @@ pub const SECOND_BOOK: &str = "second_book.pdf";
 const FIRST_DIR: &str = "first_dir";
 const SECOND_DIR: &str = "second_dir";
 
-
 pub struct TestLib {
   test_mode: TestMode,
 
@@ -60,8 +59,12 @@ impl TestLib {
     info!("Create first book");
     create_empty_book(&get_path_to_mutool(&self.test_files_dir), &self.first_book).await.unwrap();
     match self.test_mode {
-      TestMode::Notify => { tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
+      TestMode::Notify => {
+        tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+      }
+      TestMode::PassiveScan => {
+        self.ctx.services.run_passive_scan().await?;
+      }
     };
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name))?;
     Ok(())
@@ -76,7 +79,7 @@ impl TestLib {
       }
       TestMode::PassiveScan => {
         assert!(rename(&self.first_book, &self.second_book).await.is_ok());
-        self.ctx.services.run_passive_scan()?;
+        self.ctx.services.run_passive_scan().await?;
       }
     };
     self.test_fn(&self.second_book.to_string2(), |book: &Book| assert_eq!(&SECOND_BOOK, &book.book_name))?;
@@ -94,7 +97,7 @@ impl TestLib {
       }
       TestMode::PassiveScan => {
         assert!(rename(&self.second_book, &book_in_first_dir).await.is_ok());
-        self.ctx.services.run_passive_scan()?;
+        self.ctx.services.run_passive_scan().await?;
       }
     }
     self.second_book = book_in_first_dir;
@@ -105,8 +108,12 @@ impl TestLib {
     info!("Dir renaming test: rename_first_dir_to_second");
     assert!(rename(&self.fist_dir, &self.second_dir).await.is_ok());
     match self.test_mode {
-      TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
+      TestMode::Notify => {
+        sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+      }
+      TestMode::PassiveScan => {
+        self.ctx.services.run_passive_scan().await?;
+      }
     }
 
     self.second_book = self.tmp_dir.join(&SECOND_DIR).join(&SECOND_BOOK);
@@ -119,8 +126,12 @@ impl TestLib {
     self.first_book = self.tmp_dir.join(&SECOND_DIR).join(&FIRST_BOOK);
     assert!(rename(&self.second_book, &self.first_book).await.is_ok());
     match self.test_mode {
-      TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
+      TestMode::Notify => {
+        sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+      }
+      TestMode::PassiveScan => {
+        self.ctx.services.run_passive_scan().await?;
+      }
     }
 
     self.test_fn(&self.first_book.to_string2(), |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_name))?;
@@ -130,8 +141,12 @@ impl TestLib {
     info!("Dir deletion test: drop_second_dir");
     assert!(remove_dir_all(&self.second_dir).await.is_ok());
     match self.test_mode {
-      TestMode::Notify => { sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await; }
-      TestMode::PassiveScan => { self.ctx.services.run_passive_scan()?; }
+      TestMode::Notify => {
+        sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
+      }
+      TestMode::PassiveScan => {
+        self.ctx.services.run_passive_scan().await?;
+      }
     }
 
     assert_eq!(Book::get_by_path(&self.first_book.to_string2(), &self.ctx.db)?, None, "there shouldn't be a book");
@@ -149,10 +164,16 @@ impl TestLib {
     };
   }
   fn test_fn<F>(&self, book_path_in_db: &String, assert_fn: F) -> Result<()>
-                where F: Fn(&Book) {
+  where
+    F: Fn(&Book),
+  {
     match Book::get_by_path(book_path_in_db, &self.ctx.db)? {
-      None => { panic!("book in db not found: {:?}", book_path_in_db) }
-      Some(book) => { assert_fn(&book); }
+      None => {
+        panic!("book in db not found: {:?}", book_path_in_db)
+      }
+      Some(book) => {
+        assert_fn(&book);
+      }
     }
     Ok(())
   }
@@ -160,7 +181,9 @@ impl TestLib {
     self.ctx.settings.set_path_to_scan(self.tmp_dir.to_string2())?;
 
     match self.test_mode {
-      TestMode::Notify => { self.ctx.services.run_notify()?; }
+      TestMode::Notify => {
+        self.ctx.services.run_notify()?;
+      }
       TestMode::PassiveScan => {}
     }
     self.create_first_book().await?;
@@ -183,5 +206,7 @@ impl EasyString for PathBuf {
   }
 }
 impl Drop for TestLib {
-  fn drop(&mut self) { self.ctx.services.stop().unwrap() }
+  fn drop(&mut self) {
+    self.ctx.services.stop().unwrap()
+  }
 }
