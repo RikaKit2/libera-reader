@@ -1,7 +1,7 @@
 use crate::types::BookPath;
 use mutool_bindings::mutool_status::MuToolError;
 #[allow(unused_imports)]
-use native_model::{native_model, Model};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -2,7 +2,7 @@ mod btn;
 
 use crate::ui::pages::main::side_bar::btn::Btn;
 use gpui::prelude::*;
-use gpui::{div, rgb, App, Entity, IntoElement, ParentElement, Styled, Window};
+use gpui::{App, Entity, IntoElement, ParentElement, Styled, Window, div, rgb};
 use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::Route::{BookMarks, Favorite, FileManager, History, Library, Stats};
 use libera_reader_core::db::models::{RootRoute, Route};
@@ -21,51 +21,79 @@ impl Render for SideBar {
     let theme = cx.ctx().settings.read().theme.data();
     div().bg(rgb(theme.base_300)).w_12().h_full().flex().flex_col().justify_between().children([
       div().children([
-        Btn::new(Library, "heroicons--book-open.svg", Some(Box::new({
-          cx.listener(move |pages, _event, _window, cx| {
-            pages.mark_btn_as_active(Library, cx);
-            cx.notify();
-          })
-        }))),
-        Btn::new(FileManager, "heroicons--folder.svg", Some(Box::new({
-          cx.listener(move |pages, _event, _window, cx| {
-            pages.mark_btn_as_active(FileManager, cx);
-            cx.notify();
-          })
-        }))),
-        Btn::new(History, "heroicons--clock.svg", Some(Box::new({
-          cx.listener(move |pages, _event, _window, cx| {
-            pages.mark_btn_as_active(History, cx);
-            cx.notify();
-          })
-        }))),
-        Btn::new(Favorite, "heroicons--star.svg", Some(Box::new({
-          cx.listener(move |pages, _event, _window, cx| {
-            pages.mark_btn_as_active(Favorite, cx);
-            cx.notify();
-          })
-        }))),
-        Btn::new(BookMarks, "heroicons--bookmark.svg", Some(Box::new({
-          cx.listener(move |pages, _event, _window, cx| {
-            pages.mark_btn_as_active(BookMarks, cx);
-            cx.notify();
-          })
-        }))),
+        Btn::new(
+          Library,
+          "heroicons--book-open.svg",
+          Some(Box::new({
+            cx.listener(move |pages, _event, _window, cx| {
+              pages.mark_btn_as_active(Library, cx);
+              cx.notify();
+            })
+          })),
+        ),
+        Btn::new(
+          FileManager,
+          "heroicons--folder.svg",
+          Some(Box::new({
+            cx.listener(move |pages, _event, _window, cx| {
+              pages.mark_btn_as_active(FileManager, cx);
+              cx.notify();
+            })
+          })),
+        ),
+        Btn::new(
+          History,
+          "heroicons--clock.svg",
+          Some(Box::new({
+            cx.listener(move |pages, _event, _window, cx| {
+              pages.mark_btn_as_active(History, cx);
+              cx.notify();
+            })
+          })),
+        ),
+        Btn::new(
+          Favorite,
+          "heroicons--star.svg",
+          Some(Box::new({
+            cx.listener(move |pages, _event, _window, cx| {
+              pages.mark_btn_as_active(Favorite, cx);
+              cx.notify();
+            })
+          })),
+        ),
+        Btn::new(
+          BookMarks,
+          "heroicons--bookmark.svg",
+          Some(Box::new({
+            cx.listener(move |pages, _event, _window, cx| {
+              pages.mark_btn_as_active(BookMarks, cx);
+              cx.notify();
+            })
+          })),
+        ),
       ]),
       div().children([
-        Btn::new(Stats, "heroicons--chart-bar.svg", Some(Box::new({
-          cx.listener(move |pages, _event, _window, cx| {
-            pages.mark_btn_as_active(Stats, cx);
-            cx.notify();
-          })
-        }))),
-        Btn::new(Route::Settings, "heroicons--cog-8-tooth.svg", Some(Box::new({
-          cx.listener(move |pages, _event, _window, cx| {
-            pages.mark_btn_as_active(Route::Settings, cx);
-            cx.notify();
-          })
-        }))),
-      ])
+        Btn::new(
+          Stats,
+          "heroicons--chart-bar.svg",
+          Some(Box::new({
+            cx.listener(move |pages, _event, _window, cx| {
+              pages.mark_btn_as_active(Stats, cx);
+              cx.notify();
+            })
+          })),
+        ),
+        Btn::new(
+          Route::Settings,
+          "heroicons--cog-8-tooth.svg",
+          Some(Box::new({
+            cx.listener(move |pages, _event, _window, cx| {
+              pages.mark_btn_as_active(Route::Settings, cx);
+              cx.notify();
+            })
+          })),
+        ),
+      ]),
     ])
   }
 }

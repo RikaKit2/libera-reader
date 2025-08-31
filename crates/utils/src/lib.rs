@@ -1,12 +1,10 @@
 use anyhow::Result;
-use std::fs;
-use std::hash::Hasher;
-use std::io::Read;
+use std::hash::{BuildHasher, Hasher};
 use std::path::{Path, PathBuf};
 use tracing::Level;
 
-pub fn get_file_size(path_to_file: &PathBuf) -> Result<u64> {
-  let metadata = fs::metadata(path_to_file)?;
+pub async fn get_file_size(path_to_file: &PathBuf) -> Result<u64> {
+  let metadata = tokio::fs::metadata(path_to_file).await?;
   let file_size = metadata.len();
   Ok(file_size)
 }
@@ -40,13 +38,13 @@ pub fn create_debug_subscriber() ->Result<()> {
   tracing::subscriber::set_global_default(subscriber)?;
   Ok(())
 }
-pub fn calc_file_hash<P: AsRef<Path>>(path_to_file: P) -> Result<String> {
-  let mut hasher = std::collections::hash_map::DefaultHasher::new();
-  let mut file = fs::File::open(path_to_file)?;
+pub async fn calc_file_hash<P: AsRef<Path>>(path_to_file: P) -> Result<String> {
+  use tokio::io::AsyncReadExt;
+  let mut hasher = gxhash::GxBuildHasher::with_seed(0).build_hasher();
+  let mut file = tokio::fs::File::open(path_to_file).await?;
   loop {
-    // Read the file in 1 MB chunks
     let mut buffer = [0; 1024 * 1024];
-    let bytes_read = file.read(&mut buffer)?;
+    let bytes_read = file.read(&mut buffer).await?;
     if bytes_read == 0 {
       break;
     }

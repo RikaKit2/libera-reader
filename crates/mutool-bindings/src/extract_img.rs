@@ -12,24 +12,28 @@ use zune_jpegxl::{JxlEncodeErrors, JxlSimpleEncoder};
 
 pub async fn extract_img(path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf) -> Result<(), MuToolError> {
   match path_to_thumbnail.exists() {
-    true => { Ok(()) }
-    false => {
-      match extract_img_inn(path_to_book, resolution, path_to_thumbnail).await {
-        Ok(_) => { Ok(()) }
-        Err(err) => { Err(err) }
-      }
-    }
+    true => Ok(()),
+    false => match extract_img_inn(path_to_book, resolution, path_to_thumbnail).await {
+      Ok(_) => Ok(()),
+      Err(err) => Err(err),
+    },
   }
 }
 async fn extract_img_inn(path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf) -> Result<(), MuToolError> {
   let mut child = Command::new("mutool")
-    .arg("draw").arg("-r")
-    .arg(resolution.to_string()).arg("-F")
-    .arg("png").arg("-o").arg(path_to_thumbnail)
-    .arg(path_to_book).arg("1")
+    .arg("draw")
+    .arg("-r")
+    .arg(resolution.to_string())
+    .arg("-F")
+    .arg("png")
+    .arg("-o")
+    .arg(path_to_thumbnail)
+    .arg(path_to_book)
+    .arg("1")
     .stdout(Stdio::null())
     .stderr(Stdio::null())
-    .spawn().unwrap();
+    .spawn()
+    .unwrap();
   let status = child.wait().await.unwrap();
   Ok(MuToolError::from_process_exit_status(status)?)
 }

@@ -4,13 +4,14 @@ use std::io;
 use std::thread::sleep;
 use std::time::Duration;
 
-
 fn main() -> Result<()> {
   utils::create_subscriber()?;
   let mut ctx = Ctx::new()?;
   let path_to_scan_is_some = ctx.settings.read().path_to_scan.is_some();
   match path_to_scan_is_some {
-    true => { ctx.services.run()?; }
+    true => {
+      ctx.services.run()?;
+    }
     false => {
       println!("Please input path to scan:");
       let mut user_input = String::new();

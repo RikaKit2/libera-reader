@@ -1,6 +1,6 @@
 use crate::app_dirs::AppDirs;
-use crate::db::models::GetText;
 use crate::db::DB;
+use crate::db::models::GetText;
 use crate::services::SERVICES;
 use crate::settings::Settings;
 use anyhow::Result;
@@ -18,25 +18,15 @@ impl Ctx {
     let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
     let db = DB::new(app_dirs.read().path_to_db.clone())?;
     let settings = Settings::new(db.clone())?;
-    Ok(Self {
-      services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?,
-      settings,
-      app_dirs,
-      db,
-    })
+    Ok(Self { services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?, settings, app_dirs, db })
   }
   pub fn new_for_test(path_to_data_dir: PathBuf) -> Result<Self> {
     let app_dirs = AppDirs::new(path_to_data_dir).unwrap();
     let db = DB::new(app_dirs.read().path_to_db.clone())?;
     let settings = Settings::new(db.clone())?;
-    Ok(Self {
-      services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?,
-      settings,
-      app_dirs,
-      db,
-    })
+    Ok(Self { services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?, settings, app_dirs, db })
   }
-  pub fn init(cx: &mut App, ) {
+  pub fn init(cx: &mut App) {
     cx.set_global::<Self>(Self::new().unwrap())
   }
   #[inline(always)]
@@ -56,7 +46,9 @@ pub trait GlobalCTX {
   fn i18n<T: GetText>(&self, target_enum: T) -> &'static str;
 }
 impl GlobalCTX for App {
-  fn ctx(&self) -> &Ctx { Ctx::global(self) }
+  fn ctx(&self) -> &Ctx {
+    Ctx::global(self)
+  }
   fn ctx_mut(&mut self) -> &mut Ctx {
     Ctx::global_mut(self)
   }

@@ -1,6 +1,6 @@
 use native_db::*;
 #[allow(unused_imports)]
-use native_model::{native_model, Model};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]

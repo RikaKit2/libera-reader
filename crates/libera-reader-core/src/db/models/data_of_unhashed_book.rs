@@ -1,10 +1,10 @@
-use crate::db::models::book_data::BookData;
 use crate::db::models::GetBookData;
+use crate::db::models::book_data::BookData;
 use crate::types::{BookHash, BookPath, BookSize};
 use mutool_bindings::mutool_status::MuToolError;
 use native_db::*;
 #[allow(unused_imports)]
-use native_model::{native_model, Model};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -20,14 +20,10 @@ impl DataOfUnhashedBook {
   pub fn new(book_size: BookSize, books_pk: Vec<BookPath>) -> Self {
     let mut book_data = BookData::new(books_pk);
     match book_size == 0 {
-      true => { book_data.mutool_err = Some(MuToolError::FileIsEmpty) }
+      true => book_data.mutool_err = Some(MuToolError::FileIsEmpty),
       false => {}
     };
-    DataOfUnhashedBook {
-      book_size,
-      book_hash: None,
-      book_data,
-    }
+    DataOfUnhashedBook { book_size, book_hash: None, book_data }
   }
 }
 impl GetBookData for DataOfUnhashedBook {

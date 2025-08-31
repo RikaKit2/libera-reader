@@ -2,16 +2,16 @@ mod insert;
 mod remove;
 
 use crate::app_dirs::AppDirs;
+use crate::db::DB;
 use crate::db::models::book_data::BookData;
 use crate::db::models::book_data_pk::BookDataPK;
 use crate::db::models::{DataOfHashedBook, DataOfUnhashedBook};
-use crate::db::DB;
-use crate::types::{BookPath, BookSize};
+use crate::types::BookPath;
 use anyhow::Result;
 use mutool_bindings::mutool_status::MuToolError;
 use native_db::*;
 #[allow(unused_imports)]
-use native_model::{native_model, Model};
+use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::hash::{Hash, Hasher};
@@ -45,14 +45,20 @@ impl Book {
     PathBuf::from(&self.full_path)
   }
   pub(crate) fn mark_as_cached(self, db: &DB) -> std::result::Result<(), Box<dyn Error>> {
-    self.book_data_pk.update(|book_data: &mut BookData| {
-      book_data.cached = true;
-    }, db)
+    self.book_data_pk.update(
+      |book_data: &mut BookData| {
+        book_data.cached = true;
+      },
+      db,
+    )
   }
   pub(crate) fn mark_as_broken(self, mutool_err: MuToolError, db: &DB) -> std::result::Result<(), Box<dyn Error>> {
-    self.book_data_pk.update(|book_data: &mut BookData| {
-      book_data.mutool_err = Some(mutool_err);
-    }, db)
+    self.book_data_pk.update(
+      |book_data: &mut BookData| {
+        book_data.mutool_err = Some(mutool_err);
+      },
+      db,
+    )
   }
   pub(crate) fn path_to_thumbnail_for_mutool(&self, app_dirs: &AppDirs) -> PathBuf {
     self.path_to_thumbnail(app_dirs).with_extension("png")
@@ -63,38 +69,23 @@ impl Book {
   fn path_to_thumbnail(&self, app_dirs: &AppDirs) -> PathBuf {
     match &self.book_data_pk {
       BookDataPK::UniqueSize(book_size) => app_dirs.read().dir_of_unhashed_books.join(book_size.to_string()),
-      BookDataPK::Hashed(book_hash) => app_dirs.read().dir_of_hashed_books.join(book_hash)
+      BookDataPK::Hashed(book_hash) => app_dirs.read().dir_of_hashed_books.join(book_hash),
     }
   }
   pub fn get_book_data(&self, db: &DB) -> Result<Option<BookData>> {
     Ok(match &self.book_data_pk {
-      BookDataPK::UniqueSize(book_size) => {
-        match db.get_primary::<DataOfUnhashedBook>(book_size.clone())? {
-          None => { None }
-          Some(data) => { Some(data.book_data) }
-        }
-      }
-      BookDataPK::Hashed(book_hash) => {
-        match db.get_primary::<DataOfHashedBook>(book_hash.clone())? {
-          None => { None }
-          Some(data) => { Some(data.book_data) }
-        }
-      }
+      BookDataPK::UniqueSize(book_size) => match db.get_primary::<DataOfUnhashedBook>(book_size.clone())? {
+        None => None,
+        Some(data) => Some(data.book_data),
+      },
+      BookDataPK::Hashed(book_hash) => match db.get_primary::<DataOfHashedBook>(book_hash.clone())? {
+        None => None,
+        Some(data) => Some(data.book_data),
+      },
     })
   }
   pub fn get_by_path(path_to_book: &BookPath, db: &DB) -> Result<Option<Book>> {
     Ok(db.get_primary::<Book>(path_to_book.clone())?)
-  }
-  pub(crate) fn get_by_size(book_size: BookSize, db: &DB) -> Result<Vec<Book>> {
-    let mut res = vec![];
-    match db.get_primary::<DataOfUnhashedBook>(book_size)? {
-      None => {}
-      Some(data_of_book_with_such_size) => {
-        let book = Book::get_by_path(&data_of_book_with_such_size.book_data.books_pk[0], db)?.unwrap();
-        res.push(book);
-      }
-    }
-    Ok(res)
   }
   pub(crate) fn get_books_located_in_dir(path_to_dir: String, db: &DB) -> Result<Vec<Book>> {
     Ok(db.scan_primary_by::<BookPath, Book>(path_to_dir)?)
@@ -114,20 +105,27 @@ impl Book {
   }
   pub fn get_all_existing_books(db: &DB) -> Result<Vec<Book>> {
     let all_books: Vec<Book> = db.scan_primary()?;
-    let res = all_books.into_iter().filter(|book| {
-      let book_data = match &book.book_data_pk {
-        BookDataPK::UniqueSize(book_size) => { db.get_primary::<DataOfUnhashedBook>(book_size.clone()).unwrap().unwrap().book_data }
-        BookDataPK::Hashed(book_hash) => { db.get_primary::<DataOfHashedBook>(book_hash.clone()).unwrap().unwrap().book_data }
-      };
-      book_data.is_deleted == false
-    }).collect();
+    let res = all_books
+      .into_iter()
+      .filter(|book| {
+        let book_data = match &book.book_data_pk {
+          BookDataPK::UniqueSize(book_size) => db.get_primary::<DataOfUnhashedBook>(book_size.clone()).unwrap().unwrap().book_data,
+          BookDataPK::Hashed(book_hash) => db.get_primary::<DataOfHashedBook>(book_hash.clone()).unwrap().unwrap().book_data,
+        };
+        book_data.is_deleted == false
+      })
+      .collect();
     Ok(res)
   }
 }
 impl Hash for Book {
-  fn hash<H: Hasher>(&self, state: &mut H) { self.full_path.hash(state); }
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.full_path.hash(state);
+  }
 }
 impl PartialEq for Book {
-  fn eq(&self, other: &Self) -> bool { self.full_path == other.full_path }
+  fn eq(&self, other: &Self) -> bool {
+    self.full_path == other.full_path
+  }
 }
 impl Eq for Book {}

@@ -81,8 +81,7 @@ pub async fn download_mutool(target_dir: &PathBuf, progress: Arc<RwLock<f32>>) -
 
 pub async fn show_download_progress(progress: Arc<RwLock<f32>>) {
   let pb = ProgressBar::new(100);
-  pb.set_style(ProgressStyle::with_template("{msg}\n[{elapsed_precise}] [{wide_bar:.green/white}] {percent}%").unwrap()
-    .progress_chars("=>-"));
+  pb.set_style(ProgressStyle::with_template("{msg}\n[{elapsed_precise}] [{wide_bar:.green/white}] {percent}%").unwrap().progress_chars("=>-"));
   pb.set_message("Downloading mutool...");
 
   loop {

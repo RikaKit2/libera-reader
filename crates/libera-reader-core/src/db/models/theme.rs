@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Theme {
   Sunset,
-  Wireframe
+  Wireframe,
 }
 impl Theme {
   pub fn data(&self) -> ThemeData {

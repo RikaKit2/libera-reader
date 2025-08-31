@@ -1,4 +1,4 @@
-pub(crate) mod input;
 pub(crate) mod checkbox;
-mod styled;
 mod icon;
+pub(crate) mod input;
+mod styled;

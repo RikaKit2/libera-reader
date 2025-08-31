@@ -8,19 +8,17 @@ pub async fn create_empty_book(path_to_mutool: &PathBuf, path_to_book: &PathBuf)
     true => {
       let mut child = Command::new(path_to_mutool)
         .arg("create")
-        .arg("-o").arg(path_to_book)
-        .arg(if cfg!(windows) {
-          "NUL"
-        } else {
-          "/dev/null"
-        })
+        .arg("-o")
+        .arg(path_to_book)
+        .arg(if cfg!(windows) { "NUL" } else { "/dev/null" })
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn().unwrap();
+        .spawn()
+        .unwrap();
 
       let status = child.wait().await.unwrap();
       MuToolError::from_process_exit_status(status)
     }
-    false => { Err(MuToolError::MutoolNotFound) }
+    false => Err(MuToolError::MutoolNotFound),
   }
 }

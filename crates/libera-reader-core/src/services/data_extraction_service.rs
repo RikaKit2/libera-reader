@@ -1,7 +1,10 @@
 use crate::app_dirs::AppDirs;
-use crate::db::models::Book;
 use crate::db::DB;
-use crate::services::{Services, Status::{NotWorking, Working}};
+use crate::db::models::Book;
+use crate::services::{
+  Services,
+  Status::{NotWorking, Working},
+};
 use crate::types::NotCachedBooks;
 use mutool_bindings::extract_img::extract_img;
 use std::path::PathBuf;
@@ -14,7 +17,7 @@ use tracing::{error, info};
 impl Services {
   pub async fn run_data_extraction_service(&mut self) -> Option<JoinHandle<()>> {
     match &self.data_extraction_service_working_status {
-      Working => { None }
+      Working => None,
       NotWorking => {
         let db = self.db.clone();
         let not_cached_books = self.not_cached_books.clone();
@@ -37,16 +40,14 @@ async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs) {
 
   loop {
     if not_cached_books.is_empty() == false {
-      info!("Num of books for caching: {}", not_cached_books.len());
-
-      let start_time = std::time::Instant::now();
       let mut tasks = Vec::new();
 
       for pathbuf in not_cached_books.try_iter() {
         let semaphore = Arc::clone(&semaphore);
         let app_dirs = app_dirs.clone();
         let db = db.clone();
-        match Book::get_by_path(&pathbuf.to_str().unwrap().to_string(), &db).unwrap() {
+        let path_to_book = pathbuf.to_str().unwrap().to_string();
+        match Book::get_by_path(&path_to_book, &db).unwrap() {
           None => {}
           Some(book) => {
             let task = tokio::spawn(async move {
@@ -54,14 +55,13 @@ async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs) {
               let path_to_thumbnail = book.path_to_thumbnail_for_mutool(&app_dirs);
               let path = book.full_path.clone();
               match extract_img(&PathBuf::from(&book.full_path), 20, &path_to_thumbnail).await {
-                Ok(_) => {
-                  match book.mark_as_cached(&db) {
-                    Ok(_) => {}
-                    Err(err) => {
-                      error!("Error while marking book as cached: {}\npath: {}", err.to_string(), &path);
-                    }
+                Ok(_) => match book.mark_as_cached(&db) {
+                  Ok(_) => {}
+                  Err(err) => {
+                    error!("Error while marking book as cached: {}\npath: {}", err.to_string(), &path);
+                    Book::get_by_path(&path_to_book, &db).unwrap().unwrap().mark_as_cached(&db).unwrap();
                   }
-                }
+                },
                 Err(mutool_err) => {
                   eprint!("{:?}", &mutool_err);
                   match book.mark_as_broken(mutool_err, &db) {
@@ -79,11 +79,14 @@ async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs) {
         }
       }
 
-      for task in tasks {
-        let _ = task.await;
+      if not_cached_books.len() > 100 {
+        let start_time = std::time::Instant::now();
+        for task in tasks {
+          let _ = task.await;
+        }
+        info!("Num of books for caching: {}", &not_cached_books.len());
+        info!("Total time of thumbnails extracting: {:.2?}", start_time.elapsed());
       }
-
-      info!("Total time of thumbnails extracting: {:.2?}", start_time.elapsed());
     }
     tokio::time::sleep(Duration::from_secs(1)).await;
   }
