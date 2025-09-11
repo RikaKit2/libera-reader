@@ -1,18 +1,28 @@
-use crate::db::models::{DefaultModel, GetOrCreate, lang::Lang, route::RootRoute, theme::Theme};
+pub mod lang;
+pub mod route;
+pub mod theme;
+
+use crate::db::models::GetOrCreate;
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
+pub use {
+  lang::Lang,
+  route::{RootRoute, Route},
+  theme::Theme,
+};
+
 #[derive(Serialize, Deserialize, Clone)]
 #[native_model(id = 1, version = 1)]
 #[native_db]
-pub struct SettingsModel {
+pub struct Settings {
   #[primary_key]
   pub id: u32,
   pub language: Lang,
   pub path_to_scan: Option<String>,
-  pub old_path_to_scan: Option<String>,
+  pub previous_path_to_scan: Option<String>,
   pub theme: Theme,
   pub pdf: bool,
   pub epub: bool,
@@ -24,16 +34,14 @@ pub struct SettingsModel {
   pub route: RootRoute,
   pub setup_is_done: bool,
 }
-impl DefaultModel for SettingsModel {
-  fn default_model() -> Self
-  where
-    Self: Sized + ToInput,
-  {
+
+impl Default for Settings {
+  fn default() -> Self {
     Self {
       id: 1,
       language: Lang::detect_system_lang(),
       path_to_scan: None,
-      old_path_to_scan: None,
+      previous_path_to_scan: None,
       theme: Theme::Sunset,
       pdf: true,
       epub: false,
@@ -47,4 +55,5 @@ impl DefaultModel for SettingsModel {
     }
   }
 }
-impl GetOrCreate for SettingsModel {}
+
+impl GetOrCreate for Settings {}

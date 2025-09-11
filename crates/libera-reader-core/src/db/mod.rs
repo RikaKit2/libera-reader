@@ -1,10 +1,7 @@
 pub mod models;
 
-use crate::db::models::book::Book;
-use crate::db::models::book_mark::BookMark;
-use crate::db::models::data_of_hashed_book::DataOfHashedBook;
-use crate::db::models::data_of_unhashed_book::DataOfUnhashedBook;
-use crate::db::models::settings::SettingsModel;
+use crate::db::models::settings::Settings;
+use crate::db::models::{HashedBooks, UniqueBook};
 use anyhow::Result;
 use itertools::Itertools;
 use native_db::db_type::{KeyOptions, ToKeyDefinition};
@@ -17,11 +14,9 @@ use tracing::info;
 
 fn get_models() -> Result<Models> {
   let mut models = Models::new();
-  models.define::<SettingsModel>()?;
-  models.define::<BookMark>()?;
-  models.define::<Book>()?;
-  models.define::<DataOfUnhashedBook>()?;
-  models.define::<DataOfHashedBook>()?;
+  models.define::<Settings>()?;
+  models.define::<UniqueBook>()?;
+  models.define::<HashedBooks>()?;
   Ok(models)
 }
 
@@ -65,7 +60,6 @@ impl DB {
     };
     Ok(Self { inn: db, path_to_db: Arc::new(RwLock::new(path_to_db)) })
   }
-  //noinspection RsUnwrap
   pub(crate) fn save_to_storage(&self) -> Result<()> {
     match &self.inn {
       DBType::InMemory(_) => {
@@ -75,7 +69,6 @@ impl DB {
     }
     Ok(())
   }
-  //noinspection RsUnwrap
   pub(crate) fn reload_db(&mut self) -> Result<()> {
     let db_in_memory = match &self.inn {
       DBType::InMemory(_) => true,
@@ -109,13 +102,16 @@ impl DB {
   pub(crate) fn get_primary<T: ToInput>(&self, key: impl ToKey) -> Result<Option<T>> {
     Ok(self.inn.read().r_transaction()?.get().primary(key)?)
   }
+  pub(crate) fn get_secondary<Table: ToInput>(&self, key: impl ToKey, key_def: impl ToKeyDefinition<KeyOptions>) -> Result<Option<Table>> {
+    Ok(self.inn.read().r_transaction()?.get().secondary(key_def, key)?)
+  }
   pub(crate) fn scan_primary<T: ToInput>(&self) -> Result<Vec<T>> {
     Ok(self.inn.read().r_transaction()?.scan().primary()?.all()?.try_collect()?)
   }
   pub(crate) fn scan_primary_by<Key: ToKey, Table: ToInput>(&self, key_data: Key) -> Result<Vec<Table>> {
     Ok(self.inn.read().r_transaction()?.scan().primary()?.start_with(key_data)?.try_collect()?)
   }
-  pub(crate) fn scan_secondary_by<Key: ToKey, Table: ToInput>(&self, key_data: Key, key_def: impl ToKeyDefinition<KeyOptions>) -> Result<Vec<Table>> {
+  pub(crate) fn scan_secondary_start_with<Key: ToKey, Table: ToInput>(&self, key_data: Key, key_def: impl ToKeyDefinition<KeyOptions>) -> Result<Vec<Table>> {
     Ok(self.inn.read().r_transaction()?.scan().secondary(key_def)?.start_with(key_data)?.try_collect()?)
   }
   pub(crate) fn insert<T: ToInput>(&self, item: T) -> db_type::Result<()> {

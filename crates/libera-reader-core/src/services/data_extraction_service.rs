@@ -1,6 +1,5 @@
 use crate::app_dirs::AppDirs;
 use crate::db::DB;
-use crate::db::models::Book;
 use crate::services::{
   Services,
   Status::{NotWorking, Working},

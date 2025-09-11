@@ -1,14 +1,13 @@
-use crate::db::DB;
-use crate::db::models::{Book, DataOfUnhashedBook};
+use crate::db::models::{HashedBooks, UniqueBook};
 use crate::services::Services;
-use crate::types::{BookHash, BookPath, BookSize, HashMap, HashSet, NotCachedBooks};
+use crate::types::{BookPath, BookSize, BookType, HashMap, HashSet};
 use anyhow::Result;
 use dashmap::DashMap;
 use gxhash::GxBuildHasher;
 use jwalk::WalkDir;
 use std::path::PathBuf;
-use tracing::{error, info};
-use utils::{calc_file_hash, get_file_size};
+use tracing::info;
+use utils::get_file_size;
 
 pub(crate) enum BooksLocation {
   Disk,
@@ -21,67 +20,184 @@ type BooksForHashing = Vec<(BookSize, PathBuf)>;
 pub(crate) type BooksGroupedBySize = DashMap<BookSize, Vec<PathBuf>, GxBuildHasher>;
 
 impl Services {
-  //noinspection RsUnwrap
   pub async fn run_passive_scan(&mut self) -> Result<()> {
     match &self.settings.read().path_to_scan {
       None => {}
       Some(path_to_scan) => {
         let start_time = std::time::Instant::now();
         let books_on_disk = self.get_books_from_disk(path_to_scan);
-        let books_in_db = Book::get_all_existing_books(&self.db)?;
+
+        let mut unique_db_books: HashMap<BookPath, UniqueBook> = UniqueBook::get_all(&self.db)?.into_iter().map(|i| (i.full_path.clone(), i)).collect();
+        let hashed_books: Vec<HashedBooks> = self.db.scan_primary::<HashedBooks>()?;
+
+        let db_books_count = hashed_books.len() + unique_db_books.len();
         info!("Number of books on disk: {:?}", books_on_disk.len());
 
-        match self.get_books_location(books_in_db.len(), books_on_disk.len()) {
+        match self.get_books_location(db_books_count, books_on_disk.len()) {
           BooksLocation::Disk => {
-            if books_on_disk.len() > 0 {
-              let (unique_size_books, books_for_hashing) = self.classify_books(books_on_disk).await?;
-              let db = self.db.clone();
-              let not_cached_books = self.not_cached_books.clone();
-
-              if books_for_hashing.len() > 0 {
-                tokio::spawn(async move {
-                  for (book_size, book_pathbuf) in books_for_hashing {
-                    let book_hash: BookHash = calc_file_hash(&book_pathbuf).await.unwrap();
-                    Book::insert_book_to_hashed(&book_pathbuf, book_size, book_hash, &db, &not_cached_books).unwrap();
-                  }
-                });
-              }
-
-              if unique_size_books.len() > 0 {
-                for (book_size, book_pathbuf) in unique_size_books {
-                  Book::insert_book_of_unique_size(&book_pathbuf, book_size, &self.db, &self.not_cached_books);
-                }
-              }
-            }
+            self.insert_new_books(books_on_disk).await;
           }
           BooksLocation::DB => {
-            self.remove_outdated_books(books_in_db)?;
+            for (_, book) in unique_db_books.into_iter() {
+              book.remove(&self.db)?;
+            }
+            for i in hashed_books {
+              i.remove(&self.db)?;
+            }
           }
           BooksLocation::DiskAndDB => {
             let mut books_on_disk: HashMap<BookPath, PathBuf> = books_on_disk.into_iter().map(|i| (i.to_str().unwrap().to_string(), i)).collect();
-            let mut books_in_db: HashMap<BookPath, Book> = books_in_db.into_iter().map(|i| (i.full_path.clone(), i)).collect();
-
             let books_paths_on_disk: HashSet<BookPath> = books_on_disk.keys().cloned().collect();
-            let books_paths_in_db: HashSet<BookPath> = books_in_db.keys().cloned().collect();
 
-            let new_books: Vec<PathBuf> = books_paths_on_disk.difference(&books_paths_in_db).map(|i| books_on_disk.remove(i).unwrap()).collect();
-            let general_books: Vec<Book> = books_paths_on_disk.intersection(&books_paths_in_db).map(|i| books_in_db.remove(i).unwrap()).collect();
-            let outdated_books: Vec<Book> =
-              books_paths_in_db.difference(&books_paths_on_disk).map(|book_path| books_in_db.remove(book_path).unwrap()).collect();
+            let mut hashed_books_for_caching: Vec<HashedBooks> = vec![];
+            let mut unique_books_for_caching: Vec<UniqueBook> = vec![];
 
-            info!("Number of general_books: {:?}", general_books.len());
-            info!("Number of outdated books: {:?}", outdated_books.len());
-            self.cache_general_books(general_books)?;
-            self.remove_outdated_books(outdated_books)?;
-            self.insert_new_books(new_books).await?;
+            let mut existing_hashed_books_paths: Vec<BookPath> = vec![];
+            let mut existing_unique_books_paths: HashSet<BookPath> = Default::default();
+
+            let mut outdated_unique_books: Vec<UniqueBook> = vec![];
+            let mut outdated_hashed_books: Vec<HashedBooks> = vec![];
+
+            for (path, book) in unique_db_books {
+              match books_paths_on_disk.contains(&path) {
+                true => {
+                  existing_unique_books_paths.insert(path);
+                  unique_books_for_caching.push(book);
+                }
+                false => outdated_unique_books.push(book),
+              }
+            }
+
+            for i in hashed_books {
+              let num_of_paths = i.books.len();
+              let mut outdated_books_count: usize = 0;
+
+              for (path, _) in i.books.iter() {
+                match books_paths_on_disk.contains(path) {
+                  true => {}
+                  false => {
+                    outdated_books_count += 1;
+                  }
+                }
+              }
+
+              if outdated_books_count == num_of_paths {
+                outdated_hashed_books.push(i);
+              } else {
+                existing_hashed_books_paths.extend(i.books.keys().cloned());
+                if i.mutool_data.is_cached() == false {
+                  hashed_books_for_caching.push(i);
+                }
+              }
+            }
+
+            let mut existing_books_in_db = existing_unique_books_paths;
+            existing_books_in_db.extend(existing_hashed_books_paths);
           }
           BooksLocation::None => {}
-        };
-        info!("Dir scan service execution time is: {:?}", start_time.elapsed());
+        }
       }
+    };
+    Ok(())
+  }
+  pub(crate) async fn classify_books(
+    &self, existing_hashed_books_paths: HashMap<BookSize, Vec<BookPath>>, existing_unique_books_paths: HashMap<BookSize, BookPath>, books_on_disk: Vec<PathBuf>,
+  ) -> Result<(UniqueSizeBooks, BooksForHashing)> {
+    let start_time = std::time::Instant::now();
+    let mut unique_size_books: UniqueSizeBooks = vec![];
+    let mut books_for_hashing: BooksForHashing = vec![];
+
+    for (book_size, books) in self.group_books_by_size(books_on_disk).await? {
+      match existing_hashed_books_paths.get(&book_size) {
+        Some(books) => {}
+        None => match existing_unique_books_paths.get(&book_size) {
+          Some(book_path) => {
+            // take previous book and move to hashed
+            for buf in books {
+              books_for_hashing.push((book_size.clone(), buf));
+            }
+          }
+          None => {
+            if books.len() == 1 {
+              unique_size_books.push((book_size, books[0].clone()));
+            } else if books.len() > 1 {
+              for book in books {
+                books_for_hashing.push((book_size.clone(), book));
+              }
+            }
+          }
+        },
+      }
+    }
+    info!("Total time of classify_books: {:?}", start_time.elapsed());
+    info!("Number of new books for hashing: {:?}", books_for_hashing.len());
+    info!("Number of new unique size books: {:?}", unique_size_books.len());
+    Ok((unique_size_books, books_for_hashing))
+  }
+  async fn insert_new_books(&self, new_books: Vec<PathBuf>) -> anyhow::Result<()> {
+    // let (unique_books, books_for_hashing) = self.classify_books(new_books).await?;
+    // self.insert_unique_books(unique_books).await?;
+    // self.insert_books_for_hashing(books_for_hashing);
+    Ok(())
+  }
+  pub(crate) async fn insert_books_for_hashing(&self, books_for_hashing: BooksForHashing) -> anyhow::Result<()> {
+    if books_for_hashing.len() > 0 {
+      let db = self.db.clone();
+      let not_cached_books = self.not_cached_books.clone();
+      tokio::spawn(async move {
+        for (book_size, book_pathbuf) in books_for_hashing {
+          HashedBooks::insert(&book_pathbuf, &db, book_size, &not_cached_books).await.unwrap();
+        }
+      });
     }
     Ok(())
   }
+  pub(crate) async fn insert_unique_books(&self, unique_books: Vec<(BookSize, PathBuf)>) -> anyhow::Result<()> {
+    if unique_books.len() > 0 {
+      let start_time = std::time::Instant::now();
+      for (book_size, book_path) in unique_books {
+        UniqueBook::insert(&book_path, book_size, &self.db, &self.not_cached_books).await?;
+      }
+      info!("Total time of adding unique books: {:?}", start_time.elapsed());
+    }
+    Ok(())
+  }
+  fn remove_hashed_books(&self, hashed_books: Vec<HashedBooks>, books_on_disk: &HashMap<BookPath, PathBuf>) -> anyhow::Result<Vec<BookPath>> {
+    let mut general_hashed_books: Vec<BookPath> = vec![];
+
+    if !hashed_books.is_empty() {
+      for mut i in hashed_books {
+        let old_book = i.clone();
+
+        for path in old_book.books.keys() {
+          match books_on_disk.contains_key(path) {
+            true => {
+              general_hashed_books.push(path.clone());
+            }
+            false => match i.books.get(path) {
+              Some(_) => {
+                i.books.remove(path).unwrap();
+              }
+              None => {}
+            },
+          };
+        }
+
+        if i.books.is_empty() {
+          i.remove(&self.db)?;
+        } else {
+          match i.mutool_data.is_cached() {
+            true => {}
+            false => {
+              self.not_cached_books.push(Box::new(BookType::Hashed(i.book_hash)));
+            }
+          }
+        };
+      }
+    }
+    Ok(general_hashed_books)
+  }
+  //noinspection RsUnwrap
   pub(crate) fn get_books_location(&self, db_book_count: usize, disk_book_count: usize) -> BooksLocation {
     if db_book_count > 0 && disk_book_count == 0 {
       BooksLocation::DB
@@ -108,48 +224,6 @@ impl Services {
     }
     Ok(res)
   }
-  async fn classify_books_using_db(&self, books: Vec<PathBuf>, db: &DB) -> Result<(UniqueSizeBooks, BooksForHashing)> {
-    info!("Number of new books: {:?}", books.len());
-    let start_time = std::time::Instant::now();
-    let mut unique_size_books: UniqueSizeBooks = vec![];
-    let mut books_for_hashing: BooksForHashing = vec![];
-    let unique_size_books_in_db: HashMap<BookSize, DataOfUnhashedBook> =
-      db.scan_primary::<DataOfUnhashedBook>()?.into_iter().map(|i| (i.book_size.clone(), i)).collect();
-
-    for (book_size, books) in self.group_books_by_size(books).await? {
-      if books.len() == 1 {
-        match unique_size_books_in_db.contains_key(&book_size) {
-          true => unique_size_books.push((book_size, books[0].clone())),
-          false => books_for_hashing.push((book_size, books[0].clone())),
-        };
-      } else if books.len() > 1 {
-      }
-    }
-
-    info!("Total time of classify_books: {:?}", start_time.elapsed());
-    info!("Number of new books for hashing: {:?}", books_for_hashing.len());
-    info!("Number of new unique size books: {:?}", unique_size_books.len());
-    Ok((unique_size_books, books_for_hashing))
-  }
-  async fn classify_books(&self, books: Vec<PathBuf>) -> Result<(UniqueSizeBooks, BooksForHashing)> {
-    info!("Number of new books: {:?}", books.len());
-    let start_time = std::time::Instant::now();
-    let mut unique_size_books: UniqueSizeBooks = vec![];
-    let mut books_for_hashing: BooksForHashing = vec![];
-    for (book_size, books) in self.group_books_by_size(books).await? {
-      if books.len() == 1 {
-        unique_size_books.push((book_size, books[0].clone()));
-      } else if books.len() > 1 {
-        for book in books {
-          books_for_hashing.push((book_size.clone(), book));
-        }
-      }
-    }
-    info!("Total time of classify_books: {:?}", start_time.elapsed());
-    info!("Number of new books for hashing: {:?}", books_for_hashing.len());
-    info!("Number of new unique size books: {:?}", unique_size_books.len());
-    Ok((unique_size_books, books_for_hashing))
-  }
   pub(crate) fn get_books_from_disk(&self, path_to_scan: &String) -> Vec<PathBuf> {
     let start_time = std::time::Instant::now();
     let mut books_from_disk: Vec<PathBuf> = vec![];
@@ -174,70 +248,5 @@ impl Services {
     }
     info!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
     books_from_disk
-  }
-  async fn insert_new_books(&self, new_books: Vec<PathBuf>) -> Result<()> {
-    if new_books.len() > 0 {
-      let (unique_size_books, books_for_hashing) = self.classify_books(new_books).await?;
-      self.insert_books_for_hashing(books_for_hashing);
-      self.insert_unique_books(unique_size_books).await?;
-    }
-    Ok(())
-  }
-  fn remove_outdated_books(&self, books: Vec<Book>) -> Result<()> {
-    for i in books {
-      i.remove(&self.db)?
-    }
-    Ok(())
-  }
-  async fn insert_unique_books(&self, unique_size_books: UniqueSizeBooks) -> Result<()> {
-    if unique_size_books.len() > 0 {
-      let start_time = std::time::Instant::now();
-      for (book_size, book_pathbuf) in unique_size_books {
-        Book::insert(&book_pathbuf, book_size, &self.db, &self.not_cached_books).await?;
-      }
-      info!("Total time of adding unique books: {:?}", start_time.elapsed());
-    }
-    Ok(())
-  }
-  fn insert_books_for_hashing(&self, books_for_hashing: BooksForHashing) {
-    if books_for_hashing.len() > 0 {
-      let db = self.db.clone();
-      let not_cached_books = self.not_cached_books.clone();
-      tokio::spawn(async move {
-        for (book_size, book_pathbuf) in books_for_hashing {
-          Book::insert(&book_pathbuf, book_size, &db, &not_cached_books).await.unwrap();
-        }
-      });
-    }
-  }
-  fn cache_general_books(&self, books: Vec<Book>) -> Result<()> {
-    if books.len() > 0 {
-      let db = self.db.clone();
-      let not_cached_books = self.not_cached_books.clone();
-      let task = tokio::spawn(async move {
-        for book in books {
-          let book_data = book.get_book_data(&db).unwrap();
-          match book_data {
-            None => {
-              error!("book_data is none")
-            }
-            Some(book_data) => match book_data.cached == false && book_data.mutool_err.is_none() {
-              true => {
-                not_cached_books.push(Box::new(book.to_pathbuf())).unwrap();
-              }
-              false => {}
-            },
-          }
-        }
-        not_cached_books
-      });
-      tokio::spawn(async move {
-        let start_time = std::time::Instant::now();
-        let not_cached_books: NotCachedBooks = task.await.unwrap();
-        info!("Total time of adding general books to not_cached_books: {:?}", start_time.elapsed());
-        info!("Number of not_cached_books: {:?}", not_cached_books.len());
-      });
-    }
-    Ok(())
   }
 }

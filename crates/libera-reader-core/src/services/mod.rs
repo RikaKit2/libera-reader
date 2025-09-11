@@ -1,6 +1,6 @@
 use crate::app_dirs::AppDirs;
 use crate::db::DB;
-use crate::settings::Settings;
+use crate::settings::SETTINGS;
 use crate::types::NotCachedBooks;
 use anyhow::Result;
 use concurrent_queue::ConcurrentQueue;
@@ -21,7 +21,7 @@ pub struct Services {
   data_extraction_service_working_status: Status,
   notify_service_working_status: Status,
   not_cached_books: NotCachedBooks,
-  settings: Settings,
+  settings: SETTINGS,
   watcher: RecommendedWatcher,
   rx: Option<tokio::sync::mpsc::UnboundedReceiver<notify::Event>>,
   app_dirs: AppDirs,
@@ -29,7 +29,7 @@ pub struct Services {
 }
 
 impl Services {
-  pub fn new(settings: Settings, app_dirs: AppDirs, db: DB) -> Result<Self> {
+  pub fn new(settings: SETTINGS, app_dirs: AppDirs, db: DB) -> Result<Self> {
     let not_cached_books = NotCachedBooks::new(ConcurrentQueue::unbounded());
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     Ok(Self {
@@ -54,7 +54,7 @@ pub struct SERVICES {
   worker: Option<thread::JoinHandle<()>>,
 }
 impl SERVICES {
-  pub fn new(settings: Settings, app_dirs: AppDirs, db: DB) -> Result<Self> {
+  pub fn new(settings: SETTINGS, app_dirs: AppDirs, db: DB) -> Result<Self> {
     Ok(Self { inn: Arc::new(RwLock::new(Services::new(settings, app_dirs, db)?)), worker: None })
   }
   pub fn run(&mut self) -> Result<()> {
