@@ -1,21 +1,21 @@
 use crate::db::DB;
-use crate::db::models::{GetOrCreate, Lang, RootRoute, SettingsModel};
+use crate::db::models::{GetOrCreate, Lang, RootRoute, Settings};
 use anyhow::Result;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Clone)]
-pub struct Settings {
-  inn: Arc<RwLock<SettingsModel>>,
+pub struct SETTINGS {
+  inn: Arc<RwLock<Settings>>,
   db: DB,
 }
-impl Settings {
+impl SETTINGS {
   pub fn new(db: DB) -> Result<Self> {
-    Ok(Self { inn: Arc::new(RwLock::new(SettingsModel::get_or_create(1u32, &db)?)), db })
+    Ok(Self { inn: Arc::new(RwLock::new(Settings::get_or_create(1u32, &db)?)), db })
   }
-  pub fn read(&self) -> RwLockReadGuard<'_, SettingsModel> {
+  pub fn read(&self) -> RwLockReadGuard<'_, Settings> {
     self.inn.read().unwrap()
   }
-  fn write(&mut self) -> RwLockWriteGuard<'_, SettingsModel> {
+  fn write(&mut self) -> RwLockWriteGuard<'_, Settings> {
     self.inn.write().unwrap()
   }
   pub fn set_path_to_scan(&mut self, new_path: String) -> Result<()> {
@@ -25,12 +25,12 @@ impl Settings {
       None => {
         self.write().path_to_scan = Some(new_path);
       }
-      Some(old_path_to_scan) => match old_path_to_scan.eq(&new_path) {
+      Some(previous_path_to_scan) => match previous_path_to_scan.eq(&new_path) {
         true => {}
         false => {
           let mut lock = self.write();
           lock.path_to_scan = Some(new_path);
-          lock.old_path_to_scan = Some(old_path_to_scan);
+          lock.previous_path_to_scan = Some(previous_path_to_scan);
         }
       },
     }

@@ -2,13 +2,13 @@ use crate::app_dirs::AppDirs;
 use crate::db::DB;
 use crate::db::models::GetText;
 use crate::services::SERVICES;
-use crate::settings::Settings;
+use crate::settings::SETTINGS;
 use anyhow::Result;
 use gpui::{App, Global};
 use std::path::PathBuf;
 
 pub struct Ctx {
-  pub settings: Settings,
+  pub settings: SETTINGS,
   pub services: SERVICES,
   pub app_dirs: AppDirs,
   pub db: DB,
@@ -17,13 +17,13 @@ impl Ctx {
   pub fn new() -> Result<Self> {
     let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
     let db = DB::new(app_dirs.read().path_to_db.clone())?;
-    let settings = Settings::new(db.clone())?;
+    let settings = SETTINGS::new(db.clone())?;
     Ok(Self { services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?, settings, app_dirs, db })
   }
   pub fn new_for_test(path_to_data_dir: PathBuf) -> Result<Self> {
     let app_dirs = AppDirs::new(path_to_data_dir).unwrap();
     let db = DB::new(app_dirs.read().path_to_db.clone())?;
-    let settings = Settings::new(db.clone())?;
+    let settings = SETTINGS::new(db.clone())?;
     Ok(Self { services: SERVICES::new(settings.clone(), app_dirs.clone(), db.clone())?, settings, app_dirs, db })
   }
   pub fn init(cx: &mut App) {

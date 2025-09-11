@@ -1,17 +1,13 @@
-use crate::db::{DB, models::Book};
+use std::path::PathBuf;
+
+use crate::db::DB;
+use crate::db::models::book;
 use anyhow::Result;
 use tracing::info;
 
-pub(crate) fn book_deletion_handler(path_to_book: &str, db: &DB) -> Result<()> {
+pub(crate) async fn book_deletion_handler(book_path: &PathBuf, db: &DB) -> Result<()> {
   let start_time = std::time::Instant::now();
-  match db.get_primary::<Book>(path_to_book)? {
-    None => {
-      info!("book_deletion_handler: book not found: {path_to_book}")
-    }
-    Some(old_book) => {
-      Book::remove(old_book, db)?;
-    }
-  };
+  book::remove(book_path, db).await?;
   let total_time = start_time.elapsed();
   info!("Function book_deletion_handler executed in: {:?}", &total_time);
   Ok(())

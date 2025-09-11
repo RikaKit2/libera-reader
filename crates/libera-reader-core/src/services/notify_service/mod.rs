@@ -1,7 +1,6 @@
 use crate::db::DB;
-use crate::db::models::Book;
 use crate::services::{Services, Status};
-use crate::settings::Settings;
+use crate::settings::SETTINGS;
 use crate::types::NotCachedBooks;
 use anyhow::Result;
 use notify::EventKind;
@@ -26,7 +25,7 @@ impl Services {
     Ok(())
   }
   pub fn stop_notify(&mut self) -> Result<()> {
-    match &self.settings.read().old_path_to_scan {
+    match &self.settings.read().previous_path_to_scan {
       None => Ok(()),
       Some(path_to_scan) => {
         self.notify_service_working_status = Status::NotWorking;
@@ -36,7 +35,7 @@ impl Services {
   }
 }
 
-pub(crate) async fn run(settings: Settings, not_cached_books: NotCachedBooks, db: DB, mut rx: UnboundedReceiver<notify::Event>) {
+pub(crate) async fn run(settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB, mut rx: UnboundedReceiver<notify::Event>) {
   tokio::spawn(async move {
     loop {
       match rx.try_recv() {
@@ -49,7 +48,7 @@ pub(crate) async fn run(settings: Settings, not_cached_books: NotCachedBooks, db
   });
 }
 
-async fn event_processing(event: Event, settings: &Settings, not_cached_books: &NotCachedBooks, db: &DB) {
+async fn event_processing(event: Event, settings: &SETTINGS, not_cached_books: &NotCachedBooks, db: &DB) {
   match event {
     Event { kind, paths, attrs: _attrs } => match kind {
       EventKind::Create(create_kind) => match create_kind {
@@ -63,11 +62,7 @@ async fn event_processing(event: Event, settings: &Settings, not_cached_books: &
           RenameMode::Both => {
             let old_path = &paths[0];
             let new_path = &paths[1];
-            if new_path.is_dir() {
-              Book::update_books_directory(old_path, new_path, db).unwrap();
-            } else {
-              handlers::book_path_update_handler(old_path, new_path, settings, not_cached_books, db).await.unwrap();
-            }
+            handlers::book_path_update_handler(old_path, new_path, db).await.unwrap();
           }
           RenameMode::From => {}
           RenameMode::To => {}
@@ -77,7 +72,7 @@ async fn event_processing(event: Event, settings: &Settings, not_cached_books: &
       },
       EventKind::Remove(remove_kind) => match remove_kind {
         RemoveKind::File => {
-          handlers::book_deletion_handler(paths[0].to_str().unwrap(), db).unwrap();
+          handlers::book_deletion_handler(&paths[0], db).await.unwrap();
         }
         RemoveKind::Folder => {
           handlers::dir_deletion_handler(paths[0].to_str().unwrap().to_string(), db).unwrap();
