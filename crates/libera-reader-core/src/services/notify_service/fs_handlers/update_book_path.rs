@@ -1,0 +1,34 @@
+use std::path::PathBuf;
+
+use anyhow::Ok;
+use tracing::info;
+
+use crate::db::{
+  DB,
+  models::books::{Books, book::BookPath, book_sizes::BookSizes},
+};
+
+pub(crate) async fn update_book_path(old_path: PathBuf, new_path: PathBuf, db: &DB) -> anyhow::Result<()> {
+  let start_time = std::time::Instant::now();
+
+  let old_book_path = BookPath::new(old_path);
+  let new_book_path = BookPath::new(new_path);
+
+  match Books::get_by_parent_dir(old_book_path.parent_dir.clone(), db)? {
+    Some(old_books) => {
+      let mut updated_books = old_books.clone();
+      match updated_books.storage.get_mut(&old_book_path.name) {
+        Some(book) => {
+          book.book_path = new_book_path.clone();
+          BookSizes::update_book_path(book.book_size.clone(), &old_book_path, new_book_path, db)?;
+          db.update(old_books, updated_books)?;
+        }
+        None => {}
+      };
+    }
+    None => {}
+  };
+  let total_time = start_time.elapsed();
+  info!("The total time to update the path of the book: {:?}", &total_time);
+  Ok(())
+}

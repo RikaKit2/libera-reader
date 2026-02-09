@@ -1,11 +1,8 @@
-pub mod book;
+pub mod books;
 pub mod settings;
 
 use anyhow::Result;
-pub use book::{
-  book_fs_data::BookFsData, bookmark::BookMark, hashed_books::HashedBooks, mutool_data::MutoolData, thumbnail::Thumbnail, unique_book::UniqueBook,
-  user_data::UserData,
-};
+pub use books::{bookmark::BookMark, mutool_data::MutoolData, thumbnail::Thumbnail, user_data::UserData};
 use native_db::ToInput;
 use native_db::ToKey;
 pub use settings::Settings;

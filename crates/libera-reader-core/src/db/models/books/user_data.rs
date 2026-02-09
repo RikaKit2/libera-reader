@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct UserData {
   pub favorite: bool,
   pub in_history: bool,
@@ -9,9 +9,6 @@ pub struct UserData {
 impl UserData {
   pub fn new(favorite: bool, in_history: bool) -> Self {
     UserData { favorite, in_history }
-  }
-  pub fn can_delete(&self) -> bool {
-    self.favorite == false && self.in_history == false
   }
 }
 

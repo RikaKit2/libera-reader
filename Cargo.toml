@@ -2,8 +2,8 @@
 resolver = "2"
 members = [
     "crates/libera-reader-core",
-    "crates/libera-reader",
-    "crates/mutool-bindings",
+    # "crates/libera-reader",
+    "crates/mutool",
     "crates/utils",
 ]
 
@@ -14,7 +14,7 @@ notify = "8.1.0"
 serde = { version = "1.0", features = ["derive"] }
 tracing = "0.1"
 data-encoding = "2"
-native_db = { version = "0.8" }
+native_db = { version = "0.8.2" }
 native_model = "0.4.20"
 itertools = "0.14.0"
 once_cell = "1"
@@ -24,7 +24,7 @@ tokio = { version = "1", features = ["full"] }
 libc = "0.2.170"
 sys-locale = "0.3.2"
 anyhow = "1.0.98"
-gpui = { git = "https://github.com/zed-industries/zed", rev = "8ebea17a9c5b091e6182e81faa7a562dff3c7fb0" }
+gpui = "0.2.2"
 rfd = "0.15.3"
 unicode-segmentation = "1.12.0"
 tracing-subscriber = "0.3.19"
@@ -39,3 +39,6 @@ zune-core = "0.4.12"
 zune-jpegxl = "0.4.0"
 sysinfo = "0.37.0"
 jwalk = "0.8.1"
+mimalloc = { version = "0.1.48", features = ["v3"] }
+chrono = "0.4.42"
+indexmap = { version = "2", features = ["serde"] }

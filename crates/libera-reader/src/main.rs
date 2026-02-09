@@ -5,8 +5,12 @@ use crate::ui::pages::Pages;
 use anyhow::Result;
 use gpui::{App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
 use libera_reader_core::ctx::Ctx;
+use mimalloc::MiMalloc;
 use std::path::PathBuf;
 use utils::create_subscriber;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 fn build_root_window(_window: &mut Window, cx: &mut App) -> Entity<Pages> {
   Pages::new(cx)

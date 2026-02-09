@@ -1,6 +1,8 @@
 pub mod app_dirs;
 pub mod ctx;
 pub mod db;
+pub mod error_handler;
+pub mod not_cached_books;
 pub mod services;
 pub mod settings;
 pub mod types;
