@@ -26,5 +26,7 @@ dashmap = { workspace = true }
 sysinfo = { workspace = true }
 jwalk = { workspace = true }
 utils = { version = "0.1.0", path = "../utils" }
-mutool-bindings = { version = "0.1.0", path = "../mutool-bindings" }
-
+mutool = { version = "0.1.0", path = "../mutool" }
+mimalloc = { workspace = true }
+chrono = { workspace = true }
+indexmap = { workspace = true }

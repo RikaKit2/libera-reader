@@ -1,5 +1,5 @@
 [package]
-name = "mutool-bindings"
+name = "mutool"
 version = "0.1.0"
 edition = "2024"
 

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use mutool_bindings::download_mutool_if_missing_blocking;
+use mutool::download_mutool_if_missing_blocking;
 use std::io;
 use std::path::PathBuf;
 

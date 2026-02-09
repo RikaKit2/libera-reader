@@ -1,4 +1,5 @@
 use crate::db::DB;
+use crate::db::models::books::book::BookExt;
 use crate::db::models::{GetOrCreate, Lang, RootRoute, Settings};
 use anyhow::Result;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -70,12 +71,13 @@ impl SETTINGS {
     }
     Ok(())
   }
-  pub fn contains_ext(&self, ext: &str) -> bool {
+  pub fn contains_ext(&self, ext: &BookExt) -> bool {
     let model = self.read();
-    let ext_is_pdf = ext.eq("pdf") && model.pdf;
-    let ext_is_epub = ext.eq("epub") && model.epub;
-    let ext_is_mobi = ext.eq("mobi") && model.mobi;
-    if ext_is_pdf || ext_is_epub || ext_is_mobi { true } else { false }
+    match ext {
+      BookExt::PDF => model.pdf,
+      BookExt::EPUB => model.epub,
+      BookExt::MOBI => model.mobi,
+    }
   }
   pub fn invert_pdf(&mut self) -> Result<()> {
     let old_model = self.read().clone();

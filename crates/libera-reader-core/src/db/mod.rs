@@ -1,7 +1,9 @@
 pub mod models;
 
+use crate::db::models::books::Books;
+use crate::db::models::books::book_hashes::BookHashes;
+use crate::db::models::books::book_sizes::BookSizes;
 use crate::db::models::settings::Settings;
-use crate::db::models::{HashedBooks, UniqueBook};
 use anyhow::Result;
 use itertools::Itertools;
 use native_db::db_type::{KeyOptions, ToKeyDefinition};
@@ -14,9 +16,10 @@ use tracing::info;
 
 fn get_models() -> Result<Models> {
   let mut models = Models::new();
+  models.define::<Books>()?;
   models.define::<Settings>()?;
-  models.define::<UniqueBook>()?;
-  models.define::<HashedBooks>()?;
+  models.define::<BookSizes>()?;
+  models.define::<BookHashes>()?;
   Ok(models)
 }
 
@@ -49,7 +52,7 @@ impl DBType {
 }
 #[derive(Clone)]
 pub struct DB {
-  inn: DBType,
+  pub(crate) db_type: DBType,
   path_to_db: Arc<RwLock<PathBuf>>,
 }
 impl DB {
@@ -58,19 +61,19 @@ impl DB {
       true => DBType::new_in_file(&path_to_db),
       false => DBType::new_in_memory(),
     };
-    Ok(Self { inn: db, path_to_db: Arc::new(RwLock::new(path_to_db)) })
+    Ok(Self { db_type: db, path_to_db: Arc::new(RwLock::new(path_to_db)) })
   }
   pub(crate) fn save_to_storage(&self) -> Result<()> {
-    match &self.inn {
+    match &self.db_type {
       DBType::InMemory(_) => {
-        self.inn.write().snapshot(&MODELS, &self.path_to_db.read().unwrap())?;
+        self.db_type.write().snapshot(&MODELS, &self.path_to_db.read().unwrap())?;
       }
       DBType::InFile(_) => {}
     }
     Ok(())
   }
   pub(crate) fn reload_db(&mut self) -> Result<()> {
-    let db_in_memory = match &self.inn {
+    let db_in_memory = match &self.db_type {
       DBType::InMemory(_) => true,
       DBType::InFile(_) => false,
     };
@@ -84,7 +87,7 @@ impl DB {
 
       let path_to_db = &self.path_to_db.read().unwrap().clone();
 
-      let mut db = self.inn.write();
+      let mut db = self.db_type.write();
       let new_db = Builder::new().open(&MODELS, path_to_db).unwrap();
       *db = new_db;
 
@@ -96,38 +99,38 @@ impl DB {
     Ok(())
   }
   pub fn compact(&self) -> Result<()> {
-    self.inn.write().compact()?;
+    self.db_type.write().compact()?;
     Ok(())
   }
   pub(crate) fn get_primary<T: ToInput>(&self, key: impl ToKey) -> Result<Option<T>> {
-    Ok(self.inn.read().r_transaction()?.get().primary(key)?)
+    Ok(self.db_type.read().r_transaction()?.get().primary(key)?)
   }
   pub(crate) fn get_secondary<Table: ToInput>(&self, key: impl ToKey, key_def: impl ToKeyDefinition<KeyOptions>) -> Result<Option<Table>> {
-    Ok(self.inn.read().r_transaction()?.get().secondary(key_def, key)?)
+    Ok(self.db_type.read().r_transaction()?.get().secondary(key_def, key)?)
   }
   pub(crate) fn scan_primary<T: ToInput>(&self) -> Result<Vec<T>> {
-    Ok(self.inn.read().r_transaction()?.scan().primary()?.all()?.try_collect()?)
+    Ok(self.db_type.read().r_transaction()?.scan().primary()?.all()?.try_collect()?)
   }
   pub(crate) fn scan_primary_by<Key: ToKey, Table: ToInput>(&self, key_data: Key) -> Result<Vec<Table>> {
-    Ok(self.inn.read().r_transaction()?.scan().primary()?.start_with(key_data)?.try_collect()?)
+    Ok(self.db_type.read().r_transaction()?.scan().primary()?.start_with(key_data)?.try_collect()?)
   }
   pub(crate) fn scan_secondary_start_with<Key: ToKey, Table: ToInput>(&self, key_data: Key, key_def: impl ToKeyDefinition<KeyOptions>) -> Result<Vec<Table>> {
-    Ok(self.inn.read().r_transaction()?.scan().secondary(key_def)?.start_with(key_data)?.try_collect()?)
+    Ok(self.db_type.read().r_transaction()?.scan().secondary(key_def)?.start_with(key_data)?.try_collect()?)
   }
   pub(crate) fn insert<T: ToInput>(&self, item: T) -> db_type::Result<()> {
-    let lock = self.inn.write();
+    let lock = self.db_type.write();
     let rw_conn = lock.rw_transaction()?;
     rw_conn.insert(item)?;
     rw_conn.commit()
   }
   pub(crate) fn update<T: ToInput>(&self, old_data: T, new_data: T) -> db_type::Result<()> {
-    let lock = self.inn.write();
+    let lock = self.db_type.write();
     let rw_conn = lock.rw_transaction()?;
     rw_conn.update(old_data, new_data)?;
     rw_conn.commit()
   }
   pub(crate) fn remove<T: ToInput>(&self, item: T) -> db_type::Result<()> {
-    let lock = self.inn.write();
+    let lock = self.db_type.write();
     let rw_conn = lock.rw_transaction()?;
     rw_conn.remove(item)?;
     rw_conn.commit()

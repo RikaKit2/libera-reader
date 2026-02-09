@@ -1,85 +1,164 @@
-use crate::db::DB;
-use crate::services::{Services, Status};
-use crate::settings::SETTINGS;
-use crate::types::NotCachedBooks;
+use std::path::PathBuf;
+
+use crate::{
+  db::{
+    DB,
+    models::books::book::{BookDir, BookPath},
+  },
+  not_cached_books::NotCachedBooks,
+  settings::SETTINGS,
+};
+
+use super::WorkStatus;
 use anyhow::Result;
-use notify::EventKind;
-use notify::event::{CreateKind, ModifyKind, RemoveKind, RenameMode};
-use notify::{Event, RecursiveMode, Watcher};
-use tokio::sync::mpsc::UnboundedReceiver;
+use notify::{
+  Event, EventKind, RecommendedWatcher, Watcher,
+  event::{CreateKind, ModifyKind, RemoveKind, RenameMode},
+};
+use tracing::{error, info};
 
-mod handlers;
+pub(crate) mod fs_handlers;
 
-impl Services {
-  pub fn run_notify(&mut self) -> Result<()> {
-    match self.notify_service_working_status {
-      Status::Working => {}
-      Status::NotWorking => match &self.settings.read().path_to_scan {
-        None => {}
-        Some(path_to_scan) => {
-          self.watcher.watch(path_to_scan.as_ref(), RecursiveMode::Recursive)?;
-          self.notify_service_working_status = Status::Working;
-        }
+enum FSEvent {
+  CreateFile { file_path: PathBuf },
+  RenameFile { old_path: PathBuf, new_path: PathBuf },
+  RenameDir { old_path: PathBuf, new_path: PathBuf },
+  RemoveFile { file_path: PathBuf },
+  RemoveDir { dir_path: PathBuf },
+}
+impl FSEvent {
+  fn from_event(event: Event) -> Option<Self> {
+    match event {
+      Event { kind, paths, attrs: _attrs } => match kind {
+        EventKind::Create(create_kind) => match create_kind {
+          CreateKind::File => match paths.into_iter().next() {
+            Some(path) => Some(Self::CreateFile { file_path: path }),
+            None => None,
+          },
+          _ => None,
+        },
+        EventKind::Modify(modify_kind) => match modify_kind {
+          ModifyKind::Name(rename_mode) => match rename_mode {
+            RenameMode::Both => {
+              let mut it = paths.into_iter();
+              let poss_old_path = it.next();
+              let poss_new_path = it.next();
+              match (poss_old_path, poss_new_path) {
+                (Some(old_path), Some(new_path)) => {
+                  if old_path.is_file() && new_path.is_file() {
+                    Some(Self::RenameFile { old_path, new_path })
+                  } else if old_path.is_dir() && new_path.is_dir() {
+                    Some(Self::RenameDir { old_path, new_path })
+                  } else {
+                    None
+                  }
+                }
+                _ => None,
+              }
+            }
+            RenameMode::From => None,
+            RenameMode::To => None,
+            _ => None,
+          },
+          _ => None,
+        },
+        EventKind::Remove(remove_kind) => match remove_kind {
+          RemoveKind::File => match paths.into_iter().next() {
+            Some(path) => Some(Self::RemoveFile { file_path: path }),
+            None => None,
+          },
+          RemoveKind::Folder => match paths.into_iter().next() {
+            Some(path) => Some(Self::RemoveDir { dir_path: path }),
+            None => None,
+          },
+          _ => None,
+        },
+        _ => None,
       },
     }
+  }
+}
+
+pub struct NotifyService {
+  status: WorkStatus,
+  watcher: RecommendedWatcher,
+  notify_rx: Option<tokio::sync::mpsc::UnboundedReceiver<notify::Event>>,
+  not_cached_books: NotCachedBooks,
+  settings: SETTINGS,
+  db: DB,
+}
+
+impl NotifyService {
+  pub(crate) fn new(not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB) -> Result<Self> {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let watcher = notify::recommended_watcher(move |res| match res {
+      Ok(event) => {
+        tx.send(event).unwrap();
+      }
+      Err(err) => {
+        error!("Notify watcher error: {:?}", err)
+      }
+    })?;
+    Ok(Self { status: WorkStatus::NotWorking, watcher, notify_rx: Some(rx), not_cached_books, settings, db })
+  }
+  pub fn run(&mut self) -> Result<()> {
+    match &self.status {
+      WorkStatus::Working => {}
+      WorkStatus::NotWorking => match self.notify_rx.take() {
+        Some(mut rx) => {
+          let db = self.db.clone();
+          let not_cached_books = self.not_cached_books.clone();
+          let settings = self.settings.clone();
+          tokio::spawn(async move {
+            loop {
+              match rx.try_recv() {
+                Ok(event) => {
+                  Self::event_processing(event, &settings, &not_cached_books, &db).await;
+                }
+                Err(_) => {}
+              }
+            }
+          });
+        }
+        None => {}
+      },
+    };
     Ok(())
   }
-  pub fn stop_notify(&mut self) -> Result<()> {
+  pub fn stop(&mut self) -> Result<()> {
     match &self.settings.read().previous_path_to_scan {
       None => Ok(()),
       Some(path_to_scan) => {
-        self.notify_service_working_status = Status::NotWorking;
+        self.status = WorkStatus::NotWorking;
         Ok(self.watcher.unwatch(path_to_scan.as_ref())?)
       }
     }
   }
-}
-
-pub(crate) async fn run(settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB, mut rx: UnboundedReceiver<notify::Event>) {
-  tokio::spawn(async move {
-    loop {
-      match rx.try_recv() {
-        Ok(event) => {
-          event_processing(event, &settings, &not_cached_books, &db).await;
-        }
-        Err(_) => {}
-      }
-    }
-  });
-}
-
-async fn event_processing(event: Event, settings: &SETTINGS, not_cached_books: &NotCachedBooks, db: &DB) {
-  match event {
-    Event { kind, paths, attrs: _attrs } => match kind {
-      EventKind::Create(create_kind) => match create_kind {
-        CreateKind::File => {
-          handlers::book_adding_handler(&paths[0], settings, not_cached_books, db).await.unwrap();
-        }
-        _ => {}
-      },
-      EventKind::Modify(modify_kind) => match modify_kind {
-        ModifyKind::Name(rename_mode) => match rename_mode {
-          RenameMode::Both => {
-            let old_path = &paths[0];
-            let new_path = &paths[1];
-            handlers::book_path_update_handler(old_path, new_path, db).await.unwrap();
+  async fn event_processing(event: Event, settings: &SETTINGS, not_cached_books: &NotCachedBooks, db: &DB) {
+    match FSEvent::from_event(event) {
+      Some(fs_event) => {
+        match fs_event {
+          FSEvent::CreateFile { file_path } => {
+            let start_time = std::time::Instant::now();
+            fs_handlers::insert_book(BookPath::new(file_path), db, settings, not_cached_books).await.unwrap();
+            let total_time = start_time.elapsed();
+            info!("The total time for adding a book: {:?}", &total_time);
           }
-          RenameMode::From => {}
-          RenameMode::To => {}
-          _ => {}
-        },
-        _ => {}
-      },
-      EventKind::Remove(remove_kind) => match remove_kind {
-        RemoveKind::File => {
-          handlers::book_deletion_handler(&paths[0], db).await.unwrap();
-        }
-        RemoveKind::Folder => {
-          handlers::dir_deletion_handler(paths[0].to_str().unwrap().to_string(), db).unwrap();
-        }
-        _ => {}
-      },
-      _ => {}
-    },
+          FSEvent::RenameFile { old_path, new_path } => {
+            fs_handlers::update_book_path(old_path, new_path, db).await.unwrap();
+          }
+          FSEvent::RenameDir { old_path, new_path } => {
+            fs_handlers::update_book_dir(old_path, new_path, db).unwrap();
+          }
+          FSEvent::RemoveFile { file_path } => {
+            fs_handlers::remove_book(BookPath::new(file_path), db).await.unwrap();
+          }
+          FSEvent::RemoveDir { dir_path } => {
+            fs_handlers::remove_books_in_dir(BookDir::new(dir_path), db).unwrap();
+          }
+        };
+      }
+      None => {}
+    };
   }
 }

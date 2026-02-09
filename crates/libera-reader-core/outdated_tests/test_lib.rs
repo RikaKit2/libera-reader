@@ -1,6 +1,5 @@
 use anyhow::Result;
 use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::models::Book;
 use mutool_bindings::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
 use std::path::PathBuf;
 use std::time::Duration;
