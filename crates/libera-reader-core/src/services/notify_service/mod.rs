@@ -111,14 +111,12 @@ impl NotifyService {
           let not_cached_books = self.not_cached_books.clone();
           let settings = self.settings.clone();
           self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
+          // mark service as working so subsequent run() calls are no-ops
+          self.status = WorkStatus::Working;
           tokio::spawn(async move {
-            loop {
-              match rx.try_recv() {
-                Ok(event) => {
-                  Self::event_processing(event, &settings, &not_cached_books, &db).await;
-                }
-                Err(_) => {}
-              }
+            // Await incoming events instead of busy-looping on try_recv.
+            while let Some(event) = rx.recv().await {
+              Self::event_processing(event, &settings, &not_cached_books, &db).await;
             }
           });
         }
