@@ -21,13 +21,16 @@ pub struct BookHashes {
   pub books: HashSet<BookPath>,
   pub mutool_data: MutoolData,
 }
+
 impl BookHashes {
+  #[allow(dead_code)]
   pub(crate) fn new(book_hash: BookHash, books: HashSet<BookPath>) -> Self {
     Self { hash: book_hash, books, mutool_data: MutoolData::default() }
   }
   fn get_by_hash(book_hash: BookHash, db: &DB) -> Result<Option<BookHashes>, anyhow::Error> {
     db.get_primary::<BookHashes>(book_hash.clone())
   }
+  #[allow(dead_code)]
   pub(crate) fn insert_book(book_hash: BookHash, book_path: &BookPath, db: &DB) -> anyhow::Result<()> {
     match Self::get_by_hash(book_hash.clone(), db)? {
       Some(old_self) => {
@@ -82,14 +85,13 @@ impl BookHashes {
     match Self::get_by_hash(book_hash, db)? {
       Some(old_self) => {
         let mut updated_self = old_self.clone();
-        match updated_self.books.swap_remove(book_path) {
-          true => {
-            let mut new_path = book_path.clone();
-            new_path.deleted = true;
-            updated_self.books.insert(new_path);
+        match updated_self.books.swap_take(book_path) {
+          Some(mut inn_book_path) => {
+            inn_book_path.mark_as_deleted();
+            updated_self.books.insert(inn_book_path);
             db.update(old_self, updated_self)?;
           }
-          false => {}
+          None => {}
         };
       }
       None => {}

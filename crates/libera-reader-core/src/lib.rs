@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 pub mod app_dirs;
 pub mod ctx;
 pub mod db;

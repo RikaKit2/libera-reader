@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 use anyhow::Result;
 use std::hash::{BuildHasher, Hasher};
 use std::path::{Path, PathBuf};

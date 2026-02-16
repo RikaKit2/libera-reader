@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 mod ui;
 
 use crate::ui::assets::Assets;

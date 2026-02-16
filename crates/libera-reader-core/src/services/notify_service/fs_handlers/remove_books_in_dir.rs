@@ -6,7 +6,7 @@ use crate::db::{
 pub(crate) fn remove_books_in_dir(book_dir: BookDir, db: &DB) -> anyhow::Result<()> {
   match Books::get_by_parent_dir(book_dir, db)? {
     Some(old_books) => {
-      old_books.remove_books_in_dir(db)?;
+      old_books.remove_self(db)?;
     }
     None => {}
   };

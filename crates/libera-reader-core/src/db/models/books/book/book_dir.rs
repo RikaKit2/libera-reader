@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Eq, Clone, Debug)]
 pub struct BookDir {
-  pub(crate) inn: PathBuf,
+  pub inn: PathBuf,
 }
 impl BookDir {
-  pub(crate) fn new(dir_path: PathBuf) -> Self {
+  pub fn new(dir_path: PathBuf) -> Self {
     Self { inn: dir_path }
   }
   pub fn dir_name(&self) -> String {
@@ -22,6 +22,9 @@ impl BookDir {
   }
   pub fn exists(&self) -> bool {
     self.inn.exists()
+  }
+  pub fn to_pathbuf(&self) -> PathBuf {
+    self.inn.clone()
   }
 }
 impl PartialEq for BookDir {

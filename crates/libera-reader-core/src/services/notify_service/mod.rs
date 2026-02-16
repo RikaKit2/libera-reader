@@ -19,6 +19,7 @@ use tracing::{error, info};
 
 pub(crate) mod fs_handlers;
 
+#[derive(Debug)]
 enum FSEvent {
   CreateFile { file_path: PathBuf },
   RenameFile { old_path: PathBuf, new_path: PathBuf },
@@ -45,9 +46,9 @@ impl FSEvent {
               let poss_new_path = it.next();
               match (poss_old_path, poss_new_path) {
                 (Some(old_path), Some(new_path)) => {
-                  if old_path.is_file() && new_path.is_file() {
+                  if new_path.is_file() {
                     Some(Self::RenameFile { old_path, new_path })
-                  } else if old_path.is_dir() && new_path.is_dir() {
+                  } else if new_path.is_dir() {
                     Some(Self::RenameDir { old_path, new_path })
                   } else {
                     None
@@ -101,7 +102,7 @@ impl NotifyService {
     })?;
     Ok(Self { status: WorkStatus::NotWorking, watcher, notify_rx: Some(rx), not_cached_books, settings, db })
   }
-  pub fn run(&mut self) -> Result<()> {
+  pub fn run(&mut self, path_to_scan: &String) -> Result<()> {
     match &self.status {
       WorkStatus::Working => {}
       WorkStatus::NotWorking => match self.notify_rx.take() {
@@ -109,6 +110,7 @@ impl NotifyService {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
           let settings = self.settings.clone();
+          self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
           tokio::spawn(async move {
             loop {
               match rx.try_recv() {
