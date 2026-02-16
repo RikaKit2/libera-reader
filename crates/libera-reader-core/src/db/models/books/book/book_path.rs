@@ -28,7 +28,7 @@ impl BookPath {
     let buf = &self.as_pathbuf();
     BookSize::new(buf).await
   }
-  pub(crate) fn full_path_str(&self) -> String {
+  pub fn full_path_string(&self) -> String {
     self.as_pathbuf().to_str().unwrap().to_string()
   }
   pub fn exists_on_disk(&self) -> bool {
@@ -41,11 +41,11 @@ impl BookPath {
 
 impl PartialEq for BookPath {
   fn eq(&self, other: &Self) -> bool {
-    self.full_path_str() == other.full_path_str()
+    self.full_path_string() == other.full_path_string()
   }
 }
 impl Hash for BookPath {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    self.full_path_str().hash(state);
+    self.full_path_string().hash(state);
   }
 }

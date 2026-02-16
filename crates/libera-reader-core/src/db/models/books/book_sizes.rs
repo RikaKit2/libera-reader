@@ -10,7 +10,6 @@ use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 #[derive(Serialize, Deserialize, Clone)]
 #[native_model(id = 2, version = 1)]
@@ -28,8 +27,6 @@ impl BookSizes {
     db.get_primary::<Self>(book_size)
   }
   pub(crate) async fn insert_book(new_book: &Book, db: &DB) -> anyhow::Result<()> {
-    let start_time = std::time::Instant::now();
-
     match BookSizes::get(new_book.book_size.clone(), db)? {
       Some(old_self) => {
         let mut updated_self = old_self.clone();
@@ -58,8 +55,6 @@ impl BookSizes {
       }
     };
 
-    let total_time = start_time.elapsed();
-    info!("The total time for adding a book in book_sizes: {:?}", &total_time);
     Ok(())
   }
   pub(crate) fn remove_book(book_size: BookSize, target_book_path: &BookPath, db: &DB) -> anyhow::Result<()> {
@@ -110,7 +105,7 @@ impl BookSizes {
           BookType::UniqueSize { book_path, mutool_data: _ } => {
             match target_book_path.eq(book_path) {
               true => {
-                book_path.deleted = true;
+                book_path.mark_as_deleted();
                 db.update(old_self, updated_self)?;
               }
               false => {}
@@ -126,9 +121,8 @@ impl BookSizes {
                   DuplicateBookData::MutoolData(_mutool_data) => {}
                 };
                 let mut new_path = target_book_path.clone();
-                new_path.deleted = true;
+                new_path.mark_as_deleted();
                 hash_map.insert(new_path, data);
-                // book_path.deleted = true;
                 db.update(old_self, updated_self)?;
               }
               None => {}

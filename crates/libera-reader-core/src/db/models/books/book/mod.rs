@@ -12,10 +12,10 @@ mod book_ext;
 mod book_path;
 mod book_size;
 
-pub(crate) use book_dir::BookDir;
-pub(crate) use book_ext::BookExt;
-pub(crate) use book_path::BookPath;
-pub(crate) use book_size::BookSize;
+pub use book_dir::BookDir;
+pub use book_ext::BookExt;
+pub use book_path::BookPath;
+pub use book_size::BookSize;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq)]
 pub struct Book {

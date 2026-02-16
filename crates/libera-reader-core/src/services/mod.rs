@@ -1,5 +1,5 @@
-mod notify_service;
-pub(crate) mod scan_service;
+pub mod notify_service;
+pub mod scan_service;
 use anyhow::Result;
 use notify_service::NotifyService;
 

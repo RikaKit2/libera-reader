@@ -6,7 +6,6 @@ use crate::db::models::books::book_sizes::BookSizes;
 use crate::db::models::settings::Settings;
 use anyhow::Result;
 use itertools::Itertools;
-use native_db::db_type::{KeyOptions, ToKeyDefinition};
 use native_db::{Builder, Database, Models, ToInput, ToKey, db_type};
 use once_cell::sync::Lazy;
 use std::path::PathBuf;
@@ -105,17 +104,8 @@ impl DB {
   pub(crate) fn get_primary<T: ToInput>(&self, key: impl ToKey) -> Result<Option<T>> {
     Ok(self.db_type.read().r_transaction()?.get().primary(key)?)
   }
-  pub(crate) fn get_secondary<Table: ToInput>(&self, key: impl ToKey, key_def: impl ToKeyDefinition<KeyOptions>) -> Result<Option<Table>> {
-    Ok(self.db_type.read().r_transaction()?.get().secondary(key_def, key)?)
-  }
   pub(crate) fn scan_primary<T: ToInput>(&self) -> Result<Vec<T>> {
     Ok(self.db_type.read().r_transaction()?.scan().primary()?.all()?.try_collect()?)
-  }
-  pub(crate) fn scan_primary_by<Key: ToKey, Table: ToInput>(&self, key_data: Key) -> Result<Vec<Table>> {
-    Ok(self.db_type.read().r_transaction()?.scan().primary()?.start_with(key_data)?.try_collect()?)
-  }
-  pub(crate) fn scan_secondary_start_with<Key: ToKey, Table: ToInput>(&self, key_data: Key, key_def: impl ToKeyDefinition<KeyOptions>) -> Result<Vec<Table>> {
-    Ok(self.db_type.read().r_transaction()?.scan().secondary(key_def)?.start_with(key_data)?.try_collect()?)
   }
   pub(crate) fn insert<T: ToInput>(&self, item: T) -> db_type::Result<()> {
     let lock = self.db_type.write();

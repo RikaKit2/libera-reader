@@ -1,3 +1,4 @@
+#![forbid(unsafe_code)]
 pub mod create_book;
 pub mod download_mutool;
 pub mod extract_img;

@@ -31,7 +31,29 @@ use tracing::info;
 
 pub(crate) type BookHash = String;
 
-#[derive(Serialize, Deserialize, Clone, Eq)]
+impl PartialEq for Books {
+  fn eq(&self, other: &Self) -> bool {
+    self.parent_dir.eq(&other.parent_dir)
+  }
+}
+impl Hash for Books {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.parent_dir.hash(state);
+  }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub enum DuplicateBookData {
+  BookHash(BookHash),
+  MutoolData(Option<MutoolData>),
+}
+#[derive(Serialize, Deserialize, Clone)]
+pub enum BookType {
+  UniqueSize { book_path: BookPath, mutool_data: Option<MutoolData> },
+  DuplicateSize(HashMap<BookPath, DuplicateBookData>),
+}
+
+#[derive(Serialize, Deserialize, Clone, Eq, Debug)]
 #[native_model(id = 0, version = 1)]
 #[native_db]
 pub struct Books {
@@ -46,7 +68,16 @@ impl Books {
     storage.insert(book.book_path.name.clone(), book);
     Self { parent_dir, storage }
   }
-  pub(crate) fn get_by_parent_dir(parent_dir: BookDir, db: &DB) -> anyhow::Result<Option<Self>> {
+  pub fn get_by_path(book_path: BookPath, db: &DB) -> anyhow::Result<Option<Book>> {
+    match Books::get_by_parent_dir(book_path.parent_dir.clone(), db)? {
+      Some(books) => match books.storage.get(&book_path.name) {
+        Some(book) => Ok(Some(book.clone())),
+        None => Ok(None),
+      },
+      None => Ok(None),
+    }
+  }
+  pub fn get_by_parent_dir(parent_dir: BookDir, db: &DB) -> anyhow::Result<Option<Self>> {
     db.get_primary::<Books>(parent_dir)
   }
   pub(crate) async fn insert_many(&mut self, books: impl IntoIterator<Item = BookPath>, db: &DB) -> anyhow::Result<()> {
@@ -93,7 +124,7 @@ impl Books {
     };
     Ok(())
   }
-  pub(crate) fn all(db: &DB) -> (BooksFromDB, DBBooksCount) {
+  pub fn all(db: &DB) -> (BooksFromDB, DBBooksCount) {
     let mut db_books_count: usize = 0;
     let mut res: HashMap<BookDir, Books> = Default::default();
     for books in db.scan_primary::<Self>().unwrap() {
@@ -102,7 +133,7 @@ impl Books {
     }
     (res, db_books_count)
   }
-  pub(crate) fn remove_books_in_dir(self, db: &DB) -> anyhow::Result<()> {
+  pub(crate) fn remove_self(self, db: &DB) -> anyhow::Result<()> {
     let start_time = std::time::Instant::now();
     match self.storage.is_empty() {
       true => {}
@@ -118,6 +149,7 @@ impl Books {
             }
             false => {
               book.mark_as_deleted();
+              BookSizes::mark_book_path_as_deleted(book.book_size.clone(), &book.book_path, db)?;
               new_storage.insert(book_name, book);
             }
           };
@@ -151,6 +183,7 @@ impl Books {
           }
           false => {
             outdated_book_link.mark_as_deleted();
+            BookSizes::mark_book_path_as_deleted(outdated_book_link.book_size.clone(), &outdated_book_link.book_path, db)?;
           }
         };
         db.update(old_self, updated_self)?;
@@ -161,26 +194,4 @@ impl Books {
     };
     Ok(())
   }
-}
-
-impl PartialEq for Books {
-  fn eq(&self, other: &Self) -> bool {
-    self.parent_dir.eq(&other.parent_dir)
-  }
-}
-impl Hash for Books {
-  fn hash<H: Hasher>(&self, state: &mut H) {
-    self.parent_dir.hash(state);
-  }
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-pub enum DuplicateBookData {
-  BookHash(BookHash),
-  MutoolData(Option<MutoolData>),
-}
-#[derive(Serialize, Deserialize, Clone)]
-pub enum BookType {
-  UniqueSize { book_path: BookPath, mutool_data: Option<MutoolData> },
-  DuplicateSize(HashMap<BookPath, DuplicateBookData>),
 }
