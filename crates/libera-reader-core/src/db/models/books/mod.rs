@@ -5,8 +5,8 @@ pub mod bookmark;
 pub(crate) mod mutool_data;
 pub(crate) mod thumbnail;
 pub(crate) mod user_data;
-
 use std::hash::{Hash, Hasher};
+use tracing::info;
 
 use crate::{
   db::{
@@ -27,7 +27,6 @@ use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
-use tracing::info;
 
 pub(crate) type BookHash = String;
 
@@ -136,7 +135,9 @@ impl Books {
   pub(crate) fn remove_self(self, db: &DB) -> anyhow::Result<()> {
     let start_time = std::time::Instant::now();
     match self.storage.is_empty() {
-      true => {}
+      true => {
+        db.remove(self)?;
+      }
       false => {
         let mut updated_books = self.clone();
         let mut deleted_books: Vec<Book> = vec![];
@@ -159,7 +160,16 @@ impl Books {
         for book in deleted_books {
           BookSizes::remove_book(book.book_size, &book.book_path, db)?;
         }
-        db.update(self, updated_books)?;
+        let dir_exsits = updated_books.parent_dir.exists();
+        let storage_is_empty = updated_books.storage.is_empty();
+        match storage_is_empty || dir_exsits == false {
+          true => {
+            db.remove(updated_books)?;
+          }
+          false => {
+            db.update(self, updated_books)?;
+          }
+        };
       }
     };
     let total_time = start_time.elapsed();

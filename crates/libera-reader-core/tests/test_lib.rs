@@ -150,15 +150,10 @@ impl TestLib {
         self.ctx.services.scan_service.run()?;
       }
     }
-    info!("1");
     let parent_dir = self.first_book.parent().unwrap().to_path_buf();
     let book_dir = BookDir::new(parent_dir);
-    info!("2");
     let target_book = Books::get_by_parent_dir(book_dir, &self.ctx.db)?;
-    info!("3");
-    info!("{:?}", target_book.is_some());
     assert_eq!(target_book, None, "there shouldn't be a book");
-    info!("4");
     Ok(())
   }
   pub async fn drop_files(tmp_dir: &PathBuf) {
@@ -208,9 +203,7 @@ impl TestLib {
     self.rename_first_dir_to_second().await?;
     self.rename_second_book_to_first_in_second_dir().await?;
     self.drop_second_dir().await?;
-    info!("5");
     Self::drop_files(&self.tmp_dir).await;
-    info!("6");
     Ok(())
   }
 }
