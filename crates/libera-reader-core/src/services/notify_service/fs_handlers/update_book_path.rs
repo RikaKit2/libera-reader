@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Ok;
-use tracing::info;
+use utils::debug;
 
 use crate::db::{
   DB,
@@ -17,17 +17,17 @@ pub(crate) async fn update_book_path(old_path: PathBuf, new_path: PathBuf, db: &
   match Books::get_by_parent_dir(old_book_path.parent_dir.clone(), db)? {
     Some(old_books) => {
       let mut updated_books = old_books.clone();
-      
+
       match updated_books.storage.swap_remove(&old_book_path.name) {
         Some(mut book) => {
           book.book_path = new_book_path.clone();
           BookSizes::update_book_path(book.book_size.clone(), &old_book_path, new_book_path, db)?;
           updated_books.parent_dir = book.book_path.parent_dir.clone();
           updated_books.storage.insert(book.book_path.name.clone(), book);
-          
+
           db.update(old_books, updated_books)?;
           let total_time = start_time.elapsed();
-          info!("The total time to update the path of the book: {:?}", &total_time);
+          debug!("The total time to update the path of the book: {:?}", &total_time);
         }
         None => {}
       };

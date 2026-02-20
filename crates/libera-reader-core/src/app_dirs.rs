@@ -2,7 +2,7 @@ use directories::ProjectDirs;
 use std::io::Error;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
-use tracing::{error, info};
+use utils::{error, title};
 
 #[derive(Clone)]
 pub struct AppDirs {
@@ -35,8 +35,8 @@ impl Dirs {
     match data_dir.exists() {
       true => {}
       false => {
-        error!("data dir not exists!");
-        info!("Creating data dir");
+        error!("DATA DIR NOT EXISTS!");
+        title!("CREATING DATA DIR");
         std::fs::create_dir_all(&data_dir).unwrap();
       }
     }

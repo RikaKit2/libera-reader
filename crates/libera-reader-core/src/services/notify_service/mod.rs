@@ -15,7 +15,7 @@ use notify::{
   Event, EventKind, RecommendedWatcher, Watcher,
   event::{CreateKind, ModifyKind, RemoveKind, RenameMode},
 };
-use tracing::{error, info};
+use utils::{debug, error};
 
 pub(crate) mod fs_handlers;
 
@@ -142,7 +142,7 @@ impl NotifyService {
             let start_time = std::time::Instant::now();
             fs_handlers::insert_book(BookPath::new(file_path), db, settings, not_cached_books).await.unwrap();
             let total_time = start_time.elapsed();
-            info!("The total time for adding a book: {:?}", &total_time);
+            debug!("The total time for adding a book: {:?}", &total_time);
           }
           FSEvent::RenameFile { old_path, new_path } => {
             fs_handlers::update_book_path(old_path, new_path, db).await.unwrap();

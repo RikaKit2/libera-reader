@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use sysinfo::System;
-use tracing::info;
+use utils::{debug, title};
 
 fn get_models() -> Result<Models> {
   let mut models = Models::new();
@@ -93,7 +93,8 @@ impl DB {
       sys.refresh_all();
       let after = sys.process(pid).map(|p| p.memory() as f64 / (1024.0 * 1024.0)).unwrap_or(0.0);
 
-      info!("DB reloaded successfully; db in memory, usage: {:.2} MB; db on disk, usage: {:.2} MB; Memory {:.2} MB is released", before, after, before - after);
+      title!("DB RELOADED SUCCESSFULLY");
+      debug!("DB in memory, usage: {:.2} MB\nDB on disk, usage: {:.2} MB\nMemory {:.2} MB is released", before, after, before - after);
     }
     Ok(())
   }

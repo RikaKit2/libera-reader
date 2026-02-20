@@ -25,7 +25,7 @@ impl Services {
           run(db, not_cached_books, app_dirs).await;
         });
         self.data_extraction_service_working_status = Working;
-        info!("Data extraction service started");
+        title!("DATA EXTRACTION SERVICE STARTED");
         Some(j)
       }
     }
@@ -34,7 +34,7 @@ impl Services {
 
 async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs) {
   let available_threads: usize = num_cpus::get();
-  info!("Num of threads for data_extraction_service: {}", &available_threads);
+  debug!("Num of threads for data_extraction_service: {}", &available_threads);
   let semaphore = Arc::new(Semaphore::new(available_threads));
 
   loop {
@@ -83,8 +83,8 @@ async fn run(db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs) {
         for task in tasks {
           let _ = task.await;
         }
-        info!("Num of books for caching: {}", &not_cached_books.len());
-        info!("Total time of thumbnails extracting: {:.2?}", start_time.elapsed());
+        debug!("Num of books for caching: {}", &not_cached_books.len());
+        debug!("Total time of thumbnails extracting: {:.2?}", start_time.elapsed());
       }
     }
     tokio::time::sleep(Duration::from_secs(1)).await;

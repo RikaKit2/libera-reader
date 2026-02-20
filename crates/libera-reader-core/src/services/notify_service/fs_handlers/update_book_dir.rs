@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tracing::info;
+use utils::debug;
 
 use crate::db::{
   DB,
@@ -26,6 +26,6 @@ pub(crate) fn update_book_dir(old_dir: PathBuf, new_dir: PathBuf, db: &DB) -> an
   };
 
   let total_time = start_time.elapsed();
-  info!("The total time to update parent dir of the book: {:?}", &total_time);
+  debug!("The total time to update parent dir of the book: {:?}", &total_time);
   Ok(())
 }
