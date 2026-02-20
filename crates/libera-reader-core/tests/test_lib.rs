@@ -8,7 +8,7 @@ use std::time::Duration;
 use tokio::fs::{create_dir, remove_dir_all, rename};
 use tokio::process::Command;
 use tokio::time::sleep;
-use tracing::{debug, error, info};
+use utils::{debug, error, title};
 
 #[allow(dead_code)]
 pub enum TestMode {
@@ -58,21 +58,21 @@ impl TestLib {
     })
   }
   pub async fn create_first_book(&mut self) -> Result<()> {
-    info!("Create first book");
+    title!("CREATE FIRST BOOK");
     create_empty_book(&get_path_to_mutool(&self.test_files_dir), &self.first_book).await.unwrap();
     match self.test_mode {
       TestMode::Notify => {
         tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
       }
       TestMode::ScanService => {
-        self.ctx.services.scan_service.run()?;
+        self.ctx.services.scan_service.run().await?;
       }
     };
     self.test_fn(&self.first_book, |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_path.name))?;
     Ok(())
   }
   pub async fn rename_first_book_to_second(&mut self) -> Result<()> {
-    info!("File rename test: rename first book to second");
+    title!("FILE RENAME TEST: RENAME FIRST BOOK TO SECOND");
     match self.test_mode {
       TestMode::Notify => {
         let args = [&self.first_book.to_str().unwrap(), &self.second_book.to_str().unwrap()];
@@ -81,14 +81,14 @@ impl TestLib {
       }
       TestMode::ScanService => {
         assert!(rename(&self.first_book, &self.second_book).await.is_ok());
-        self.ctx.services.scan_service.run()?;
+        self.ctx.services.scan_service.run().await?;
       }
     };
     self.test_fn(&self.second_book, |book: &Book| assert_eq!(&SECOND_BOOK, &book.book_path.name))?;
     Ok(())
   }
   pub async fn move_second_book_to_first_dir(&mut self) -> Result<()> {
-    info!("File movement test: move second book to first dir");
+    title!("FILE MOVEMENT TEST: MOVE SECOND BOOK TO FIRST DIR");
     assert!(create_dir(&self.fist_dir).await.is_ok());
     let book_in_first_dir = self.tmp_dir.join(&FIRST_DIR).join(&SECOND_BOOK);
     match self.test_mode {
@@ -99,7 +99,7 @@ impl TestLib {
       }
       TestMode::ScanService => {
         assert!(rename(&self.second_book, &book_in_first_dir).await.is_ok());
-        self.ctx.services.scan_service.run()?;
+        self.ctx.services.scan_service.run().await?;
       }
     }
     self.second_book = book_in_first_dir;
@@ -107,14 +107,14 @@ impl TestLib {
     Ok(())
   }
   pub async fn rename_first_dir_to_second(&mut self) -> Result<()> {
-    info!("Dir renaming test: rename_first_dir_to_second");
+    title!("DIR RENAMING TEST: RENAME FIRST DIR TO SECOND");
     assert!(rename(&self.fist_dir, &self.second_dir).await.is_ok());
     match self.test_mode {
       TestMode::Notify => {
         sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
       }
       TestMode::ScanService => {
-        self.ctx.services.scan_service.run()?;
+        self.ctx.services.scan_service.run().await?;
       }
     }
 
@@ -123,7 +123,7 @@ impl TestLib {
     Ok(())
   }
   pub async fn rename_second_book_to_first_in_second_dir(&mut self) -> Result<()> {
-    info!("File rename test2: rename second book to first in second dir");
+    title!("FILE RENAME TEST: RENAME SECOND BOOK TO FIRST IN SECOND DIR");
 
     self.first_book = self.tmp_dir.join(&SECOND_DIR).join(&FIRST_BOOK);
     assert!(rename(&self.second_book, &self.first_book).await.is_ok());
@@ -132,7 +132,7 @@ impl TestLib {
         sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
       }
       TestMode::ScanService => {
-        self.ctx.services.scan_service.run()?;
+        self.ctx.services.scan_service.run().await?;
       }
     }
 
@@ -140,14 +140,14 @@ impl TestLib {
     Ok(())
   }
   pub async fn drop_second_dir(&mut self) -> Result<()> {
-    info!("Dir deletion test: drop_second_dir");
+    title!("DIR DELETION TEST: DROP SECOND DIR");
     assert!(remove_dir_all(&self.second_dir).await.is_ok());
     match self.test_mode {
       TestMode::Notify => {
         sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
       }
       TestMode::ScanService => {
-        self.ctx.services.scan_service.run()?;
+        self.ctx.services.scan_service.run().await?;
       }
     }
     let parent_dir = self.first_book.parent().unwrap().to_path_buf();
@@ -175,9 +175,9 @@ impl TestLib {
       None => {
         error!("book in db not found: {:?}", book_path_in_db);
         let (books_from_db, book_count) = Books::all(&self.ctx.db);
-        info!("book count: {}", &book_count);
+        debug!("book count: {}", &book_count);
         for (_book_dir, books) in books_from_db {
-          info!("{:?}", books);
+          debug!("{:?}", books);
         }
         panic!("book in db not found: {:?}", book_path_in_db)
       }

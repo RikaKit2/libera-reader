@@ -10,3 +10,5 @@ tracing = { workspace = true }
 data-encoding = { workspace = true }
 tracing-subscriber = { workspace = true }
 gxhash = { workspace = true }
+concurrent-queue = { workspace = true }
+colored = { workspace = true }

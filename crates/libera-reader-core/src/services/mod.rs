@@ -21,8 +21,8 @@ impl Services {
     let scan_service = ScanService::new(not_cached_books, settings, db.clone(), error_handler);
     Ok(Self { notify_service, scan_service, db })
   }
-  pub fn run(&mut self) -> Result<()> {
-    self.scan_service.run()?;
+  pub async fn run(&mut self) -> Result<()> {
+    self.scan_service.run().await?;
     self.db.compact()?;
     self.db.save_to_storage()?;
     self.db.reload_db()?;

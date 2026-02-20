@@ -2,12 +2,8 @@ mod books_location;
 
 use anyhow::Result;
 use jwalk::WalkDir;
-use std::{
-  ops::{Deref, DerefMut},
-  thread,
-};
-use tokio::runtime::Builder;
-use tracing::info;
+use std::ops::{Deref, DerefMut};
+use utils::debug;
 
 use crate::{
   db::{
@@ -19,7 +15,7 @@ use crate::{
   },
   error_handler::ErrorHandler,
   not_cached_books::NotCachedBooks,
-  services::{WorkStatus, notify_service::fs_handlers},
+  services::notify_service::fs_handlers,
   settings::SETTINGS,
   types::{HashMap, HashSet},
 };
@@ -72,7 +68,6 @@ impl DerefMut for BooksFromDisk {
 pub(crate) type DBBooksCount = usize;
 
 pub struct ScanService {
-  pub status: WorkStatus,
   not_cached_books: NotCachedBooks,
   settings: SETTINGS,
   db: DB,
@@ -81,52 +76,46 @@ pub struct ScanService {
 
 impl ScanService {
   pub(crate) fn new(not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, error_handler: ErrorHandler) -> Self {
-    Self { status: WorkStatus::NotWorking, not_cached_books, settings, db, _error_handler: error_handler }
+    Self { not_cached_books, settings, db, _error_handler: error_handler }
   }
-  pub fn run(&mut self) -> Result<()> {
-    match &self.status {
-      WorkStatus::Working => {}
-      WorkStatus::NotWorking => {
-        match self.settings.read().path_to_scan.clone() {
-          None => {}
-          Some(path_to_scan) => {
-            let not_cached_books = self.not_cached_books.clone();
-            let settings = self.settings.clone();
-            let db = self.db.clone();
+  pub async fn run(&mut self) -> Result<()> {
+    match self.settings.read().path_to_scan.clone() {
+      None => {
+        debug!("Path to scan is not set. Please set it in the settings.");
+      }
+      Some(path_to_scan) => {
+        let not_cached_books = self.not_cached_books.clone();
+        let settings = self.settings.clone();
+        let db = self.db.clone();
 
-            thread::spawn(move || {
-              let rt = Builder::new_multi_thread().enable_all().build().unwrap();
+        let start_time = std::time::Instant::now();
+        let books_from_disk = Self::get_books_from_disk(&path_to_scan, &settings);
 
-              rt.block_on(async move {
-                let start_time = std::time::Instant::now();
-                let books_from_disk = Self::get_books_from_disk(&path_to_scan, &settings);
-
-                match BooksLocation::classify(&db, books_from_disk.len()).unwrap() {
-                  BooksLocation::Disk => {
-                    for (_book_dir, set) in books_from_disk.0 {
-                      for book_path in set {
-                        fs_handlers::insert_book(book_path, &db, &settings, &not_cached_books).await.unwrap();
-                      }
-                    }
-                  }
-                  BooksLocation::DB(books_from_db) => {
-                    for (_book_dir, books) in books_from_db {
-                      books.remove_self(&db).unwrap();
-                    }
-                  }
-                  BooksLocation::DiskAndDB(books_from_db) => {
-                    Self::remove_outdated_books_from_db(&db, &books_from_disk, books_from_db).await.unwrap();
-                    Self::insert_new_books_to_db(&db, books_from_disk).await.unwrap();
-                  }
-                  BooksLocation::None => {}
-                };
-
-                info!("Total time of executing scan_service: {:?}", start_time.elapsed());
-              });
-            });
-            self.status = WorkStatus::Working;
+        match BooksLocation::classify(&db, books_from_disk.len()).unwrap() {
+          BooksLocation::Disk => {
+            for (_book_dir, set) in books_from_disk.0 {
+              for book_path in set {
+                fs_handlers::insert_book(book_path, &db, &settings, &not_cached_books).await.unwrap();
+              }
+            }
+          }
+          BooksLocation::DB(books_from_db) => {
+            for (_book_dir, books) in books_from_db {
+              books.remove_self(&db).unwrap();
+            }
+          }
+          BooksLocation::DiskAndDB(books_from_db) => {
+            Self::remove_outdated_books_from_db(&db, &books_from_disk, books_from_db).await.unwrap();
+            Self::insert_new_books_to_db(&db, books_from_disk).await.unwrap();
+          }
+          BooksLocation::None => {
+            let (books, books_count) = Books::all(&db);
+            debug!("Books count: {:?}", books_count);
+            debug!("Book dirs: {:?}", books.len());
           }
         };
+
+        debug!("Total time of executing scan_service: {:?}", start_time.elapsed());
       }
     };
     Ok(())
@@ -153,7 +142,7 @@ impl ScanService {
         Err(_) => {}
       }
     }
-    info!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
+    debug!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
     books_from_disk
   }
   async fn remove_outdated_books_from_db(db: &DB, books_from_disk: &BooksFromDisk, books_from_db: BooksFromDB) -> anyhow::Result<()> {
@@ -166,18 +155,18 @@ impl ScanService {
               true => {}
               false => {
                 num_of_outdated_books += 1;
-                books.remove_book(book.book_path.clone(), db).await?;
+                books.remove_book(book.book_path.clone(), db).await.unwrap();
               }
             };
           }
         }
         None => {
           num_of_outdated_books += books.storage.len();
-          books.remove_self(db)?;
+          books.remove_self(db).unwrap();
         }
       };
     }
-    info!("number of outdated books: {:?}", &num_of_outdated_books);
+    debug!("Number of outdated books: {:?}", &num_of_outdated_books);
     Ok(())
   }
   async fn insert_new_books_to_db(db: &DB, books_from_disk: BooksFromDisk) -> anyhow::Result<()> {
@@ -204,7 +193,7 @@ impl ScanService {
         }
       };
     }
-    info!("number of new books: {:?}", &num_of_new_books);
+    debug!("Number of new books: {:?}", &num_of_new_books);
     Ok(())
   }
 }

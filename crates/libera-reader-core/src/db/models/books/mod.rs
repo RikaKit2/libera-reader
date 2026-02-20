@@ -6,7 +6,7 @@ pub(crate) mod mutool_data;
 pub(crate) mod thumbnail;
 pub(crate) mod user_data;
 use std::hash::{Hash, Hasher};
-use tracing::info;
+use utils::debug;
 
 use crate::{
   db::{
@@ -68,7 +68,7 @@ impl Books {
     Self { parent_dir, storage }
   }
   pub fn get_by_path(book_path: BookPath, db: &DB) -> anyhow::Result<Option<Book>> {
-    match Books::get_by_parent_dir(book_path.parent_dir.clone(), db)? {
+    match Books::get_by_parent_dir(book_path.parent_dir, db)? {
       Some(books) => match books.storage.get(&book_path.name) {
         Some(book) => Ok(Some(book.clone())),
         None => Ok(None),
@@ -136,7 +136,7 @@ impl Books {
     let start_time = std::time::Instant::now();
     match self.storage.is_empty() {
       true => {
-        db.remove(self)?;
+        db.remove(self).unwrap();
       }
       false => {
         let mut updated_books = self.clone();
@@ -150,7 +150,7 @@ impl Books {
             }
             false => {
               book.mark_as_deleted();
-              BookSizes::mark_book_path_as_deleted(book.book_size.clone(), &book.book_path, db)?;
+              BookSizes::mark_book_path_as_deleted(book.book_size.clone(), &book.book_path, db).unwrap();
               new_storage.insert(book_name, book);
             }
           };
@@ -158,22 +158,22 @@ impl Books {
         updated_books.storage = new_storage;
 
         for book in deleted_books {
-          BookSizes::remove_book(book.book_size, &book.book_path, db)?;
+          BookSizes::remove_book(book.book_size, &book.book_path, db).unwrap();
         }
         let dir_exsits = updated_books.parent_dir.exists();
         let storage_is_empty = updated_books.storage.is_empty();
         match storage_is_empty || dir_exsits == false {
           true => {
-            db.remove(updated_books)?;
+            db.remove(self).unwrap();
           }
           false => {
-            db.update(self, updated_books)?;
+            db.update(self, updated_books).unwrap();
           }
         };
       }
     };
     let total_time = start_time.elapsed();
-    info!("The total time of deleting books in the dir: {:?}", &total_time);
+    debug!("The total time of deleting books in the dir: {:?}", &total_time);
     Ok(())
   }
   pub(crate) async fn remove_book(&self, book_path: BookPath, db: &DB) -> anyhow::Result<()> {
@@ -198,7 +198,7 @@ impl Books {
         };
         db.update(old_self, updated_self)?;
         let total_time = start_time.elapsed();
-        info!("The total time of deleting a book: {:?}", &total_time);
+        debug!("The total time of deleting a book: {:?}", &total_time);
       }
       None => {}
     };

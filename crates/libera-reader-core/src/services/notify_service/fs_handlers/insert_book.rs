@@ -1,3 +1,5 @@
+use utils::debug;
+
 use crate::{
   db::{
     DB,
@@ -10,7 +12,6 @@ use crate::{
   services::NotCachedBooks,
   settings::SETTINGS,
 };
-use tracing::info;
 
 pub(crate) async fn insert_book(book_path: BookPath, db: &DB, settings: &SETTINGS, _not_cached_books: &NotCachedBooks) -> anyhow::Result<()> {
   match settings.contains_ext(&book_path.ext) {
@@ -20,7 +21,7 @@ pub(crate) async fn insert_book(book_path: BookPath, db: &DB, settings: &SETTING
       Books::insert_book(new_book, db).await.unwrap();
     }
     false => {
-      info!("The book with path {:?} has unsupported extension", book_path);
+      debug!("The book with path {:?} has unsupported extension", book_path);
     }
   };
   Ok(())

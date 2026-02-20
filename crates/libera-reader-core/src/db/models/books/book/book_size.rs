@@ -2,7 +2,7 @@ use native_db::*;
 #[allow(unused_imports)]
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tracing::error;
+use utils::error;
 
 const MB_BYTES: u64 = 1024 * 1024;
 const MAX_FILE_SIZE_MB: u64 = 100;
