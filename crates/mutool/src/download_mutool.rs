@@ -98,11 +98,7 @@ pub async fn show_download_progress(progress: Arc<RwLock<f32>>) {
 
 pub async fn download_mutool_if_missing_blocking(path_to_mutool_storage: &PathBuf) -> Result<()> {
   if path_to_mutool_storage.exists() {
-    let path_to_mutool: PathBuf = if cfg!(windows) {
-      path_to_mutool_storage.join("mutool.exe")
-    } else {
-      path_to_mutool_storage.join("mutool")
-    };
+    let path_to_mutool: PathBuf = if cfg!(windows) { path_to_mutool_storage.join("mutool.exe") } else { path_to_mutool_storage.join("mutool") };
     match path_to_mutool.exists() {
       true => {}
       false => {
