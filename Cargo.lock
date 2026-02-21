@@ -3594,7 +3594,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "zip",
- "zune-core 0.4.12",
+ "zune-core 0.5.1",
  "zune-jpegxl",
 ]
 
