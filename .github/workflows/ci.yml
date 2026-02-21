@@ -35,12 +35,47 @@ jobs:
 
   test:
     name: Test (${{ matrix.os }})
+    timeout-minutes: 20
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+          MAX_TRIES=3
+          tries=0
+          until [ $tries -ge $MAX_TRIES ]; do
+            sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev mupdf-tools && break
+            tries=$((tries+1))
+            echo "apt-get install failed, retrying ($tries/$MAX_TRIES)"
+            sleep 5
+          done
+          sudo apt-get -y autoremove
+          sudo apt-get -qq clean
+          sudo rm -rf /var/lib/apt/lists/*
+      - name: Install mutool (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          if (Get-Command choco -ErrorAction SilentlyContinue) {
+            choco feature disable -n showDownloadProgress
+            try {
+              choco install -y mupdf
+            } catch {
+              try {
+                choco install -y mupdf-tools
+              } catch {
+                Write-Host 'choco install failed, continuing'
+              }
+            }
+          } else {
+            Write-Host 'Chocolatey not installed on runner — skipping mutool install'
+          }
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --all-features
@@ -53,7 +88,6 @@ jobs:
       - uses: rustsec/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -62,6 +96,21 @@ jobs:
       RUSTFLAGS: "-C target-feature=+aes,+sse2"
     steps:
       - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+          MAX_TRIES=3
+          tries=0
+          until [ $tries -ge $MAX_TRIES ]; do
+            sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev mupdf-tools && break
+            tries=$((tries+1))
+            echo "apt-get install failed, retrying ($tries/$MAX_TRIES)"
+            sleep 5
+          done
+          sudo apt-get -y autoremove
+          sudo apt-get -qq clean
+          sudo rm -rf /var/lib/apt/lists/*
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
@@ -73,7 +122,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: codecov.json
           fail_ci_if_error: true
-
   doc:
     name: Docs
     runs-on: ubuntu-latest

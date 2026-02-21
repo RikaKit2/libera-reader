@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::env;
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
@@ -97,6 +98,20 @@ pub async fn show_download_progress(progress: Arc<RwLock<f32>>) {
 }
 
 pub async fn download_mutool_if_missing_blocking(path_to_mutool_storage: &PathBuf) -> Result<()> {
+  let exe_name = if cfg!(windows) { "mutool.exe" } else { "mutool" };
+  if let Some(paths) = env::var_os("PATH") {
+    for p in env::split_paths(&paths) {
+      let candidate = p.join(exe_name);
+      if candidate.exists() {
+        #[cfg(target_os = "windows")]
+        println!("✅ system mutool.exe found at {:?}", candidate);
+        #[cfg(target_os = "linux")]
+        println!("✅ system mutool found at {:?}", candidate);
+        return Ok(());
+      }
+    }
+  }
+
   if path_to_mutool_storage.exists() {
     let path_to_mutool: PathBuf = if cfg!(windows) { path_to_mutool_storage.join("mutool.exe") } else { path_to_mutool_storage.join("mutool") };
     match path_to_mutool.exists() {
