@@ -47,10 +47,10 @@ impl TestLib {
     ctx.settings.set_path_to_scan(path_to_scan)?;
     download_mutool_if_missing_blocking(&test_files).await?;
     Ok(Self {
-      first_book: tmp_dir.join(&FIRST_BOOK),
-      second_book: tmp_dir.join(&SECOND_BOOK),
-      fist_dir: tmp_dir.join(&FIRST_DIR),
-      second_dir: tmp_dir.join(&SECOND_DIR),
+      first_book: tmp_dir.join(FIRST_BOOK),
+      second_book: tmp_dir.join(SECOND_BOOK),
+      fist_dir: tmp_dir.join(FIRST_DIR),
+      second_dir: tmp_dir.join(SECOND_DIR),
       test_files_dir: test_files,
       tmp_dir,
       test_mode,
@@ -90,10 +90,10 @@ impl TestLib {
   pub async fn move_second_book_to_first_dir(&mut self) -> Result<()> {
     title!("FILE MOVEMENT TEST: MOVE SECOND BOOK TO FIRST DIR");
     assert!(create_dir(&self.fist_dir).await.is_ok());
-    let book_in_first_dir = self.tmp_dir.join(&FIRST_DIR).join(&SECOND_BOOK);
+    let book_in_first_dir = self.tmp_dir.join(FIRST_DIR).join(SECOND_BOOK);
     match self.test_mode {
       TestMode::Notify => {
-        let args = [&self.second_book.to_str().unwrap(), book_in_first_dir.parent().unwrap().to_str().unwrap()];
+        let args = [self.second_book.to_str().unwrap(), book_in_first_dir.parent().unwrap().to_str().unwrap()];
         assert!(Command::new("mv").args(args).spawn().is_ok());
         sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
       }
@@ -118,14 +118,14 @@ impl TestLib {
       }
     }
 
-    self.second_book = self.tmp_dir.join(&SECOND_DIR).join(&SECOND_BOOK);
+    self.second_book = self.tmp_dir.join(SECOND_DIR).join(SECOND_BOOK);
     self.test_fn(&self.second_book, |book: &Book| assert_eq!(&SECOND_DIR, &book.book_path.parent_dir.dir_name()))?;
     Ok(())
   }
   pub async fn rename_second_book_to_first_in_second_dir(&mut self) -> Result<()> {
     title!("FILE RENAME TEST: RENAME SECOND BOOK TO FIRST IN SECOND DIR");
 
-    self.first_book = self.tmp_dir.join(&SECOND_DIR).join(&FIRST_BOOK);
+    self.first_book = self.tmp_dir.join(SECOND_DIR).join(FIRST_BOOK);
     assert!(rename(&self.second_book, &self.first_book).await.is_ok());
     match self.test_mode {
       TestMode::Notify => {

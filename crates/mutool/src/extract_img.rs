@@ -37,17 +37,22 @@ async fn extract_img_inn(path_to_book: &PathBuf, resolution: u32, path_to_thumbn
   let status = child.wait().await.unwrap();
   MuToolError::from_process_exit_status(status)
 }
-async fn _save_thumbnail(path_to_thumbnail: &PathBuf) {
-  let data = _imp_to_jpeg(path_to_thumbnail).unwrap();
+
+pub async fn save_thumbnail(path_to_thumbnail: &PathBuf) {
+  let data = imp_to_jpeg(path_to_thumbnail).unwrap();
   tokio::fs::remove_file(path_to_thumbnail).await.unwrap();
   tokio::fs::write(path_to_thumbnail.with_extension("jpeg"), data).await.unwrap();
 }
-fn _imp_to_jpeg(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, JxlEncodeErrors> {
+fn imp_to_jpeg(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, JxlEncodeErrors> {
   let reader = BufReader::new(File::open(path_to_thumbnail).unwrap());
   let image = image::load(reader, ImageFormat::Png).unwrap();
   let (w, h) = image.dimensions();
   let img_pixels = image.as_rgb8().unwrap();
   let opts = EncoderOptions::new(w as usize, h as usize, ColorSpace::RGB, BitDepth::Eight);
-  let jxl_encoder = JxlSimpleEncoder::new(img_pixels, opts);
-  jxl_encoder.encode()
+  // `JxlSimpleEncoder::new` expects a `&[u8]`, so pass the raw pixel slice.
+  let jxl_encoder = JxlSimpleEncoder::new(img_pixels.as_raw(), opts);
+  let mut output: Vec<u8> = Vec::new();
+  // encode writes into the provided sink and returns number of bytes written.
+  jxl_encoder.encode(&mut output)?;
+  Ok(output)
 }
