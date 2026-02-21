@@ -54,7 +54,7 @@ impl Dirs {
     #[cfg(target_os = "linux")]
     let mutool = data_dir.join("mutool");
 
-    if poss_errors.len() > 0 {
+    if !poss_errors.is_empty() {
       Err(poss_errors)
     } else {
       Ok(Self { data_dir, path_to_db, thumbnails_dir, dir_of_unhashed_books, dir_of_hashed_books, tts_models, mutool })

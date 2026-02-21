@@ -35,7 +35,7 @@ async fn extract_img_inn(path_to_book: &PathBuf, resolution: u32, path_to_thumbn
     .spawn()
     .unwrap();
   let status = child.wait().await.unwrap();
-  Ok(MuToolError::from_process_exit_status(status)?)
+  MuToolError::from_process_exit_status(status)
 }
 async fn _save_thumbnail(path_to_thumbnail: &PathBuf) {
   let data = _imp_to_jpeg(path_to_thumbnail).unwrap();

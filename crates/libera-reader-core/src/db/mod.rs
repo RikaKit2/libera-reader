@@ -108,18 +108,21 @@ impl DB {
   pub(crate) fn scan_primary<T: ToInput>(&self) -> Result<Vec<T>> {
     Ok(self.db_type.read().r_transaction()?.scan().primary()?.all()?.try_collect()?)
   }
+  #[allow(clippy::result_large_err)]
   pub(crate) fn insert<T: ToInput>(&self, item: T) -> db_type::Result<()> {
     let lock = self.db_type.write();
     let rw_conn = lock.rw_transaction()?;
     rw_conn.insert(item)?;
     rw_conn.commit()
   }
+  #[allow(clippy::result_large_err)]
   pub(crate) fn update<T: ToInput>(&self, old_data: T, new_data: T) -> db_type::Result<()> {
     let lock = self.db_type.write();
     let rw_conn = lock.rw_transaction()?;
     rw_conn.update(old_data, new_data)?;
     rw_conn.commit()
   }
+  #[allow(clippy::result_large_err)]
   pub(crate) fn remove<T: ToInput>(&self, item: T) -> db_type::Result<()> {
     let lock = self.db_type.write();
     let rw_conn = lock.rw_transaction()?;

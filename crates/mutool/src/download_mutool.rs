@@ -97,30 +97,26 @@ pub async fn show_download_progress(progress: Arc<RwLock<f32>>) {
 }
 
 pub async fn download_mutool_if_missing_blocking(path_to_mutool_storage: &PathBuf) -> Result<()> {
-  match path_to_mutool_storage.exists() {
-    true => {
-      let path_to_mutool: PathBuf;
-      if cfg!(windows) {
-        path_to_mutool = path_to_mutool_storage.join("mutool.exe");
-      } else {
-        path_to_mutool = path_to_mutool_storage.join("mutool");
-      }
-      match path_to_mutool.exists() {
-        true => {}
-        false => {
-          let mutool_download_progress = Arc::new(RwLock::new(0.0));
-          let progress_task = tokio::spawn(show_download_progress(mutool_download_progress.clone()));
-          download_mutool(path_to_mutool_storage, mutool_download_progress).await?;
-          progress_task.await?;
+  if path_to_mutool_storage.exists() {
+    let path_to_mutool: PathBuf = if cfg!(windows) {
+      path_to_mutool_storage.join("mutool.exe")
+    } else {
+      path_to_mutool_storage.join("mutool")
+    };
+    match path_to_mutool.exists() {
+      true => {}
+      false => {
+        let mutool_download_progress = Arc::new(RwLock::new(0.0));
+        let progress_task = tokio::spawn(show_download_progress(mutool_download_progress.clone()));
+        download_mutool(path_to_mutool_storage, mutool_download_progress).await?;
+        progress_task.await?;
 
-          #[cfg(target_os = "windows")]
-          println!("✅ mutool.exe loaded in {:?}", path_to_mutool_storage.join("mutool.exe"));
-          #[cfg(target_os = "linux")]
-          println!("✅ mutool loaded in {:?}", path_to_mutool_storage.join("mutool"));
-        }
+        #[cfg(target_os = "windows")]
+        println!("✅ mutool.exe loaded in {:?}", path_to_mutool_storage.join("mutool.exe"));
+        #[cfg(target_os = "linux")]
+        println!("✅ mutool loaded in {:?}", path_to_mutool_storage.join("mutool"));
       }
     }
-    false => {}
   }
   Ok(())
 }

@@ -14,25 +14,19 @@ pub(crate) async fn update_book_path(old_path: PathBuf, new_path: PathBuf, db: &
   let old_book_path = BookPath::new(old_path);
   let new_book_path = BookPath::new(new_path);
 
-  match Books::get_by_parent_dir(old_book_path.parent_dir.clone(), db)? {
-    Some(old_books) => {
-      let mut updated_books = old_books.clone();
+  if let Some(old_books) = Books::get_by_parent_dir(old_book_path.parent_dir.clone(), db)? {
+    let mut updated_books = old_books.clone();
 
-      match updated_books.storage.swap_remove(&old_book_path.name) {
-        Some(mut book) => {
-          book.book_path = new_book_path.clone();
-          BookSizes::update_book_path(book.book_size.clone(), &old_book_path, new_book_path, db)?;
-          updated_books.parent_dir = book.book_path.parent_dir.clone();
-          updated_books.storage.insert(book.book_path.name.clone(), book);
+    if let Some(mut book) = updated_books.storage.swap_remove(&old_book_path.name) {
+      book.book_path = new_book_path.clone();
+      BookSizes::update_book_path(book.book_size, &old_book_path, new_book_path, db)?;
+      updated_books.parent_dir = book.book_path.parent_dir.clone();
+      updated_books.storage.insert(book.book_path.name.clone(), book);
 
-          db.update(old_books, updated_books)?;
-          let total_time = start_time.elapsed();
-          debug!("The total time to update the path of the book: {:?}", &total_time);
-        }
-        None => {}
-      };
-    }
-    None => {}
+      db.update(old_books, updated_books)?;
+      let total_time = start_time.elapsed();
+      debug!("The total time to update the path of the book: {:?}", &total_time);
+    };
   };
   Ok(())
 }

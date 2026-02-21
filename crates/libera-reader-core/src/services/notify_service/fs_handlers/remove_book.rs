@@ -6,11 +6,8 @@ use crate::db::{
 };
 
 pub(crate) async fn remove_book(book_path: BookPath, db: &DB) -> anyhow::Result<()> {
-  match Books::get_by_parent_dir(book_path.parent_dir.clone(), db)? {
-    Some(old_self) => {
-      old_self.remove_book(book_path, db).await?;
-    }
-    None => {}
+  if let Some(old_self) = Books::get_by_parent_dir(book_path.parent_dir.clone(), db)? {
+    old_self.remove_book(book_path, db).await?;
   };
   Ok(())
 }

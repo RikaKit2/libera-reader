@@ -27,7 +27,7 @@ impl BookSizes {
     db.get_primary::<Self>(book_size)
   }
   pub(crate) async fn insert_book(new_book: &Book, db: &DB) -> anyhow::Result<()> {
-    match BookSizes::get(new_book.book_size.clone(), db)? {
+    match BookSizes::get(new_book.book_size, db)? {
       Some(old_self) => {
         let mut updated_self = old_self.clone();
         match updated_self.book_type {
@@ -51,121 +51,94 @@ impl BookSizes {
         };
       }
       None => {
-        db.insert::<Self>(Self::new(new_book.book_size.clone(), BookType::UniqueSize { book_path: new_book.book_path.clone(), mutool_data: None }))?;
+        db.insert::<Self>(Self::new(new_book.book_size, BookType::UniqueSize { book_path: new_book.book_path.clone(), mutool_data: None }))?;
       }
     };
 
     Ok(())
   }
   pub(crate) fn remove_book(book_size: BookSize, target_book_path: &BookPath, db: &DB) -> anyhow::Result<()> {
-    match Self::get(book_size, db)? {
-      Some(old_self) => {
-        let mut updated_self = old_self.clone();
-        match &mut updated_self.book_type {
-          BookType::UniqueSize { book_path, mutool_data: _ } => {
-            match target_book_path.eq(book_path) {
+    if let Some(old_self) = Self::get(book_size, db)? {
+      let mut updated_self = old_self.clone();
+      match &mut updated_self.book_type {
+        BookType::UniqueSize { book_path, mutool_data: _ } => {
+          if target_book_path.eq(book_path) {
+            db.remove::<Self>(old_self)?;
+          };
+        }
+        BookType::DuplicateSize(hash_map) => {
+          if let Some(data) = hash_map.swap_remove(target_book_path) {
+            match hash_map.is_empty() {
               true => {
+                match data {
+                  DuplicateBookData::BookHash(book_hash) => {
+                    BookHashes::remove_book(book_hash, target_book_path, db)?;
+                  }
+                  DuplicateBookData::MutoolData(_mutool_data) => {}
+                };
                 db.remove::<Self>(old_self)?;
               }
-              false => {}
-            };
-          }
-          BookType::DuplicateSize(hash_map) => {
-            match hash_map.swap_remove(target_book_path) {
-              Some(data) => {
-                match hash_map.is_empty() {
-                  true => {
-                    match data {
-                      DuplicateBookData::BookHash(book_hash) => {
-                        BookHashes::remove_book(book_hash, target_book_path, db)?;
-                      }
-                      DuplicateBookData::MutoolData(_mutool_data) => {}
-                    };
-                    db.remove::<Self>(old_self)?;
-                  }
-                  false => {
-                    db.update(old_self, updated_self)?;
-                  }
-                };
+              false => {
+                db.update(old_self, updated_self)?;
               }
-              None => {}
             };
-          }
-        };
-      }
-      None => {}
+          };
+        }
+      };
     };
     Ok(())
   }
   pub(crate) fn mark_book_path_as_deleted(book_size: BookSize, target_book_path: &BookPath, db: &DB) -> anyhow::Result<()> {
-    match Self::get(book_size, db)? {
-      Some(old_self) => {
-        let mut updated_self = old_self.clone();
-        match &mut updated_self.book_type {
-          BookType::UniqueSize { book_path, mutool_data: _ } => {
-            match target_book_path.eq(book_path) {
-              true => {
-                book_path.mark_as_deleted();
-                db.update(old_self, updated_self)?;
+    if let Some(old_self) = Self::get(book_size, db)? {
+      let mut updated_self = old_self.clone();
+      match &mut updated_self.book_type {
+        BookType::UniqueSize { book_path, mutool_data: _ } => {
+          if target_book_path.eq(book_path) {
+            book_path.mark_as_deleted();
+            db.update(old_self, updated_self)?;
+          };
+        }
+        BookType::DuplicateSize(hash_map) => {
+          if let Some(data) = hash_map.swap_remove(target_book_path) {
+            match &data {
+              DuplicateBookData::BookHash(book_hash) => {
+                BookHashes::mark_book_as_deleted(book_hash.clone(), target_book_path, db)?;
               }
-              false => {}
+              DuplicateBookData::MutoolData(_mutool_data) => {}
             };
-          }
-          BookType::DuplicateSize(hash_map) => {
-            match hash_map.swap_remove(target_book_path) {
-              Some(data) => {
-                match &data {
-                  DuplicateBookData::BookHash(book_hash) => {
-                    BookHashes::mark_book_as_deleted(book_hash.clone(), target_book_path, db)?;
-                  }
-                  DuplicateBookData::MutoolData(_mutool_data) => {}
-                };
-                let mut new_path = target_book_path.clone();
-                new_path.mark_as_deleted();
-                hash_map.insert(new_path, data);
-                db.update(old_self, updated_self)?;
-              }
-              None => {}
-            };
-          }
-        };
-      }
-      None => {}
+            let mut new_path = target_book_path.clone();
+            new_path.mark_as_deleted();
+            hash_map.insert(new_path, data);
+            db.update(old_self, updated_self)?;
+          };
+        }
+      };
     };
     Ok(())
   }
   pub(crate) fn update_book_path(book_size: BookSize, old_book_path: &BookPath, new_book_path: BookPath, db: &DB) -> anyhow::Result<()> {
-    match Self::get(book_size, db)? {
-      Some(old_self) => {
-        let mut updated_self = old_self.clone();
-        match &mut updated_self.book_type {
-          BookType::UniqueSize { book_path, mutool_data: _ } => {
-            match old_book_path.eq(book_path) {
-              true => {
-                *book_path = new_book_path;
-                db.update(old_self, updated_self)?;
+    if let Some(old_self) = Self::get(book_size, db)? {
+      let mut updated_self = old_self.clone();
+      match &mut updated_self.book_type {
+        BookType::UniqueSize { book_path, mutool_data: _ } => {
+          if old_book_path.eq(book_path) {
+            *book_path = new_book_path;
+            db.update(old_self, updated_self)?;
+          };
+        }
+        BookType::DuplicateSize(hash_map) => {
+          if let Some(data) = hash_map.swap_remove(old_book_path) {
+            match &data {
+              DuplicateBookData::BookHash(book_hash) => {
+                BookHashes::update_book_path(book_hash.clone(), old_book_path, &new_book_path, db)?;
               }
-              false => {}
+              DuplicateBookData::MutoolData(_mutool_data) => {}
             };
-          }
-          BookType::DuplicateSize(hash_map) => {
-            match hash_map.swap_remove(old_book_path) {
-              Some(data) => {
-                match &data {
-                  DuplicateBookData::BookHash(book_hash) => {
-                    BookHashes::update_book_path(book_hash.clone(), old_book_path, &new_book_path, db)?;
-                  }
-                  DuplicateBookData::MutoolData(_mutool_data) => {}
-                };
-                hash_map.insert(new_book_path, data);
-                db.update(old_self, updated_self)?;
-              }
-              None => {}
-            };
-          }
-        };
-      }
-      None => {}
+            hash_map.insert(new_book_path, data);
+            db.update(old_self, updated_self)?;
+          };
+        }
+      };
     };
     Ok(())
   }

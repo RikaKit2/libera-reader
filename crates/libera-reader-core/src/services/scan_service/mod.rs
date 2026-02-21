@@ -79,7 +79,11 @@ impl ScanService {
     Self { not_cached_books, settings, db, _error_handler: error_handler }
   }
   pub async fn run(&mut self) -> Result<()> {
-    match self.settings.read().path_to_scan.clone() {
+    let path_to_scan = {
+      let guard = self.settings.read();
+      guard.path_to_scan.clone()
+    };
+    match path_to_scan {
       None => {
         debug!("Path to scan is not set. Please set it in the settings.");
       }
@@ -124,22 +128,16 @@ impl ScanService {
     let start_time = std::time::Instant::now();
     let mut books_from_disk: BooksFromDisk = BooksFromDisk::new();
     for entry in WalkDir::new(path_to_scan) {
-      match entry {
-        Ok(entry) => {
-          if entry.file_type().is_file() {
-            let path = entry.path();
-            match path.extension() {
-              Some(_) => {
-                let file_path: BookPath = BookPath::new(path.to_path_buf());
-                if settings.contains_ext(&file_path.ext) {
-                  books_from_disk.insert_book_path(file_path);
-                }
-              }
-              None => {}
-            };
+      if let Ok(entry) = entry
+        && entry.file_type().is_file()
+      {
+        let path = entry.path();
+        if path.extension().is_some() {
+          let file_path: BookPath = BookPath::new(path.to_path_buf());
+          if settings.contains_ext(&file_path.ext) {
+            books_from_disk.insert_book_path(file_path);
           }
-        }
-        Err(_) => {}
+        };
       }
     }
     debug!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
@@ -170,7 +168,7 @@ impl ScanService {
     Ok(())
   }
   async fn insert_new_books_to_db(db: &DB, books_from_disk: BooksFromDisk) -> anyhow::Result<()> {
-    let mut books_from_db: (BooksFromDB, DBBooksCount) = Books::all(&db);
+    let mut books_from_db: (BooksFromDB, DBBooksCount) = Books::all(db);
     let mut num_of_new_books: usize = 0;
     for (book_dir, disk_books) in books_from_disk.0 {
       match books_from_db.0.get_mut(&book_dir) {
