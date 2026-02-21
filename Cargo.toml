@@ -42,4 +42,4 @@ jwalk = "0.8.1"
 mimalloc = { version = "0.1.48", features = ["v3"] }
 chrono = "0.4.42"
 indexmap = { version = "2", features = ["serde"] }
-colored = "2"
+colored = "3"
