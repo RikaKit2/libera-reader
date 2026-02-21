@@ -8198,11 +8198,11 @@ dependencies = [
 
 [[package]]
 name = "zune-jpegxl"
-version = "0.4.0"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71ffee484384b15f99ed4768bfdb3fa186d63e1f8c3aafba1d6d141a7b9e3674"
+checksum = "cba11ecd07cc23351500e840ae03841b7e4997923ec8e4832ee3ae199ea0b6b4"
 dependencies = [
- "zune-core 0.4.12",
+ "zune-core 0.5.1",
 ]
 
 [[package]]

@@ -36,7 +36,7 @@ indicatif = "0.18.0"
 dashmap = "6.1.0"
 image = "0.25.6"
 zune-core = "0.4.12"
-zune-jpegxl = "0.4.0"
+zune-jpegxl = "0.5.2"
 sysinfo = "0.37.0"
 jwalk = "0.8.1"
 mimalloc = { version = "0.1.48", features = ["v3"] }
