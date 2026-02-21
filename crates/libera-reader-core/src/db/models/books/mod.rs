@@ -104,13 +104,12 @@ impl Books {
       Some(old_books) => {
         let mut updated_books = old_books.clone();
         match updated_books.storage.get_mut(&new_book.book_path.name) {
-          Some(book) => match &book.book_path.deleted {
-            true => {
+          Some(book) => {
+            if book.book_path.deleted {
               book.book_path.deleted = false;
               db.update::<Self>(old_books, updated_books).unwrap(); // error
             }
-            false => {}
-          },
+          }
           None => {
             updated_books.storage.insert(new_book.book_path.name.clone(), new_book);
             db.update::<Self>(old_books, updated_books).unwrap(); // error
@@ -150,7 +149,7 @@ impl Books {
             }
             false => {
               book.mark_as_deleted();
-              BookSizes::mark_book_path_as_deleted(book.book_size.clone(), &book.book_path, db).unwrap();
+              BookSizes::mark_book_path_as_deleted(book.book_size, &book.book_path, db).unwrap();
               new_storage.insert(book_name, book);
             }
           };
@@ -162,7 +161,7 @@ impl Books {
         }
         let dir_exsits = updated_books.parent_dir.exists();
         let storage_is_empty = updated_books.storage.is_empty();
-        match storage_is_empty || dir_exsits == false {
+        match storage_is_empty || !dir_exsits {
           true => {
             db.remove(self).unwrap();
           }
@@ -179,28 +178,22 @@ impl Books {
   pub(crate) async fn remove_book(&self, book_path: BookPath, db: &DB) -> anyhow::Result<()> {
     let old_self = self.clone();
     let mut updated_self = self.clone();
-    match updated_self.storage.get_mut(&book_path.name) {
-      Some(outdated_book_link) => {
-        let start_time = std::time::Instant::now();
-        match outdated_book_link.can_delete() {
-          true => {
-            match updated_self.storage.swap_remove(&book_path.name) {
-              Some(outdated_book) => {
-                BookSizes::remove_book(outdated_book.book_size, &book_path, db)?;
-              }
-              None => {}
-            };
-          }
-          false => {
-            outdated_book_link.mark_as_deleted();
-            BookSizes::mark_book_path_as_deleted(outdated_book_link.book_size.clone(), &outdated_book_link.book_path, db)?;
-          }
-        };
-        db.update(old_self, updated_self)?;
-        let total_time = start_time.elapsed();
-        debug!("The total time of deleting a book: {:?}", &total_time);
-      }
-      None => {}
+    if let Some(outdated_book_link) = updated_self.storage.get_mut(&book_path.name) {
+      let start_time = std::time::Instant::now();
+      match outdated_book_link.can_delete() {
+        true => {
+          if let Some(outdated_book) = updated_self.storage.swap_remove(&book_path.name) {
+            BookSizes::remove_book(outdated_book.book_size, &book_path, db)?;
+          };
+        }
+        false => {
+          outdated_book_link.mark_as_deleted();
+          BookSizes::mark_book_path_as_deleted(outdated_book_link.book_size, &outdated_book_link.book_path, db)?;
+        }
+      };
+      db.update(old_self, updated_self)?;
+      let total_time = start_time.elapsed();
+      debug!("The total time of deleting a book: {:?}", &total_time);
     };
     Ok(())
   }

@@ -29,53 +29,28 @@ enum FSEvent {
 }
 impl FSEvent {
   fn from_event(event: Event) -> Option<Self> {
-    match event {
-      Event { kind, paths, attrs: _attrs } => match kind {
-        EventKind::Create(create_kind) => match create_kind {
-          CreateKind::File => match paths.into_iter().next() {
-            Some(path) => Some(Self::CreateFile { file_path: path }),
-            None => None,
-          },
-          _ => None,
-        },
-        EventKind::Modify(modify_kind) => match modify_kind {
-          ModifyKind::Name(rename_mode) => match rename_mode {
-            RenameMode::Both => {
-              let mut it = paths.into_iter();
-              let poss_old_path = it.next();
-              let poss_new_path = it.next();
-              match (poss_old_path, poss_new_path) {
-                (Some(old_path), Some(new_path)) => {
-                  if new_path.is_file() {
-                    Some(Self::RenameFile { old_path, new_path })
-                  } else if new_path.is_dir() {
-                    Some(Self::RenameDir { old_path, new_path })
-                  } else {
-                    None
-                  }
-                }
-                _ => None,
-              }
+    // Destructure once and match on the kind directly to collapse nested matches.
+    let Event { kind, paths, .. } = event;
+    match kind {
+      EventKind::Create(CreateKind::File) => paths.into_iter().next().map(|path| Self::CreateFile { file_path: path }),
+      EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
+        let mut it = paths.into_iter();
+        match (it.next(), it.next()) {
+          (Some(old_path), Some(new_path)) => {
+            if new_path.is_file() {
+              Some(Self::RenameFile { old_path, new_path })
+            } else if new_path.is_dir() {
+              Some(Self::RenameDir { old_path, new_path })
+            } else {
+              None
             }
-            RenameMode::From => None,
-            RenameMode::To => None,
-            _ => None,
-          },
+          }
           _ => None,
-        },
-        EventKind::Remove(remove_kind) => match remove_kind {
-          RemoveKind::File => match paths.into_iter().next() {
-            Some(path) => Some(Self::RemoveFile { file_path: path }),
-            None => None,
-          },
-          RemoveKind::Folder => match paths.into_iter().next() {
-            Some(path) => Some(Self::RemoveDir { dir_path: path }),
-            None => None,
-          },
-          _ => None,
-        },
-        _ => None,
-      },
+        }
+      }
+      EventKind::Remove(RemoveKind::File) => paths.into_iter().next().map(|path| Self::RemoveFile { file_path: path }),
+      EventKind::Remove(RemoveKind::Folder) => paths.into_iter().next().map(|path| Self::RemoveDir { dir_path: path }),
+      _ => None,
     }
   }
 }
@@ -105,8 +80,8 @@ impl NotifyService {
   pub fn run(&mut self, path_to_scan: &String) -> Result<()> {
     match &self.status {
       WorkStatus::Working => {}
-      WorkStatus::NotWorking => match self.notify_rx.take() {
-        Some(mut rx) => {
+      WorkStatus::NotWorking => {
+        if let Some(mut rx) = self.notify_rx.take() {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
           let settings = self.settings.clone();
@@ -120,8 +95,7 @@ impl NotifyService {
             }
           });
         }
-        None => {}
-      },
+      }
     };
     Ok(())
   }
@@ -135,30 +109,27 @@ impl NotifyService {
     }
   }
   async fn event_processing(event: Event, settings: &SETTINGS, not_cached_books: &NotCachedBooks, db: &DB) {
-    match FSEvent::from_event(event) {
-      Some(fs_event) => {
-        match fs_event {
-          FSEvent::CreateFile { file_path } => {
-            let start_time = std::time::Instant::now();
-            fs_handlers::insert_book(BookPath::new(file_path), db, settings, not_cached_books).await.unwrap();
-            let total_time = start_time.elapsed();
-            debug!("The total time for adding a book: {:?}", &total_time);
-          }
-          FSEvent::RenameFile { old_path, new_path } => {
-            fs_handlers::update_book_path(old_path, new_path, db).await.unwrap();
-          }
-          FSEvent::RenameDir { old_path, new_path } => {
-            fs_handlers::update_book_dir(old_path, new_path, db).unwrap();
-          }
-          FSEvent::RemoveFile { file_path } => {
-            fs_handlers::remove_book(BookPath::new(file_path), db).await.unwrap();
-          }
-          FSEvent::RemoveDir { dir_path } => {
-            fs_handlers::remove_books_in_dir(BookDir::new(dir_path), db).unwrap();
-          }
-        };
-      }
-      None => {}
+    if let Some(fs_event) = FSEvent::from_event(event) {
+      match fs_event {
+        FSEvent::CreateFile { file_path } => {
+          let start_time = std::time::Instant::now();
+          fs_handlers::insert_book(BookPath::new(file_path), db, settings, not_cached_books).await.unwrap();
+          let total_time = start_time.elapsed();
+          debug!("The total time for adding a book: {:?}", &total_time);
+        }
+        FSEvent::RenameFile { old_path, new_path } => {
+          fs_handlers::update_book_path(old_path, new_path, db).await.unwrap();
+        }
+        FSEvent::RenameDir { old_path, new_path } => {
+          fs_handlers::update_book_dir(old_path, new_path, db).unwrap();
+        }
+        FSEvent::RemoveFile { file_path } => {
+          fs_handlers::remove_book(BookPath::new(file_path), db).await.unwrap();
+        }
+        FSEvent::RemoveDir { dir_path } => {
+          fs_handlers::remove_books_in_dir(BookDir::new(dir_path), db).unwrap();
+        }
+      };
     };
   }
 }

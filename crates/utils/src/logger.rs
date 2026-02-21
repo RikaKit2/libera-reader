@@ -36,9 +36,9 @@ where
     if self.show_location {
       let file = metadata.file().unwrap_or("?");
       let line = metadata.line().unwrap_or(0);
-      write!(writer, "[{}:{}] {}\n", file, line, colored_msg)
+      writeln!(writer, "[{}:{}] {}\n", file, line, colored_msg)
     } else {
-      write!(writer, "{}\n", colored_msg)
+      writeln!(writer, "{}\n", colored_msg)
     }
   }
 }

@@ -38,7 +38,7 @@ impl Book {
     self.pathbuf().to_str().unwrap().to_string()
   }
   pub fn can_delete(&self) -> bool {
-    self.user_data.favorite == false && self.user_data.in_history == false
+    !self.user_data.favorite && !self.user_data.in_history
   }
   pub(crate) fn mark_as_deleted(&mut self) {
     self.book_path.mark_as_deleted();
