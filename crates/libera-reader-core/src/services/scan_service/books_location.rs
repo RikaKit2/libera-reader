@@ -11,16 +11,18 @@ pub(crate) enum BooksLocation {
 impl BooksLocation {
   pub(crate) fn classify(db: &DB, disk_books_count: usize) -> anyhow::Result<Self> {
     let (books_from_db, db_books_count) = Books::all(db);
-    if !books_from_db.is_empty() && disk_books_count > 0 {
+    debug!("{} books on disk, {} books in db", disk_books_count, db_books_count);
+
+    if db_books_count > 0 && disk_books_count > 0 {
       debug!("Number of books on disk: {:?}", &disk_books_count);
-      debug!("Number of books in db: {:?}", &books_from_db.len());
+      debug!("Number of books in db: {:?}", &db_books_count);
       Ok(Self::DiskAndDB(books_from_db))
-    } else if !books_from_db.is_empty() && disk_books_count == 0 {
+    } else if db_books_count > 0 && disk_books_count == 0 {
       debug!("Number of books on disk: 0");
-      debug!("Number of books in db: {:?}", &books_from_db.len());
+      debug!("Number of books in db: {:?}", &db_books_count);
       debug!("Number of outdated books: {:?}", &db_books_count);
       Ok(Self::DB(books_from_db))
-    } else if books_from_db.is_empty() && disk_books_count > 0 {
+    } else if db_books_count == 0 && disk_books_count > 0 {
       debug!("Number of books on disk: {:?}", &disk_books_count);
       debug!("Number of books in db: 0");
       debug!("Number of new books: {:?}", &disk_books_count);

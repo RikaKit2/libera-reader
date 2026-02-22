@@ -2,7 +2,6 @@ use native_db::*;
 #[allow(unused_imports)]
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use utils::error;
 
 const MB_BYTES: u64 = 1024 * 1024;
 const MAX_FILE_SIZE_MB: u64 = 100;
@@ -13,19 +12,17 @@ pub enum BookSize {
 }
 impl BookSize {
   pub(crate) async fn new(path_to_file: &PathBuf) -> anyhow::Result<Self> {
-    match path_to_file.is_file() {
-      true => match tokio::fs::metadata(path_to_file).await {
+    match tokio::fs::canonicalize(path_to_file).await {
+      Ok(path) => match tokio::fs::metadata(&path).await {
         Ok(metadata) => {
           let file_size = metadata.len();
           Ok(BookSize::BYTES(file_size))
         }
-        Err(err) => {
-          error!("{:?}", &path_to_file);
-          panic!("{:?}", &err);
-        }
+        Err(err) => Err(anyhow::anyhow!("Failed to get file size for {:?}: {:?}", &path, err)),
       },
-      false => {
-        panic!("is not a file: {:?}", path_to_file);
+      Err(err) => {
+        eprintln!("Path bytes: {:?}", path_to_file.as_os_str().as_encoded_bytes());
+        Err(anyhow::anyhow!("Failed to canonicalize path {:?}: {:?}", &path_to_file, err))
       }
     }
   }

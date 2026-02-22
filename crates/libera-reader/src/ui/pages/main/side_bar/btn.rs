@@ -4,16 +4,18 @@ use gpui::{App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString,
 use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::{RootRoute, Route};
 
+type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
+
 #[derive(IntoElement)]
 pub(crate) struct Btn {
   id: ElementId,
-  on_click: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>,
+  on_click: Option<ClickHandler>,
   btn_route: Route,
   image_source: SharedString,
 }
 
 impl Btn {
-  pub fn new(route: Route, image_source: &'static str, click_event_handler: Option<Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>>) -> Self {
+  pub fn new(route: Route, image_source: &'static str, click_event_handler: Option<ClickHandler>) -> Self {
     Self { id: image_source.into(), on_click: click_event_handler, btn_route: route, image_source: image_source.into() }
   }
   fn get_active_status(&self, cx: &mut App) -> bool {

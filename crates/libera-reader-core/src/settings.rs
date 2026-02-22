@@ -2,6 +2,7 @@ use crate::db::DB;
 use crate::db::models::books::book::BookExt;
 use crate::db::models::{GetOrCreate, Lang, RootRoute, Settings};
 use anyhow::Result;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[derive(Clone)]
@@ -19,7 +20,7 @@ impl SETTINGS {
   fn write(&mut self) -> RwLockWriteGuard<'_, Settings> {
     self.inn.write().unwrap()
   }
-  pub fn set_path_to_scan(&mut self, new_path: String) -> Result<()> {
+  pub fn set_path_to_scan(&mut self, new_path: PathBuf) -> Result<()> {
     let path_to_scan = self.read().path_to_scan.clone();
     let old_model = self.read().clone();
     match path_to_scan {
@@ -37,6 +38,20 @@ impl SETTINGS {
     }
     self.db.update(old_model, self.read().clone())?;
     Ok(())
+  }
+  pub fn get_path_to_scan_str(&self) -> Option<String> {
+    let guard = self.read();
+    guard.path_to_scan.as_ref().map(|path| path.to_string_lossy().to_string())
+  }
+  pub fn get_path_to_scan_if_exists(&self) -> Option<PathBuf> {
+    let guard = self.read();
+    match &guard.path_to_scan {
+      None => None,
+      Some(path_to_scan) => match path_to_scan.exists() {
+        true => Some(path_to_scan.clone()),
+        false => None,
+      },
+    }
   }
   pub fn set_language(&mut self, lang: Lang) -> Result<()> {
     let old_model = self.read().clone();
@@ -74,9 +89,10 @@ impl SETTINGS {
   pub fn contains_ext(&self, ext: &BookExt) -> bool {
     let model = self.read();
     match ext {
-      BookExt::PDF => model.pdf,
-      BookExt::EPUB => model.epub,
-      BookExt::MOBI => model.mobi,
+      BookExt::PDF(_) => model.pdf,
+      BookExt::EPUB(_) => model.epub,
+      BookExt::MOBI(_) => model.mobi,
+      BookExt::DJVU(_) => model.djvu,
     }
   }
   pub fn invert_pdf(&mut self) -> Result<()> {

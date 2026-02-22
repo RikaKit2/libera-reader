@@ -35,7 +35,7 @@ impl MainPage {
 
 impl Render for MainPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let curr_route = cx.ctx().settings.read().route.clone();
+    let curr_route = cx.ctx().settings.read().route;
     div().w_full().h_full().flex().children([
       div().w_12().h_full().child(self.side_bar.clone()),
       match curr_route {

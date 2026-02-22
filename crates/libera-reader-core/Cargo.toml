@@ -30,3 +30,6 @@ mutool = { version = "0.1.0", path = "../mutool" }
 mimalloc = { workspace = true }
 chrono = { workspace = true }
 indexmap = { workspace = true }
+
+[dev-dependencies]
+better-panic = { workspace = true }

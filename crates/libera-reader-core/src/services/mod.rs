@@ -26,7 +26,7 @@ impl Services {
     self.db.compact()?;
     self.db.save_to_storage()?;
     self.db.reload_db()?;
-    // self.notify_service.run()?;
+    self.notify_service.run()?;
     Ok(())
   }
   pub fn stop(&mut self) -> Result<()> {

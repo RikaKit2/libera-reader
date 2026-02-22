@@ -3,7 +3,6 @@ mod test_lib;
 use crate::test_lib::*;
 use anyhow::Result;
 
-#[cfg(not(target_os = "windows"))]
 #[tokio::test(flavor = "multi_thread")]
 async fn notify_service_test() -> Result<()> {
   utils::create_subscriber()?;

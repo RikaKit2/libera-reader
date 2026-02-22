@@ -1,8 +1,10 @@
 mod books_location;
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 use jwalk::WalkDir;
-use std::ops::{Deref, DerefMut};
+
 use utils::debug;
 
 use crate::{
@@ -22,46 +24,36 @@ use crate::{
 use books_location::BooksLocation;
 
 pub(crate) type BooksFromDB = HashMap<BookDir, Books>;
-pub(crate) struct BooksFromDisk(HashMap<BookDir, HashSet<BookPath>>);
+pub(crate) struct BooksFromDisk {
+  inner: HashMap<BookDir, HashSet<BookPath>>,
+  books_count: usize,
+}
 
 impl BooksFromDisk {
   pub(crate) fn new() -> Self {
-    let map: HashMap<BookDir, HashSet<BookPath>> = Default::default();
-    Self(map)
+    Self { inner: Default::default(), books_count: 0 }
   }
-  pub(crate) fn insert_book_path(&mut self, book_path: BookPath) {
-    match self.get_mut(&book_path.parent_dir) {
-      Some(set) => {
-        match set.contains(&book_path) {
-          true => {}
-          false => {
-            set.insert(book_path);
-          }
-        };
-      }
-      None => {
-        let mut set: HashSet<BookPath> = Default::default();
-        match set.contains(&book_path) {
-          true => {}
-          false => {
-            set.insert(book_path.clone());
-          }
-        };
-        self.insert(book_path.parent_dir, set);
-      }
-    };
-  }
-}
-impl Deref for BooksFromDisk {
-  type Target = HashMap<BookDir, HashSet<BookPath>>;
 
-  fn deref(&self) -> &Self::Target {
-    &self.0
+  pub(crate) fn insert_book_path(&mut self, book_path: BookPath) {
+    let set = self.inner.entry(book_path.parent_dir.clone()).or_default();
+    if set.insert(book_path) {
+      self.books_count += 1;
+    }
+  }
+  pub(crate) fn len(&self) -> usize {
+    self.books_count
+  }
+  pub(crate) fn get(&self, key: &BookDir) -> Option<&HashSet<BookPath>> {
+    self.inner.get(key)
   }
 }
-impl DerefMut for BooksFromDisk {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.0
+
+impl IntoIterator for BooksFromDisk {
+  type Item = (BookDir, HashSet<BookPath>);
+  type IntoIter = indexmap::map::IntoIter<BookDir, HashSet<BookPath>>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.inner.into_iter()
   }
 }
 
@@ -79,11 +71,7 @@ impl ScanService {
     Self { not_cached_books, settings, db, _error_handler: error_handler }
   }
   pub async fn run(&mut self) -> Result<()> {
-    let path_to_scan = {
-      let guard = self.settings.read();
-      guard.path_to_scan.clone()
-    };
-    match path_to_scan {
+    match self.settings.get_path_to_scan_if_exists() {
       None => {
         debug!("Path to scan is not set. Please set it in the settings.");
       }
@@ -97,7 +85,7 @@ impl ScanService {
 
         match BooksLocation::classify(&db, books_from_disk.len()).unwrap() {
           BooksLocation::Disk => {
-            for (_book_dir, set) in books_from_disk.0 {
+            for (_book_dir, set) in books_from_disk.into_iter() {
               for book_path in set {
                 fs_handlers::insert_book(book_path, &db, &settings, &not_cached_books).await.unwrap();
               }
@@ -112,19 +100,14 @@ impl ScanService {
             Self::remove_outdated_books_from_db(&db, &books_from_disk, books_from_db).await.unwrap();
             Self::insert_new_books_to_db(&db, books_from_disk).await.unwrap();
           }
-          BooksLocation::None => {
-            let (books, books_count) = Books::all(&db);
-            debug!("Books count: {:?}", books_count);
-            debug!("Book dirs: {:?}", books.len());
-          }
+          BooksLocation::None => {}
         };
-
         debug!("Total time of executing scan_service: {:?}", start_time.elapsed());
       }
     };
     Ok(())
   }
-  fn get_books_from_disk(path_to_scan: &String, settings: &SETTINGS) -> BooksFromDisk {
+  fn get_books_from_disk(path_to_scan: &PathBuf, settings: &SETTINGS) -> BooksFromDisk {
     let start_time = std::time::Instant::now();
     let mut books_from_disk: BooksFromDisk = BooksFromDisk::new();
     for entry in WalkDir::new(path_to_scan) {
@@ -132,12 +115,12 @@ impl ScanService {
         && entry.file_type().is_file()
       {
         let path = entry.path();
-        if path.extension().is_some() {
-          let file_path: BookPath = BookPath::new(path.to_path_buf());
-          if settings.contains_ext(&file_path.ext) {
-            books_from_disk.insert_book_path(file_path);
-          }
-        };
+        if path.extension().is_some()
+          && let Some(file_path) = BookPath::new(&path)
+          && settings.contains_ext(&file_path.ext)
+        {
+          books_from_disk.insert_book_path(file_path);
+        }
       }
     }
     debug!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
@@ -170,7 +153,7 @@ impl ScanService {
   async fn insert_new_books_to_db(db: &DB, books_from_disk: BooksFromDisk) -> anyhow::Result<()> {
     let mut books_from_db: (BooksFromDB, DBBooksCount) = Books::all(db);
     let mut num_of_new_books: usize = 0;
-    for (book_dir, disk_books) in books_from_disk.0 {
+    for (book_dir, disk_books) in books_from_disk.into_iter() {
       match books_from_db.0.get_mut(&book_dir) {
         Some(db_books) => {
           let mut new_books = vec![];

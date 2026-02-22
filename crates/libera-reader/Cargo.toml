@@ -19,6 +19,6 @@ rfd = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 unicode-segmentation = { workspace = true }
-# libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
+libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
 utils = { version = "0.1.0", path = "../utils" }
 mimalloc = { workspace = true }
