@@ -15,11 +15,15 @@ pub struct BookPath {
   pub deleted: bool,
 }
 impl BookPath {
-  pub fn new(path: PathBuf) -> Self {
-    let name = path.file_name().unwrap().to_string_lossy().to_string();
-    let ext = BookExt::from_pathbuf(&path).unwrap();
-    let parent_dir = BookDir::new(path.parent().unwrap().to_path_buf());
-    Self { parent_dir, name, ext, deleted: false }
+  pub fn new(path: &std::path::Path) -> Option<Self> {
+    match BookExt::from_pathbuf(path) {
+      Some(ext) => {
+        let name = path.file_name().unwrap().to_string_lossy().to_string();
+        let parent_dir = BookDir::new(path.parent().unwrap().to_path_buf());
+        Some(Self { parent_dir, name, ext, deleted: false })
+      }
+      None => None,
+    }
   }
   pub(crate) fn as_pathbuf(&self) -> PathBuf {
     PathBuf::from(&self.parent_dir.inn).join(&self.name).with_extension(self.ext.to_string())

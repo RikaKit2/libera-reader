@@ -7,6 +7,8 @@ use gpui::{
 };
 use libera_reader_core::ctx::GlobalCTX;
 
+type OnClickHandler = Box<dyn Fn(&bool, &mut Window, &mut App) + 'static>;
+
 #[derive(IntoElement)]
 pub struct Checkbox {
   id: ElementId,
@@ -16,7 +18,7 @@ pub struct Checkbox {
   checked: bool,
   disabled: bool,
   size: Size,
-  on_click: Option<Box<dyn Fn(&bool, &mut Window, &mut App) + 'static>>,
+  on_click: Option<OnClickHandler>,
 }
 
 impl Checkbox {

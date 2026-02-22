@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "crates/libera-reader-core",
-    # "crates/libera-reader",
+    "crates/libera-reader",
     "crates/mutool",
     "crates/utils",
 ]
@@ -43,3 +43,4 @@ mimalloc = { version = "0.1.48", features = ["v3"] }
 chrono = "0.4.43"
 indexmap = { version = "2", features = ["serde"] }
 colored = "3"
+better-panic = "0.3"

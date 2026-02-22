@@ -107,12 +107,12 @@ impl Books {
           Some(book) => {
             if book.book_path.deleted {
               book.book_path.deleted = false;
-              db.update::<Self>(old_books, updated_books).unwrap(); // error
+              db.update::<Self>(old_books, updated_books).unwrap();
             }
           }
           None => {
             updated_books.storage.insert(new_book.book_path.name.clone(), new_book);
-            db.update::<Self>(old_books, updated_books).unwrap(); // error
+            db.update::<Self>(old_books, updated_books).unwrap();
           }
         };
       }

@@ -108,25 +108,22 @@ impl DB {
   pub(crate) fn scan_primary<T: ToInput>(&self) -> Result<Vec<T>> {
     Ok(self.db_type.read().r_transaction()?.scan().primary()?.all()?.try_collect()?)
   }
-  #[allow(clippy::result_large_err)]
-  pub(crate) fn insert<T: ToInput>(&self, item: T) -> db_type::Result<()> {
+  pub(crate) fn insert<T: ToInput>(&self, item: T) -> Result<(), Box<db_type::Error>> {
     let lock = self.db_type.write();
-    let rw_conn = lock.rw_transaction()?;
-    rw_conn.insert(item)?;
-    rw_conn.commit()
+    let rw_conn = lock.rw_transaction().map_err(Box::new)?;
+    rw_conn.insert(item).map_err(Box::new)?;
+    rw_conn.commit().map_err(Box::new)
   }
-  #[allow(clippy::result_large_err)]
-  pub(crate) fn update<T: ToInput>(&self, old_data: T, new_data: T) -> db_type::Result<()> {
+  pub(crate) fn update<T: ToInput>(&self, old_data: T, new_data: T) -> Result<(), Box<db_type::Error>> {
     let lock = self.db_type.write();
-    let rw_conn = lock.rw_transaction()?;
-    rw_conn.update(old_data, new_data)?;
-    rw_conn.commit()
+    let rw_conn = lock.rw_transaction().map_err(Box::new)?;
+    rw_conn.update(old_data, new_data).map_err(Box::new)?;
+    rw_conn.commit().map_err(Box::new)
   }
-  #[allow(clippy::result_large_err)]
-  pub(crate) fn remove<T: ToInput>(&self, item: T) -> db_type::Result<()> {
+  pub(crate) fn remove<T: ToInput>(&self, item: T) -> Result<(), Box<db_type::Error>> {
     let lock = self.db_type.write();
-    let rw_conn = lock.rw_transaction()?;
-    rw_conn.remove(item)?;
-    rw_conn.commit()
+    let rw_conn = lock.rw_transaction().map_err(Box::new)?;
+    rw_conn.remove(item).map_err(Box::new)?;
+    rw_conn.commit().map_err(Box::new)
   }
 }

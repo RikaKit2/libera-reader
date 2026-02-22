@@ -77,19 +77,19 @@ impl NotifyService {
     })?;
     Ok(Self { status: WorkStatus::NotWorking, watcher, notify_rx: Some(rx), not_cached_books, settings, db })
   }
-  pub fn run(&mut self, path_to_scan: &String) -> Result<()> {
+  pub fn run(&mut self) -> Result<()> {
     match &self.status {
       WorkStatus::Working => {}
       WorkStatus::NotWorking => {
-        if let Some(mut rx) = self.notify_rx.take() {
+        if let Some(path_to_scan) = self.settings.get_path_to_scan_if_exists()
+          && let Some(mut rx) = self.notify_rx.take()
+        {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
           let settings = self.settings.clone();
           self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
-          // mark service as working so subsequent run() calls are no-ops
           self.status = WorkStatus::Working;
           tokio::spawn(async move {
-            // Await incoming events instead of busy-looping on try_recv.
             while let Some(event) = rx.recv().await {
               Self::event_processing(event, &settings, &not_cached_books, &db).await;
             }
@@ -113,21 +113,45 @@ impl NotifyService {
       match fs_event {
         FSEvent::CreateFile { file_path } => {
           let start_time = std::time::Instant::now();
-          fs_handlers::insert_book(BookPath::new(file_path), db, settings, not_cached_books).await.unwrap();
-          let total_time = start_time.elapsed();
-          debug!("The total time for adding a book: {:?}", &total_time);
+          match BookPath::new(&file_path) {
+            Some(book_path) => match fs_handlers::insert_book(book_path, db, settings, not_cached_books).await {
+              Ok(_) => {
+                let total_time = start_time.elapsed();
+                debug!("The total time for adding a book: {:?}", &total_time);
+              }
+              Err(err) => {
+                debug!("Error inserting book: {:?}", err);
+              }
+            },
+            None => {
+              debug!("Error creating BookPath from file_path: {:?}", file_path);
+            }
+          }
         }
         FSEvent::RenameFile { old_path, new_path } => {
-          fs_handlers::update_book_path(old_path, new_path, db).await.unwrap();
+          if let Err(err) = fs_handlers::update_book_path(old_path, new_path, db).await {
+            debug!("Error updating book path: {:?}", err);
+          }
         }
         FSEvent::RenameDir { old_path, new_path } => {
-          fs_handlers::update_book_dir(old_path, new_path, db).unwrap();
+          if let Err(err) = fs_handlers::update_book_dir(old_path, new_path, db) {
+            debug!("Error updating book dir: {:?}", err);
+          }
         }
-        FSEvent::RemoveFile { file_path } => {
-          fs_handlers::remove_book(BookPath::new(file_path), db).await.unwrap();
-        }
+        FSEvent::RemoveFile { file_path } => match BookPath::new(&file_path) {
+          Some(book_path) => {
+            if let Err(err) = fs_handlers::remove_book(book_path, db).await {
+              debug!("Error removing book: {:?}", err);
+            }
+          }
+          None => {
+            debug!("Error creating BookPath from file_path: {:?}", file_path);
+          }
+        },
         FSEvent::RemoveDir { dir_path } => {
-          fs_handlers::remove_books_in_dir(BookDir::new(dir_path), db).unwrap();
+          if let Err(err) = fs_handlers::remove_books_in_dir(BookDir::new(dir_path), db) {
+            debug!("Error removing books in dir: {:?}", err);
+          }
         }
       };
     };

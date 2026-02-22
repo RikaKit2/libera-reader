@@ -2,6 +2,8 @@ pub mod lang;
 pub mod route;
 pub mod theme;
 
+use std::path::PathBuf;
+
 use crate::db::models::GetOrCreate;
 use native_db::*;
 #[allow(unused_imports)]
@@ -21,12 +23,13 @@ pub struct Settings {
   #[primary_key]
   pub id: u32,
   pub language: Lang,
-  pub path_to_scan: Option<String>,
-  pub previous_path_to_scan: Option<String>,
+  pub path_to_scan: Option<PathBuf>,
+  pub previous_path_to_scan: Option<PathBuf>,
   pub theme: Theme,
   pub pdf: bool,
   pub epub: bool,
   pub mobi: bool,
+  pub djvu: bool,
   pub number_of_columns: u32,
   pub page_scaling_factor: f64,
   pub thumbnails_scaling_factor: f64,
@@ -46,6 +49,7 @@ impl Default for Settings {
       pdf: true,
       epub: false,
       mobi: false,
+      djvu: false,
       number_of_columns: 6,
       page_scaling_factor: 1.0,
       thumbnails_scaling_factor: 4.0,

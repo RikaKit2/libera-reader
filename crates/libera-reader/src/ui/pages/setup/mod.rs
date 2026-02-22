@@ -20,7 +20,7 @@ impl SetupPage {
       false => match FileDialog::new().pick_folder() {
         None => {}
         Some(path) => {
-          cx.ctx_mut().settings.set_path_to_scan(path.display().to_string()).unwrap();
+          cx.ctx_mut().settings.set_path_to_scan(path).unwrap();
           self.window_of_selecting_folder_is_open = true;
           cx.notify();
         }
@@ -29,13 +29,10 @@ impl SetupPage {
   }
   fn handler_for_next_btn(&mut self, _event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
     let path_to_scan = cx.ctx().settings.read().path_to_scan.is_some();
-    match path_to_scan {
-      true => {
-        cx.ctx_mut().settings.set_setup_status(true).unwrap();
-        cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
-        cx.notify();
-      }
-      false => {}
+    if path_to_scan {
+      cx.ctx_mut().settings.set_setup_status(true).unwrap();
+      cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
+      cx.notify();
     }
   }
 }
@@ -61,7 +58,7 @@ impl Render for SetupPage {
           ]),
           div().flex_col().children([
             div().child(cx.i18n(SetupText::TargetPath)),
-            div().when(cx.ctx().settings.read().path_to_scan.is_some(), |_| div().child(cx.ctx().settings.read().path_to_scan.clone().unwrap())),
+            div().when(cx.ctx().settings.read().path_to_scan.is_some(), |_| div().child(cx.ctx().settings.get_path_to_scan_str().unwrap())),
           ]),
         ]),
       ]),

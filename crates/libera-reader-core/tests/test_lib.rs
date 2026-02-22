@@ -43,7 +43,7 @@ impl TestLib {
     let tmp_dir = test_files.join(tmp_dir_name);
     Self::drop_files(&tmp_dir).await;
     let mut ctx = Ctx::new_for_test(tmp_dir.clone())?;
-    let path_to_scan = tmp_dir.clone().to_str().unwrap().to_string();
+    let path_to_scan = tmp_dir.clone();
     ctx.settings.set_path_to_scan(path_to_scan)?;
     download_mutool_if_missing_blocking(&test_files).await?;
     Ok(Self {
@@ -171,31 +171,40 @@ impl TestLib {
   where
     F: Fn(&Book),
   {
-    match Books::get_by_path(BookPath::new(book_path_in_db.clone()), &self.ctx.db)? {
-      None => {
-        error!("book in db not found: {:?}", book_path_in_db);
-        let (books_from_db, book_count) = Books::all(&self.ctx.db);
-        debug!("book count: {}", &book_count);
-        for (_book_dir, books) in books_from_db {
-          debug!("{:?}", books);
+    let book_path = BookPath::new(book_path_in_db);
+    match book_path {
+      Some(book_path) => match Books::get_by_path(book_path, &self.ctx.db) {
+        Ok(Some(book)) => {
+          assert_fn(&book);
         }
-        panic!("book in db not found: {:?}", book_path_in_db)
+        Ok(None) => {
+          error!("book in db not found: {:?}", book_path_in_db);
+          let (books_from_db, book_count) = Books::all(&self.ctx.db);
+          debug!("book count: {}", &book_count);
+          for (_book_dir, books) in books_from_db {
+            debug!("{:?}", books);
+          }
+        }
+        Err(e) => {
+          error!("error getting book from db: {:?}", e);
+        }
+      },
+      None => {
+        error!("error creating book path from path: {:?}", book_path_in_db);
       }
-      Some(book) => {
-        assert_fn(&book);
-      }
-    }
+    };
     Ok(())
   }
   pub async fn run(&mut self) -> Result<()> {
-    let path_to_scan = self.tmp_dir.clone().to_str().unwrap().to_string();
+    let path_to_scan = self.tmp_dir.clone();
+    self.ctx.settings.set_path_to_scan(path_to_scan)?;
+
     match self.test_mode {
       TestMode::Notify => {
-        self.ctx.services.notify_service.run(&path_to_scan)?;
+        self.ctx.services.notify_service.run()?;
       }
       TestMode::ScanService => {}
     }
-    self.ctx.settings.set_path_to_scan(path_to_scan)?;
 
     self.create_first_book().await?;
     self.rename_first_book_to_second().await?;
