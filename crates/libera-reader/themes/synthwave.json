@@ -1,0 +1,39 @@
+{
+  "$schema": "https://github.com/longbridge/gpui-component/raw/refs/heads/main/.theme-schema.json",
+  "name": "Synthwave",
+  "author": "DaisyUI",
+  "themes": [
+    {
+      "name": "Synthwave",
+      "mode": "dark",
+      "colors": {
+        "background": "#2d1b69",
+        "foreground": "#b99bf2",
+        "border": "#1a103d",
+        "primary.background": "#e779c1",
+        "primary.foreground": "#2d1b69",
+        "secondary.background": "#58c7f3",
+        "secondary.foreground": "#2d1b69",
+        "accent.background": "#f3cc30",
+        "accent.foreground": "#2d1b69",
+        "panel.background": "#241554",
+        "popover.background": "#1a103d",
+        "danger.background": "#ff5757",
+        "base.red": "#ff5757",
+        "base.green": "#21ee91",
+        "base.blue": "#3abff8",
+        "base.yellow": "#fbbd23"
+      },
+      "highlight": {
+        "editor.background": "#2d1b69",
+        "editor.foreground": "#b99bf2",
+        "syntax": {
+          "keyword": { "color": "#e779c1" },
+          "function": { "color": "#58c7f3" },
+          "string": { "color": "#21ee91" },
+          "comment": { "color": "#7a55c2" }
+        }
+      }
+    }
+  ]
+}

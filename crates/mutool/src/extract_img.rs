@@ -10,7 +10,9 @@ use zune_core::colorspace::ColorSpace;
 use zune_core::options::EncoderOptions;
 use zune_jpegxl::{JxlEncodeErrors, JxlSimpleEncoder};
 
-pub async fn extract_img(path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf) -> Result<(), MuToolError> {
+pub async fn extract_img(
+  path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf,
+) -> Result<(), MuToolError> {
   match path_to_thumbnail.exists() {
     true => Ok(()),
     false => match extract_img_inn(path_to_book, resolution, path_to_thumbnail).await {
@@ -19,7 +21,9 @@ pub async fn extract_img(path_to_book: &PathBuf, resolution: u32, path_to_thumbn
     },
   }
 }
-async fn extract_img_inn(path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf) -> Result<(), MuToolError> {
+async fn extract_img_inn(
+  path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf,
+) -> Result<(), MuToolError> {
   let mut child = Command::new("mutool")
     .arg("draw")
     .arg("-r")

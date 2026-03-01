@@ -89,7 +89,9 @@ impl Books {
     db.update(old_self, self.clone())?;
     Ok(())
   }
-  pub(crate) async fn insert_many_and_create_new_self(parent_dir: BookDir, books: impl IntoIterator<Item = BookPath>, db: &DB) -> anyhow::Result<()> {
+  pub(crate) async fn insert_many_and_create_new_self(
+    parent_dir: BookDir, books: impl IntoIterator<Item = BookPath>, db: &DB,
+  ) -> anyhow::Result<()> {
     let mut storage = HashMap::default();
     for book_path in books {
       let book = Book::new(book_path).await?;

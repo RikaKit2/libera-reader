@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 pub use {
   lang::Lang,
   route::{RootRoute, Route},
-  theme::Theme,
+  theme::AppTheme,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -25,7 +25,7 @@ pub struct Settings {
   pub language: Lang,
   pub path_to_scan: Option<PathBuf>,
   pub previous_path_to_scan: Option<PathBuf>,
-  pub theme: Theme,
+  pub theme: AppTheme,
   pub pdf: bool,
   pub epub: bool,
   pub mobi: bool,
@@ -45,7 +45,7 @@ impl Default for Settings {
       language: Lang::detect_system_lang(),
       path_to_scan: None,
       previous_path_to_scan: None,
-      theme: Theme::Sunset,
+      theme: AppTheme::Sunset,
       pdf: true,
       epub: false,
       mobi: false,

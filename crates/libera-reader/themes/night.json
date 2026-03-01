@@ -1,0 +1,39 @@
+{
+  "$schema": "https://github.com/longbridge/gpui-component/raw/refs/heads/main/.theme-schema.json",
+  "name": "Night",
+  "author": "DaisyUI",
+  "themes": [
+    {
+      "name": "Night",
+      "mode": "dark",
+      "colors": {
+        "background": "#0f172a",
+        "foreground": "#94a3b8",
+        "border": "#1e293b",
+        "primary.background": "#38bdf8",
+        "primary.foreground": "#0f172a",
+        "secondary.background": "#818cf8",
+        "secondary.foreground": "#0f172a",
+        "accent.background": "#f472b6",
+        "accent.foreground": "#0f172a",
+        "panel.background": "#1e293b",
+        "popover.background": "#0b1222",
+        "danger.background": "#f87171",
+        "base.red": "#f87171",
+        "base.green": "#4ade80",
+        "base.blue": "#60a5fa",
+        "base.yellow": "#fbbf24"
+      },
+      "highlight": {
+        "editor.background": "#0f172a",
+        "editor.foreground": "#94a3b8",
+        "syntax": {
+          "keyword": { "color": "#38bdf8" },
+          "function": { "color": "#818cf8" },
+          "string": { "color": "#4ade80" },
+          "comment": { "color": "#475569" }
+        }
+      }
+    }
+  ]
+}

@@ -25,6 +25,7 @@ libc = "0.2.182"
 sys-locale = "0.3.2"
 anyhow = "1.0.102"
 gpui = "0.2.2"
+gpui-component = "0.5.1"
 rfd = "0.17.2"
 unicode-segmentation = "1.12.0"
 tracing-subscriber = { version = "0.3", features = ["ansi"] }

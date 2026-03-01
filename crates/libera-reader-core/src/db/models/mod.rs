@@ -7,7 +7,7 @@ use native_db::ToInput;
 use native_db::ToKey;
 pub use settings::Settings;
 pub use settings::lang::*;
-pub use settings::theme::{ColorScheme, Theme, ThemeData};
+pub use settings::theme::AppTheme;
 pub use settings::{RootRoute, Route};
 
 use crate::db::DB;

@@ -94,7 +94,12 @@ impl DB {
       let after = sys.process(pid).map(|p| p.memory() as f64 / (1024.0 * 1024.0)).unwrap_or(0.0);
 
       title!("DB RELOADED SUCCESSFULLY");
-      debug!("DB in memory, usage: {:.2} MB\nDB on disk, usage: {:.2} MB\nMemory {:.2} MB is released", before, after, before - after);
+      debug!(
+        "DB in memory, usage: {:.2} MB\nDB on disk, usage: {:.2} MB\nMemory {:.2} MB is released",
+        before,
+        after,
+        before - after
+      );
     }
     Ok(())
   }

@@ -1,6 +1,7 @@
 use crate::ui::utils::adjust_brightness;
-use gpui::prelude::*;
-use gpui::{App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div, px, rgb, svg};
+use gpui::{App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div, px, svg};
+use gpui::{Stateful, prelude::*};
+use gpui_component::ActiveTheme;
 use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::{RootRoute, Route};
 
@@ -28,47 +29,52 @@ impl Btn {
 
 impl RenderOnce for Btn {
   fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-    let theme = cx.ctx().settings.read().theme.data();
-    let is_active = self.get_active_status(cx);
+    let is_active = &self.get_active_status(cx);
     let icon = svg().path(self.image_source).w(px(28.0)).h(px(28.0));
 
     let (btn, icon) = match is_active {
       true => {
-        let img = icon.text_color(rgb(theme.base_color_content));
-        let btn = div().border_color(rgb(theme.primary_color));
+        let img = icon.text_color(cx.theme().foreground);
+        let btn = div().border_color(cx.theme().primary);
         (btn, img)
       }
       false => {
-        let img =
-          icon.text_color(rgb(adjust_brightness(theme.base_color_content, 0.6))).hover(|h| h.text_color(rgb(adjust_brightness(theme.base_color_content, 0.9))));
+        let img_text_color = adjust_brightness(cx.theme().foreground, 0.6);
+        let img_hover_color = adjust_brightness(cx.theme().foreground, 0.9);
+
+        let img = icon.text_color(img_text_color).hover(|h| h.text_color(img_hover_color));
         let btn = div().border_color(gpui::transparent_black());
         (btn, img)
       }
     };
-    btn
-      .id(self.id)
-      .child(icon)
-      .p_2()
-      .border_l_2()
-      .when_some(self.on_click, move |this, on_click| this.on_click(move |evt, window, cx| on_click(evt, window, cx)))
+    fn fun_name(this: Stateful<gpui::Div>, on_click: ClickHandler) -> Stateful<gpui::Div> {
+      this.on_click(move |evt, window, cx| on_click(evt, window, cx))
+    }
+    btn.id(self.id).child(icon).p_2().border_l_2().when_some(self.on_click, fun_name)
   }
 }
 
 impl Render for Btn {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().settings.read().theme.data();
     let is_active = self.get_active_status(cx);
 
-    let icon = svg().path(self.image_source.clone()).w(px(28.0)).h(px(28.0)).hover(|h| h.text_color(rgb(adjust_brightness(theme.base_color_content, 0.9))));
+    let icon_hover_color = adjust_brightness(cx.theme().foreground, 0.9);
+
+    #[rustfmt::skip]
+    let icon = svg()
+      .path(self.image_source.clone())
+      .w(px(28.0))
+      .h(px(28.0))
+      .hover(|h| h.text_color(icon_hover_color));
 
     let (btn, icon) = match is_active {
       true => {
-        let img = icon.text_color(rgb(theme.base_color_content));
-        let btn = div().border_color(rgb(theme.primary_color));
+        let img = icon.text_color(cx.theme().foreground);
+        let btn = div().border_color(cx.theme().primary);
         (btn, img)
       }
       false => {
-        let img = icon.text_color(rgb(adjust_brightness(theme.base_color_content, 0.8)));
+        let img = icon.text_color(adjust_brightness(cx.theme().foreground, 0.8));
         let btn = div().border_color(gpui::transparent_black());
         (btn, img)
       }

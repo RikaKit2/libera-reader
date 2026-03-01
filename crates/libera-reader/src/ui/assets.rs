@@ -20,7 +20,11 @@ impl AssetSource for Assets {
 
   fn list(&self, path: &str) -> Result<Vec<SharedString>> {
     fs::read_dir(self.base.join(path))
-      .map(|entries| entries.filter_map(|entry| entry.ok().and_then(|entry| entry.file_name().into_string().ok()).map(SharedString::from)).collect())
+      .map(|entries| {
+        entries
+          .filter_map(|entry| entry.ok().and_then(|entry| entry.file_name().into_string().ok()).map(SharedString::from))
+          .collect()
+      })
       .map_err(|err| err.into())
   }
 }

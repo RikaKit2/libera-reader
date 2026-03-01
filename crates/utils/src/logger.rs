@@ -15,7 +15,9 @@ where
   S: Subscriber + for<'a> LookupSpan<'a>,
   N: for<'a> FormatFields<'a> + 'static,
 {
-  fn format_event(&self, _ctx: &FmtContext<'_, S, N>, mut writer: format::Writer<'_>, event: &Event<'_>) -> fmt::Result {
+  fn format_event(
+    &self, _ctx: &FmtContext<'_, S, N>, mut writer: format::Writer<'_>, event: &Event<'_>,
+  ) -> fmt::Result {
     let metadata = event.metadata();
 
     let mut msg = String::new();

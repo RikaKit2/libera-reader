@@ -1,22 +1,36 @@
-use crate::ui::components::input::TextInput;
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, rgb};
-use libera_reader_core::ctx::GlobalCTX;
+use gpui::{AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window, div};
+use gpui_component::{
+  ActiveTheme,
+  input::{Input, InputEvent, InputState},
+};
 
 pub(crate) struct History {
-  text_input: Entity<TextInput>,
+  input_state: Entity<InputState>,
+  _subscriptions: Vec<Subscription>,
 }
 impl History {
-  pub(crate) fn new(cx: &mut App) -> Entity<Self> {
-    cx.new(|c| Self { text_input: TextInput::new(c) })
+  pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+    let input_state = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
+
+    let _subscriptions = vec![cx.subscribe_in(&input_state, window, {
+      // let input_state = input_state.clone();
+      move |_this, _, ev: &InputEvent, _window, cx| {
+        if let InputEvent::Change = ev {
+          // let _value = input_state.read(cx).value();
+          cx.notify()
+        }
+      }
+    })];
+
+    Self { input_state, _subscriptions }
   }
 }
 
 impl Render for History {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().settings.read().theme.data();
-    div().w_full().h_full().flex().flex_col().text_color(rgb(theme.base_color_content)).children([
-      div().bg(rgb(theme.base_300)).w_full().h_12().flex().items_center().child(self.text_input.clone()),
-      div().bg(rgb(theme.base_100)).w_full().h_full(),
+    div().w_full().h_full().flex().flex_col().text_color(cx.theme().foreground).children([
+      div().bg(cx.theme().border).w_full().h_12().flex().items_center().child(Input::new(&self.input_state)),
+      div().bg(cx.theme().background).w_full().h_full(),
     ])
   }
 }

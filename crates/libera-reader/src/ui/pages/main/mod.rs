@@ -13,20 +13,25 @@ pub(crate) struct MainPage {
   file_manager: Entity<FileManager>,
   history: Entity<History>,
   favorite: Entity<Favorite>,
-  book_marks: Entity<BookMarks>,
+  bookmarks: Entity<BookMarks>,
   stats: Entity<Stats>,
   settings: Entity<SettingsPage>,
 }
 
 impl MainPage {
-  pub(crate) fn new(cx: &mut App) -> Entity<Self> {
+  pub(crate) fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
+    let bookmarks = cx.new(|cx| BookMarks::new(window, cx));
+    let library = cx.new(|cx| Library::new(window, cx));
+    let history = cx.new(|cx| History::new(window, cx));
+    let favorite = cx.new(|cx| Favorite::new(window, cx));
+
     cx.new(|c| Self {
       side_bar: SideBar::new(c),
-      library: Library::new(c),
+      library,
       file_manager: FileManager::new(c),
-      history: History::new(c),
-      favorite: Favorite::new(c),
-      book_marks: BookMarks::new(c),
+      history,
+      favorite,
+      bookmarks,
       stats: Stats::new(c),
       settings: SettingsPage::new(c),
     })
@@ -44,7 +49,7 @@ impl Render for MainPage {
           Route::FileManager => div().w_full().h_full().child(self.file_manager.clone()),
           Route::History => div().w_full().h_full().child(self.history.clone()),
           Route::Favorite => div().w_full().h_full().child(self.favorite.clone()),
-          Route::BookMarks => div().w_full().h_full().child(self.book_marks.clone()),
+          Route::BookMarks => div().w_full().h_full().child(self.bookmarks.clone()),
           Route::Stats => div().w_full().h_full().child(self.stats.clone()),
           Route::Settings => div().w_full().h_full().child(self.settings.clone()),
         },

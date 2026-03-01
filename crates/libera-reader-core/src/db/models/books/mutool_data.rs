@@ -13,7 +13,10 @@ pub struct MutoolData {
 }
 
 impl MutoolData {
-  pub fn new(mutool_err: Option<MuToolError>, title: Option<String>, author: Option<String>, page_count: Option<usize>, thumbnail: Option<Thumbnail>) -> Self {
+  pub fn new(
+    mutool_err: Option<MuToolError>, title: Option<String>, author: Option<String>, page_count: Option<usize>,
+    thumbnail: Option<Thumbnail>,
+  ) -> Self {
     MutoolData { mutool_err, title, author, page_count, thumbnail }
   }
   pub fn is_cached(&self) -> bool {

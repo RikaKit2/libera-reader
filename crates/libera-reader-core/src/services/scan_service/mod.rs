@@ -126,7 +126,9 @@ impl ScanService {
     debug!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
     books_from_disk
   }
-  async fn remove_outdated_books_from_db(db: &DB, books_from_disk: &BooksFromDisk, books_from_db: BooksFromDB) -> anyhow::Result<()> {
+  async fn remove_outdated_books_from_db(
+    db: &DB, books_from_disk: &BooksFromDisk, books_from_db: BooksFromDB,
+  ) -> anyhow::Result<()> {
     let mut num_of_outdated_books: usize = 0;
     for (book_dir, books) in books_from_db {
       match books_from_disk.get(&book_dir) {

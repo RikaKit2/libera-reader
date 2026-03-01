@@ -11,7 +11,7 @@ pub mod logger;
 pub fn create_subscriber() -> Result<()> {
     let subscriber = tracing_subscriber::fmt()
       .event_format(Formatter { show_location: false })
-      .with_max_level(Level::TRACE)
+      .with_max_level(Level::DEBUG)
       .finish();
     tracing::subscriber::set_global_default(subscriber)?;
     Ok(())
@@ -21,7 +21,7 @@ pub fn create_subscriber() -> Result<()> {
 pub fn create_debug_subscriber() -> Result<()> {
     let subscriber = tracing_subscriber::fmt()
       .event_format(Formatter { show_location: true })
-      .with_max_level(Level::TRACE)
+      .with_max_level(Level::DEBUG)
       .finish();
     tracing::subscriber::set_global_default(subscriber)?;
     Ok(())
