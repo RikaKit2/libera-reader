@@ -83,7 +83,9 @@ impl BookHashes {
     };
     Ok(())
   }
-  pub(crate) fn update_book_path(book_hash: BookHash, old_book_path: &BookPath, new_book_path: &BookPath, db: &DB) -> anyhow::Result<()> {
+  pub(crate) fn update_book_path(
+    book_hash: BookHash, old_book_path: &BookPath, new_book_path: &BookPath, db: &DB,
+  ) -> anyhow::Result<()> {
     if let Some(old_self) = Self::get_by_hash(book_hash, db)? {
       let mut updated_self = old_self.clone();
       if updated_self.books.swap_remove(old_book_path) {

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://github.com/longbridge/gpui-component/raw/refs/heads/main/.theme-schema.json",
+  "name": "Luxury",
+  "author": "DaisyUI",
+  "themes": [
+    {
+      "name": "Luxury",
+      "mode": "dark",
+      "colors": {
+        "background": "#181818",
+        "foreground": "#e9d5a1",
+        "border": "#333333",
+        "primary.background": "#ffffff",
+        "primary.foreground": "#181818",
+        "secondary.background": "#152747",
+        "secondary.foreground": "#d4dce9",
+        "accent.background": "#513448",
+        "accent.foreground": "#e9d8e3",
+        "panel.background": "#121212",
+        "popover.background": "#0d0d0d",
+        "danger.background": "#ff5a4d",
+        "base.red": "#ff5a4d",
+        "base.green": "#69f0ae",
+        "base.blue": "#00b0ff",
+        "base.yellow": "#ffd740"
+      },
+      "highlight": {
+        "editor.background": "#181818",
+        "editor.foreground": "#e9d5a1",
+        "syntax": {
+          "keyword": { "color": "#ffffff" },
+          "function": { "color": "#e9d5a1" },
+          "string": { "color": "#69f0ae" },
+          "comment": { "color": "#4d4d4d" }
+        }
+      }
+    }
+  ]
+}

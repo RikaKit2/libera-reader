@@ -28,7 +28,14 @@ pub async fn create_empty_book(path_to_mutool: &Path, path_to_book: &Path) -> Re
   };
 
   let null_device = if cfg!(windows) { "NUL" } else { "/dev/null" };
-  let spawn_res = Command::new(&exec_path).arg("create").arg("-o").arg(path_to_book).arg(null_device).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+  let spawn_res = Command::new(&exec_path)
+    .arg("create")
+    .arg("-o")
+    .arg(path_to_book)
+    .arg(null_device)
+    .stdout(Stdio::null())
+    .stderr(Stdio::null())
+    .spawn();
 
   let mut child = match spawn_res {
     Ok(c) => c,

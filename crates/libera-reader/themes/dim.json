@@ -1,0 +1,39 @@
+{
+  "$schema": "https://github.com/longbridge/gpui-component/raw/refs/heads/main/.theme-schema.json",
+  "name": "Dim",
+  "author": "DaisyUI",
+  "themes": [
+    {
+      "name": "Dim",
+      "mode": "dark",
+      "colors": {
+        "background": "#2a303c",
+        "foreground": "#a6adbb",
+        "border": "#1f242e",
+        "primary.background": "#9fe88d",
+        "primary.foreground": "#2a303c",
+        "secondary.background": "#ff7a91",
+        "secondary.foreground": "#2a303c",
+        "accent.background": "#6e0b75",
+        "accent.foreground": "#ffffff",
+        "panel.background": "#242933",
+        "popover.background": "#1b1f27",
+        "danger.background": "#f87272",
+        "base.red": "#f87272",
+        "base.green": "#36d399",
+        "base.blue": "#3abff8",
+        "base.yellow": "#fbbe24"
+      },
+      "highlight": {
+        "editor.background": "#2a303c",
+        "editor.foreground": "#a6adbb",
+        "syntax": {
+          "keyword": { "color": "#9fe88d" },
+          "function": { "color": "#ff7a91" },
+          "string": { "color": "#36d399" },
+          "comment": { "color": "#5c6370" }
+        }
+      }
+    }
+  ]
+}

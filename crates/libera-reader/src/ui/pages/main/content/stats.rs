@@ -1,5 +1,5 @@
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, rgb};
-use libera_reader_core::ctx::GlobalCTX;
+use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
+use gpui_component::ActiveTheme;
 
 pub(crate) struct Stats {}
 impl Stats {
@@ -10,7 +10,8 @@ impl Stats {
 
 impl Render for Stats {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().settings.read().theme.data();
-    div().w_full().h_full().flex().flex_col().text_color(rgb(theme.base_color_content)).children([div().bg(rgb(theme.base_100)).w_full().h_full()])
+    let text_cover = cx.theme().foreground;
+    let bg_color = cx.theme().background;
+    div().w_full().h_full().flex().flex_col().text_color(text_cover).children([div().bg(bg_color).w_full().h_full()])
   }
 }

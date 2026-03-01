@@ -2,7 +2,8 @@ mod btn;
 
 use crate::ui::pages::main::side_bar::btn::Btn;
 use gpui::prelude::*;
-use gpui::{App, Entity, IntoElement, ParentElement, Styled, Window, div, rgb};
+use gpui::{App, Entity, IntoElement, ParentElement, Styled, Window, div};
+use gpui_component::ActiveTheme;
 use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::Route::{BookMarks, Favorite, FileManager, History, Library, Stats};
 use libera_reader_core::db::models::{RootRoute, Route};
@@ -18,8 +19,7 @@ impl SideBar {
 }
 impl Render for SideBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.ctx().settings.read().theme.data();
-    div().bg(rgb(theme.base_300)).w_12().h_full().flex().flex_col().justify_between().children([
+    div().bg(cx.theme().border).w_12().h_full().flex().flex_col().justify_between().children([
       div().children([
         Btn::new(
           Library,

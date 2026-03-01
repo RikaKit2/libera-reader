@@ -45,9 +45,8 @@ impl Ctx {
   pub fn global_mut(cx: &mut App) -> &mut Self {
     cx.global_mut::<Self>()
   }
-
-  pub fn set_not_cached_books(&mut self, not_cached_books: NotCachedBooks) {
-    self.not_cached_books = not_cached_books;
+  pub fn theme(&self) -> crate::db::models::AppTheme {
+    self.settings.read().theme.clone()
   }
 }
 

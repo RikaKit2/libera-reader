@@ -43,7 +43,8 @@ impl BookSizes {
               true => {}
               false => {
                 hash_map.insert(new_book.book_path.clone(), DuplicateBookData::MutoolData(None));
-                let updated_self = BookSizes { book_size: updated_self.book_size, book_type: BookType::DuplicateSize(hash_map) };
+                let updated_self =
+                  BookSizes { book_size: updated_self.book_size, book_type: BookType::DuplicateSize(hash_map) };
                 db.update(old_self, updated_self)?;
               }
             };
@@ -51,7 +52,10 @@ impl BookSizes {
         };
       }
       None => {
-        db.insert::<Self>(Self::new(new_book.book_size, BookType::UniqueSize { book_path: new_book.book_path.clone(), mutool_data: None }))?;
+        db.insert::<Self>(Self::new(
+          new_book.book_size,
+          BookType::UniqueSize { book_path: new_book.book_path.clone(), mutool_data: None },
+        ))?;
       }
     };
 
@@ -88,7 +92,9 @@ impl BookSizes {
     };
     Ok(())
   }
-  pub(crate) fn mark_book_path_as_deleted(book_size: BookSize, target_book_path: &BookPath, db: &DB) -> anyhow::Result<()> {
+  pub(crate) fn mark_book_path_as_deleted(
+    book_size: BookSize, target_book_path: &BookPath, db: &DB,
+  ) -> anyhow::Result<()> {
     if let Some(old_self) = Self::get(book_size, db)? {
       let mut updated_self = old_self.clone();
       match &mut updated_self.book_type {
@@ -116,7 +122,9 @@ impl BookSizes {
     };
     Ok(())
   }
-  pub(crate) fn update_book_path(book_size: BookSize, old_book_path: &BookPath, new_book_path: BookPath, db: &DB) -> anyhow::Result<()> {
+  pub(crate) fn update_book_path(
+    book_size: BookSize, old_book_path: &BookPath, new_book_path: BookPath, db: &DB,
+  ) -> anyhow::Result<()> {
     if let Some(old_self) = Self::get(book_size, db)? {
       let mut updated_self = old_self.clone();
       match &mut updated_self.book_type {
