@@ -41,7 +41,7 @@ zune-jpegxl = "0.5.2"
 sysinfo = "0.38.2"
 jwalk = "0.8.1"
 mimalloc = { version = "0.1.48", features = ["v3"] }
-chrono = "0.4.43"
+chrono = "0.4.44"
 indexmap = { version = "2", features = ["serde"] }
 colored = "3"
 better-panic = "0.3"
