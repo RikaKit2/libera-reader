@@ -38,7 +38,7 @@ dashmap = "6.1.0"
 image = "0.25.9"
 zune-core = "0.5.1"
 zune-jpegxl = "0.5.2"
-sysinfo = "0.38.2"
+sysinfo = "0.38.3"
 jwalk = "0.8.1"
 mimalloc = { version = "0.1.48", features = ["v3"] }
 chrono = "0.4.43"
