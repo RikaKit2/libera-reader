@@ -4,7 +4,7 @@ pub mod theme;
 
 use std::path::PathBuf;
 
-use crate::db::models::GetOrCreate;
+use crate::db::models::{GetOrCreate, settings::route::SetupRoute::Welcome};
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
@@ -45,7 +45,7 @@ impl Default for Settings {
       language: Lang::detect_system_lang(),
       path_to_scan: None,
       previous_path_to_scan: None,
-      theme: AppTheme::Sunset,
+      theme: AppTheme::EverforestDark,
       pdf: true,
       epub: false,
       mobi: false,
@@ -54,7 +54,7 @@ impl Default for Settings {
       page_scaling_factor: 1.0,
       thumbnails_scaling_factor: 4.0,
       workers_num: 2,
-      route: RootRoute::Setup,
+      route: RootRoute::Setup(Welcome),
       setup_is_done: false,
     }
   }

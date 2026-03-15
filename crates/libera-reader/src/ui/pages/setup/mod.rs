@@ -1,89 +1,85 @@
-use crate::ui::utils::adjust_brightness;
-use gpui::prelude::FluentBuilder;
-use gpui::{
-  App, AppContext, Context, Entity, FontWeight, InteractiveElement, IntoElement, MouseButton, MouseDownEvent,
-  ParentElement, Render, Styled, Window, div,
+use gpui::{App, AppContext, Context, Div, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
+use gpui_component::{
+  Disableable,
+  button::{Button, ButtonVariants},
 };
-use gpui_component::ActiveTheme;
-use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::models::{RootRoute, Route, SetupText};
-use rfd::FileDialog;
+use libera_reader_core::{
+  ctx::GlobalCTX,
+  db::models::{RootRoute, Route, settings::route::SetupRoute},
+};
+use rust_i18n::t;
+
+use crate::ui::pages::setup::{
+  appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage, welcome::Welcome,
+};
+
+mod appearance;
+mod finish;
+mod library;
+mod sync;
+mod tts;
+mod welcome;
 
 pub(crate) struct SetupPage {
-  window_of_selecting_folder_is_open: bool,
+  welcome_page: Entity<Welcome>,
+  appearance_page: Entity<Appearance>,
+  library_page: Entity<Library>,
+  sync_page: Entity<SyncPage>,
+  tts_page: Entity<TTSPage>,
+  finish_page: Entity<Finish>,
 }
 impl SetupPage {
-  pub(crate) fn new(cx: &mut App) -> Entity<Self> {
-    cx.new(|_| Self { window_of_selecting_folder_is_open: false })
-  }
-  fn select_folder(&mut self, _event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
-    match self.window_of_selecting_folder_is_open {
-      true => {}
-      false => match FileDialog::new().pick_folder() {
-        None => {}
-        Some(path) => {
-          cx.ctx_mut().settings.set_path_to_scan(path).unwrap();
-          self.window_of_selecting_folder_is_open = true;
-          cx.notify();
-        }
-      },
-    }
-  }
-  fn handler_for_next_btn(&mut self, _event: &MouseDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
-    let path_to_scan = cx.ctx().settings.read().path_to_scan.is_some();
-    if path_to_scan {
-      cx.ctx_mut().settings.set_setup_status(true).unwrap();
-      cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
-      cx.notify();
-    }
+  pub(crate) fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
+    cx.new(|cx| Self {
+      welcome_page: Welcome::new(cx),
+      appearance_page: Appearance::new(window, cx),
+      library_page: Library::new(cx),
+      sync_page: SyncPage::new(cx),
+      tts_page: TTSPage::new(cx),
+      finish_page: Finish::new(cx),
+    })
   }
 }
+
+fn next_btn(disabled: bool) -> Div {
+  div().child(
+    Button::new("pages.setup.next_btn").primary().label(t!("pages.setup.next_btn")).disabled(disabled).on_click(
+      |_event, _window, cx| {
+        cx.ctx_mut().settings.to_next_setup_route();
+      },
+    ),
+  )
+}
+fn back_btn() -> Div {
+  div().child(Button::new("pages.setup.back_btn").label(t!("pages.setup.back_btn")).on_click(
+    move |_event, _window, cx| {
+      cx.ctx_mut().settings.to_previous_setup_route();
+    },
+  ))
+}
+
+fn finish_btn() -> Div {
+  div().child(Button::new("pages.setup.finish_btn").primary().label(t!("pages.setup.finish_btn")).on_click(
+    move |_event, _window, cx| {
+      cx.ctx_mut().settings.set_setup_status(true).unwrap();
+      cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
+    },
+  ))
+}
+
 impl Render for SetupPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.theme();
-    div()
-      .bg(theme.background)
-      .w_full()
-      .h_full()
-      .p_6()
-      .flex()
-      .flex_col()
-      .justify_between()
-      .text_color(theme.foreground)
-      .children([
-        div().flex().flex_col().children([
-          div().child(cx.i18n(SetupText::Title)).font_weight(FontWeight::BOLD),
-          div().flex_col().children([
-            div().gap_2().flex().children([
-              div().child(cx.i18n(SetupText::TargetDir)),
-              div()
-                .flex()
-                .px_1()
-                .rounded_sm()
-                .on_mouse_down(MouseButton::Left, cx.listener(Self::select_folder))
-                .font_weight(FontWeight::BOLD)
-                .text_color(theme.primary_foreground)
-                .bg(adjust_brightness(theme.primary, 0.9))
-                .hover(|s| s.bg(adjust_brightness(theme.primary, 1.1)))
-                .child(cx.i18n(SetupText::SelectBtn)),
-            ]),
-            div().flex_col().children([
-              div().child(cx.i18n(SetupText::TargetPath)),
-              div().when(cx.ctx().settings.read().path_to_scan.is_some(), |_| {
-                div().child(cx.ctx().settings.get_path_to_scan_str().unwrap())
-              }),
-            ]),
-          ]),
-        ]),
-        div().w_full().flex().justify_end().children([div()
-          .px_2()
-          .text_color(theme.info)
-          .rounded_sm()
-          .font_weight(FontWeight::BOLD)
-          .bg(adjust_brightness(theme.info, 0.9))
-          .hover(|s| s.bg(adjust_brightness(theme.info, 1.1)))
-          .on_mouse_down(MouseButton::Left, cx.listener(Self::handler_for_next_btn))
-          .child(cx.i18n(SetupText::NextBtn))]),
-      ])
+    match cx.ctx().get_curr_route() {
+      RootRoute::Main(_route) => div(),
+      RootRoute::BookViewer => div(),
+      RootRoute::Setup(setup_route) => match setup_route {
+        SetupRoute::Welcome => div().w_full().h_full().child(self.welcome_page.clone()),
+        SetupRoute::Appearance => div().w_full().h_full().child(self.appearance_page.clone()),
+        SetupRoute::Library => div().w_full().h_full().child(self.library_page.clone()),
+        SetupRoute::Sync => div().w_full().h_full().child(self.sync_page.clone()),
+        SetupRoute::TTS => div().w_full().h_full().child(self.tts_page.clone()),
+        SetupRoute::Finish => div().w_full().h_full().child(self.finish_page.clone()),
+      },
+    }
   }
 }

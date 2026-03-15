@@ -79,7 +79,9 @@ impl Books {
   pub fn get_by_parent_dir(parent_dir: BookDir, db: &DB) -> anyhow::Result<Option<Self>> {
     db.get_primary::<Books>(parent_dir)
   }
-  pub(crate) async fn insert_many(&mut self, books: impl IntoIterator<Item = BookPath>, db: &DB) -> anyhow::Result<()> {
+  pub(crate) async fn insert_many(
+    &mut self, books: impl IntoIterator<Item = BookPath>, db: &DB,
+  ) -> anyhow::Result<()> {
     let old_self = self.clone();
     for book_path in books {
       let book_name = book_path.name.clone();

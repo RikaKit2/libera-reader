@@ -1,37 +1,44 @@
 {
   "$schema": "https://github.com/longbridge/gpui-component/raw/refs/heads/main/.theme-schema.json",
   "name": "Sunset",
-  "author": "DaisyUI",
+  "author": "Custom",
   "themes": [
     {
       "name": "Sunset",
       "mode": "dark",
       "colors": {
-        "background": "#212638",
-        "foreground": "#93a0c2",
-        "border": "#2a3044",
-        "primary.background": "#ff9903",
-        "primary.foreground": "#212638",
-        "secondary.background": "#ff5e7d",
-        "secondary.foreground": "#212638",
-        "accent.background": "#cb6be5",
-        "accent.foreground": "#212638",
-        "panel.background": "#1b2031",
-        "popover.background": "#161b2a",
-        "danger.background": "#ff838d",
-        "base.red": "#ff838d",
-        "base.green": "#16ed7d",
-        "base.blue": "#00d1ff",
-        "base.yellow": "#f3e137"
+        "background": "#121c22",
+        "foreground": "#9fb9d0",
+        "border": "#091319",
+        "ring": "#091319",
+        "input.border": "#091319",
+        "primary.background": "#ff865b",
+        "primary.foreground": "#160603",
+        "secondary.background": "#fd6f9c",
+        "secondary.foreground": "#160409",
+        "accent.background": "#b387fa",
+        "accent.foreground": "#0c0615",
+        "panel.background": "#0e171e",
+        "popover.background": "#091319",
+        "muted.foreground": "#94a0a9",
+        "danger.background": "#f87171",
+        "base.red": "#f87171",
+        "base.green": "#34d399",
+        "base.blue": "#89e0eb",
+        "base.yellow": "#f1c892",
+        "muted.background": "#091319",
+        "base.cyan": "#89e0eb",
+        "base.magenta": "#b387fa"
       },
       "highlight": {
-        "editor.background": "#212638",
-        "editor.foreground": "#93a0c2",
+        "editor.background": "#121c22",
+        "editor.foreground": "#9fb9d0",
         "syntax": {
-          "keyword": { "color": "#ff9903" },
-          "function": { "color": "#cb6be5" },
-          "string": { "color": "#16ed7d" },
-          "comment": { "color": "#5f6b8a" }
+          "keyword": { "color": "#ff865b" },
+          "function": { "color": "#b387fa" },
+          "string": { "color": "#f1c892" },
+          "comment": { "color": "#94a0a9" },
+          "type": { "color": "#fd6f9c" }
         }
       }
     }

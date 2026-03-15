@@ -103,7 +103,8 @@ impl TestLib {
       }
     }
     self.second_book = book_in_first_dir;
-    self.test_fn(&self.second_book, |book: &Book| assert_eq!(&FIRST_DIR, &book.book_path.parent_dir.dir_name()))?;
+    self
+      .test_fn(&self.second_book, |book: &Book| assert_eq!(&FIRST_DIR, &book.book_path.parent_dir.dir_name()))?;
     Ok(())
   }
   pub async fn rename_first_dir_to_second(&mut self) -> Result<()> {
@@ -119,7 +120,8 @@ impl TestLib {
     }
 
     self.second_book = self.tmp_dir.join(SECOND_DIR).join(SECOND_BOOK);
-    self.test_fn(&self.second_book, |book: &Book| assert_eq!(&SECOND_DIR, &book.book_path.parent_dir.dir_name()))?;
+    self
+      .test_fn(&self.second_book, |book: &Book| assert_eq!(&SECOND_DIR, &book.book_path.parent_dir.dir_name()))?;
     Ok(())
   }
   pub async fn rename_second_book_to_first_in_second_dir(&mut self) -> Result<()> {

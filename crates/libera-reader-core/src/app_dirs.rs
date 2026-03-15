@@ -46,7 +46,8 @@ impl Dirs {
     let dir_of_hashed_books = thumbnails_dir.join("hashed_books");
     let tts_models = data_dir.join("tts_models");
 
-    let necessary_dirs = vec![&data_dir, &tts_models, &thumbnails_dir, &dir_of_unhashed_books, &dir_of_hashed_books];
+    let necessary_dirs =
+      vec![&data_dir, &tts_models, &thumbnails_dir, &dir_of_unhashed_books, &dir_of_hashed_books];
     let poss_errors = Self::create_necessary_dirs(necessary_dirs);
 
     #[cfg(target_os = "windows")]
@@ -57,7 +58,15 @@ impl Dirs {
     if !poss_errors.is_empty() {
       Err(poss_errors)
     } else {
-      Ok(Self { data_dir, path_to_db, thumbnails_dir, dir_of_unhashed_books, dir_of_hashed_books, tts_models, mutool })
+      Ok(Self {
+        data_dir,
+        path_to_db,
+        thumbnails_dir,
+        dir_of_unhashed_books,
+        dir_of_hashed_books,
+        tts_models,
+        mutool,
+      })
     }
   }
   fn create_necessary_dirs(necessary_dirs: Vec<&PathBuf>) -> Vec<Error> {

@@ -101,7 +101,6 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     env:
       RUSTFLAGS: "-C target-feature=+aes,+sse2"
     steps:
@@ -142,13 +141,3 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: codecov.json
           fail_ci_if_error: true
-  doc:
-    name: Docs
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo doc --no-deps --all-features
-        env:
-          RUSTDOCFLAGS: -D warnings

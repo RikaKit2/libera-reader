@@ -1,72 +1,9 @@
+use gpui::SharedString;
+use gpui_component::select::SelectItem;
+use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 use sys_locale::get_locale;
 
-pub enum LibraryText {}
-pub enum HistoryText {}
-pub enum FavoriteText {}
-pub enum BookMarkText {}
-pub enum StatsText {}
-pub enum SettingsText {
-  UsedFormats,
-}
-pub enum SetupText {
-  Title,
-  NextBtn,
-  SelectBtn,
-  TargetPath,
-  TargetDir,
-}
-pub enum BookViewerText {}
-pub enum ComponentsText {
-  SearchPlaceholder,
-}
-pub trait GetText {
-  fn get(&self, lang: &Lang) -> &'static str;
-}
-impl GetText for SetupText {
-  fn get(&self, lang: &Lang) -> &'static str {
-    match lang {
-      Lang::EN => match self {
-        SetupText::Title => "Setup",
-        SetupText::NextBtn => "Next",
-        SetupText::SelectBtn => "Select",
-        SetupText::TargetPath => "Selected path for scanning:",
-        SetupText::TargetDir => "Please select the directory for scanning:",
-      },
-      Lang::RU => match self {
-        SetupText::Title => "Предварительная настройка",
-        SetupText::NextBtn => "Далее",
-        SetupText::SelectBtn => "Выбрать",
-        SetupText::TargetPath => "Выбранный путь для сканирования:",
-        SetupText::TargetDir => "Выберете пожалуйста директорию для сканирования:",
-      },
-    }
-  }
-}
-impl GetText for SettingsText {
-  fn get(&self, lang: &Lang) -> &'static str {
-    match lang {
-      Lang::EN => match self {
-        SettingsText::UsedFormats => "Used Formats",
-      },
-      Lang::RU => match self {
-        SettingsText::UsedFormats => "Используемые форматы",
-      },
-    }
-  }
-}
-impl GetText for ComponentsText {
-  fn get(&self, lang: &Lang) -> &'static str {
-    match lang {
-      Lang::EN => match self {
-        ComponentsText::SearchPlaceholder => "Search",
-      },
-      Lang::RU => match self {
-        ComponentsText::SearchPlaceholder => "Поиск",
-      },
-    }
-  }
-}
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub enum Lang {
   EN,
@@ -85,7 +22,25 @@ impl Lang {
       _ => Lang::EN,
     }
   }
-  pub fn get<T: GetText>(&self, target_enum: T) -> &'static str {
-    target_enum.get(self)
+  pub fn to_string(&self) -> &'static str {
+    match self {
+      Lang::EN => "en",
+      Lang::RU => "ru",
+    }
+  }
+}
+
+impl SelectItem for Lang {
+  type Value = Lang;
+
+  fn title(&self) -> SharedString {
+    match self {
+      Lang::EN => t!("lang.en").into(),
+      Lang::RU => t!("lang.ru").into(),
+    }
+  }
+
+  fn value(&self) -> &Self::Value {
+    self
   }
 }

@@ -32,7 +32,9 @@ impl FSEvent {
     // Destructure once and match on the kind directly to collapse nested matches.
     let Event { kind, paths, .. } = event;
     match kind {
-      EventKind::Create(CreateKind::File) => paths.into_iter().next().map(|path| Self::CreateFile { file_path: path }),
+      EventKind::Create(CreateKind::File) => {
+        paths.into_iter().next().map(|path| Self::CreateFile { file_path: path })
+      }
       EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
         let mut it = paths.into_iter();
         match (it.next(), it.next()) {
@@ -48,8 +50,12 @@ impl FSEvent {
           _ => None,
         }
       }
-      EventKind::Remove(RemoveKind::File) => paths.into_iter().next().map(|path| Self::RemoveFile { file_path: path }),
-      EventKind::Remove(RemoveKind::Folder) => paths.into_iter().next().map(|path| Self::RemoveDir { dir_path: path }),
+      EventKind::Remove(RemoveKind::File) => {
+        paths.into_iter().next().map(|path| Self::RemoveFile { file_path: path })
+      }
+      EventKind::Remove(RemoveKind::Folder) => {
+        paths.into_iter().next().map(|path| Self::RemoveDir { dir_path: path })
+      }
       _ => None,
     }
   }

@@ -1,30 +1,49 @@
 use anyhow::Result;
-use gpui::{AssetSource, SharedString};
-use std::fs;
-use std::path::PathBuf;
+use gpui::*;
+use rust_embed::RustEmbed;
+use std::borrow::Cow;
 
-pub struct Assets {
-  pub(crate) base: PathBuf,
-}
-
-impl Assets {
-  pub fn new(base: PathBuf) -> Self {
-    Self { base }
-  }
-}
+#[derive(RustEmbed)]
+#[folder = "./assets/icons"]
+pub struct Assets;
 
 impl AssetSource for Assets {
-  fn load(&self, path: &str) -> Result<Option<std::borrow::Cow<'static, [u8]>>> {
-    fs::read(self.base.join(path)).map(|data| Some(std::borrow::Cow::Owned(data))).map_err(|err| err.into())
+  fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
+    let path = path.trim_start_matches('/');
+
+    if let Some(file) = Self::get(path) {
+      return Ok(Some(file.data));
+    }
+
+    if let Some(file) = gpui_component_assets::Assets::get(path) {
+      return Ok(Some(file.data));
+    }
+
+    if (path == "check" || path == "icons/check")
+      && let Some(file) = gpui_component_assets::Assets::get("icons/check.svg")
+    {
+      return Ok(Some(file.data));
+    }
+
+    Ok(None)
   }
 
   fn list(&self, path: &str) -> Result<Vec<SharedString>> {
-    fs::read_dir(self.base.join(path))
-      .map(|entries| {
-        entries
-          .filter_map(|entry| entry.ok().and_then(|entry| entry.file_name().into_string().ok()).map(SharedString::from))
-          .collect()
-      })
-      .map_err(|err| err.into())
+    let path = path.trim_start_matches('/');
+    let mut paths = std::collections::HashSet::new();
+
+    for p in Self::iter() {
+      if p.starts_with(path) {
+        paths.insert(SharedString::from(p.to_string()));
+      }
+    }
+
+    for p in gpui_component_assets::Assets::iter() {
+      if p.starts_with(path) {
+        paths.insert(SharedString::from(p.to_string()));
+      }
+    }
+
+    Ok(paths.into_iter().collect())
   }
 }

@@ -17,7 +17,12 @@ pub(crate) struct Btn {
 
 impl Btn {
   pub fn new(route: Route, image_source: &'static str, click_event_handler: Option<ClickHandler>) -> Self {
-    Self { id: image_source.into(), on_click: click_event_handler, btn_route: route, image_source: image_source.into() }
+    Self {
+      id: image_source.into(),
+      on_click: click_event_handler,
+      btn_route: route,
+      image_source: image_source.into(),
+    }
   }
   fn get_active_status(&self, cx: &mut App) -> bool {
     match cx.ctx().settings.read().route {

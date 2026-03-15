@@ -62,7 +62,7 @@ impl DB {
     };
     Ok(Self { db_type: db, path_to_db: Arc::new(RwLock::new(path_to_db)) })
   }
-  pub(crate) fn save_to_storage(&self) -> Result<()> {
+  pub fn save_to_storage(&self) -> Result<()> {
     match &self.db_type {
       DBType::InMemory(_) => {
         self.db_type.write().snapshot(&MODELS, &self.path_to_db.read().unwrap())?;
@@ -71,7 +71,7 @@ impl DB {
     }
     Ok(())
   }
-  pub(crate) fn reload_db(&mut self) -> Result<()> {
+  pub fn reload_db(&mut self) -> Result<()> {
     let db_in_memory = match &self.db_type {
       DBType::InMemory(_) => true,
       DBType::InFile(_) => false,

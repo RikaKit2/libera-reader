@@ -15,7 +15,7 @@ pub(crate) struct Pages {
 
 impl Pages {
   pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
-    cx.new(|c| Self { main_page: MainPage::new(window, c), setup_page: SetupPage::new(c) })
+    cx.new(|c| Self { main_page: MainPage::new(window, c), setup_page: SetupPage::new(window, c) })
   }
 }
 

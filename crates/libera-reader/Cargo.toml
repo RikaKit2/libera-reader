@@ -25,3 +25,6 @@ mimalloc = { workspace = true }
 gpui-component = { workspace = true }
 better-panic = { workspace = true }
 tracing = { workspace = true }
+gpui-component-assets = { workspace = true }
+rust-embed = { workspace = true }
+rust-i18n = { workspace = true }
