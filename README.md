@@ -1,4 +1,3 @@
-
 <div align="center">
   <p>
     <h1>Libera Reader 📚</h1>
@@ -11,7 +10,7 @@
   </p>
 </div>
 
-**Libera Reader** is a high-performance desktop application for reading and listening to e-books. Built with **Rust** and **GPUI**, it aims to provide the fastest and most reliable experience for managing large digital libraries.
+**Libera Reader** is a high-performance desktop application for reading and listening to e-books. Built with **Rust** and **GPUI**, it aims to provide the fastest and most reliable experience.
 
 ### ✨ Key Features
 
@@ -27,6 +26,15 @@
 * **Document Engine:** MuPDF via `mutool`.
 * **Quality:** CI with Clippy, Security Audit, and Code Coverage.
 
+## 🚀 Project Status
+
+Libera Reader is currently in active development (Pre-alpha).
+
+- [x] High-performance scanning engine.
+- [x] Real-time File System watcher.
+- [x] Basic GPUI-based interface.
+- [ ] Page rendering and text selection (In Progress).
+
 ### 📄 License
 
-Distributed under the **AGPLv3** License.1
+Distributed under the **AGPLv3** License.
