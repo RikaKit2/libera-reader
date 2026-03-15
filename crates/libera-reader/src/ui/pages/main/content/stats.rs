@@ -12,6 +12,12 @@ impl Render for Stats {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     let text_cover = cx.theme().foreground;
     let bg_color = cx.theme().background;
-    div().w_full().h_full().flex().flex_col().text_color(text_cover).children([div().bg(bg_color).w_full().h_full()])
+    div()
+      .w_full()
+      .h_full()
+      .flex()
+      .flex_col()
+      .text_color(text_cover)
+      .children([div().bg(bg_color).w_full().h_full()])
   }
 }

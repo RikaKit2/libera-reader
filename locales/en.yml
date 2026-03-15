@@ -1,0 +1,62 @@
+pages:
+  setup:
+    title: "Initial Setup"
+    next_btn: "Next"
+    back_btn: "Back"
+    finish_btn: "Finish"
+
+    pages:
+      welcome:
+        title: "Welcome to Libera Reader"
+        subtitle: "Experience the power of Rust and GPUI. Your library now works at the speed of thought."
+        features:
+          title: "Features:"
+          fs: "📂 Smart file tracking"
+          tts: "🤖 Built-in TTS"
+
+      appearance:
+        title: "Customize Appearance"
+        language_label: "Interface Language"
+        theme_label: "Color Theme"
+        note: "You can change these settings at any time later."
+
+      library:
+        title: "Where are your books?"
+        description: "Select the main directory. Libera Reader will track changes in real-time."
+        target_dir_label: "Select Directory"
+        target_path_status: "Selected path:"
+        path_not_selected: "Path not selected"
+        select_btn: "Select"
+
+      sync:
+        title: "Cross-device Sync"
+        description: "Sync books, progress, and notes across all your devices via WebDAV."
+
+      tts:
+        title: "More Than Just Reading"
+        description: "Libera supports Piper-TTS for natural voiceover and AI for metadata analysis."
+        providers:
+          offline: "Offline TTS (Piper) — privacy & speed"
+          online: "Online engines (Google/OpenAI) — quality & power"
+
+      finish:
+        title: "All set!"
+        description: "Click 'Finish' to instantly index your books and start."
+  settings:
+    used_formats: "Used Formats"
+    theme: "Color Theme"
+
+components:
+  search_placeholder: "Search"
+  theme_select:
+    header: "Theme"
+    placeholder: "Search theme..."
+    search_placeholder: "Enter theme name"
+  lang_select:
+    header: "Language"
+    placeholder: "Search language..."
+    search_placeholder: "Enter language name"
+
+lang:
+  ru: "Russian"
+  en: "English"

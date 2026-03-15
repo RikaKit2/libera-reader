@@ -67,7 +67,9 @@ pub struct ScanService {
 }
 
 impl ScanService {
-  pub(crate) fn new(not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, error_handler: ErrorHandler) -> Self {
+  pub(crate) fn new(
+    not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, error_handler: ErrorHandler,
+  ) -> Self {
     Self { not_cached_books, settings, db, _error_handler: error_handler }
   }
   pub async fn run(&mut self) -> Result<()> {

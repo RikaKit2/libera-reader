@@ -1,41 +1,32 @@
-<!--suppress HtmlDeprecatedAttribute -->
+
 <div align="center">
-  <h1>Libera Reader</h1>
   <p>
-    <strong>Libera Reader is an e-book reader for PC</strong>
+    <h1>Libera Reader 📚</h1>
+    <strong>High-performance desktop e-book reader.</strong>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/License-AGPL_v3-blue.svg" alt="License">
+    <img src="https://img.shields.io/badge/GUI-GPUI-blueviolet.svg" alt="GPUI">
+    <img src="https://img.shields.io/badge/CI-Passed-success.svg" alt="CI Status">
   </p>
 </div>
 
-## 🎆 Features:
+**Libera Reader** is a high-performance desktop application for reading and listening to e-books. Built with **Rust** and **GPUI**, it aims to provide the fastest and most reliable experience for managing large digital libraries.
 
-1. Supported formats: pdf, epub, xps, cbz, mobi, fb2
-2. View book covers as a grid or list in the target directory
-3. Add to the list of favorite books
-4. Add bookmarks to the book
-5. Sorting by different parameters
-6. Remove duplicate books
-7. Automatic page turning when reading (auto scroll)
-8. Voiceover of a book being read using a neural network (tts, locally on the device)
-9. Many color themes
-10. System for tracking changes in the file system (tracking books)
-11. Keyboard navigation (like vim)
-12. Search for text from library books (including using AI - imprecise search)
-13. Editing book metadata
-14. Book viewer features:
-    - Search text in a document
-    - Scaling
-    - Color inversion
-    - Table of contents
-    - Follow links
-15. In the future built-in file manager
-16. Drag-and-Drop
-17. Synchronization (bookmarks, history, favorites, books) between devices
-18. Statistics section - (most popular genres, time spent reading)
-19. Automatically sort books into directories based on content using AI
-    or some kind of algorithm
-20. Import and export settings
+### ✨ Key Features
 
-# License and Copyright
+* **Smart Library:** Real-time tracking of file changes (renames, moves, deletes) using `notify`.
+* **Fast Indexing:** Parallel directory traversal with `jwalk` and sub-second metadata storage using `native-db` (redb).
+* **Advanced Caching:** Instant cover loading through intelligent thumbnail management.
+* **TTS Integration:** Support for offline (Piper-TTS) and online (Google API) voiceovers.
 
-**Libera Reader** available under the AGPLv3 license.
-A copy of the license is provided [open-source AGPL](https://www.gnu.org/licenses/agpl-3.0.html)
+### 🛠 Tech Stack
+
+* **Core:** Rust, native-db (redb), jwalk, notify, gxhash.
+* **GUI:** GPUI (GPU-accelerated engine by Zed Industries).
+* **Document Engine:** MuPDF via `mutool`.
+* **Quality:** CI with Clippy, Security Audit, and Code Coverage.
+
+### 📄 License
+
+Distributed under the **AGPLv3** License.1

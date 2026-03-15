@@ -1,6 +1,6 @@
 use crate::db::DB;
 use crate::db::models::books::book::BookExt;
-use crate::db::models::{GetOrCreate, Lang, RootRoute, Settings};
+use crate::db::models::{AppTheme, GetOrCreate, Lang, RootRoute, Settings};
 use anyhow::Result;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -64,6 +64,14 @@ impl SETTINGS {
     };
     Ok(())
   }
+  pub fn set_theme(&mut self, new_theme: &AppTheme) -> Result<()> {
+    let old_model = self.read().clone();
+    if &old_model.theme != new_theme {
+      self.write().theme = new_theme.clone();
+      self.db.update(old_model, self.read().clone())?;
+    }
+    Ok(())
+  }
   pub fn set_route(&mut self, new_route: RootRoute) -> Result<()> {
     let old_model = self.read().clone();
     match old_model.route.eq(&new_route) {
@@ -112,5 +120,25 @@ impl SETTINGS {
     self.write().mobi = !old_model.mobi;
     self.db.update(old_model, self.read().clone())?;
     Ok(())
+  }
+  pub fn to_next_setup_route(&mut self) {
+    let current_route = self.read().route;
+    if let RootRoute::Setup(old_route) = current_route
+      && let Some(new_route) = old_route.next()
+    {
+      let old_model = self.read().clone();
+      self.write().route = RootRoute::Setup(new_route);
+      self.db.update(old_model, self.read().clone()).unwrap();
+    }
+  }
+  pub fn to_previous_setup_route(&mut self) {
+    let current_route = self.read().route;
+    if let RootRoute::Setup(old_route) = current_route
+      && let Some(new_route) = old_route.back()
+    {
+      let old_model = self.read().clone();
+      self.write().route = RootRoute::Setup(new_route);
+      self.db.update(old_model, self.read().clone()).unwrap();
+    };
   }
 }

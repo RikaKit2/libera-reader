@@ -32,3 +32,4 @@ chrono = { workspace = true }
 indexmap = { workspace = true }
 gpui-component = { workspace = true }
 better-panic = { workspace = true }
+rust-i18n = { workspace = true }

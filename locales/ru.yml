@@ -1,0 +1,62 @@
+pages:
+  setup:
+    title: "Предварительная настройка"
+    next_btn: "Далее"
+    back_btn: "Назад"
+    finish_btn: "Завершить"
+
+    pages:
+      welcome:
+        title: "Добро пожаловать в Libera Reader"
+        subtitle: "Оцените мощь Rust и GPUI. Ваша библиотека теперь работает со скоростью мысли."
+        features:
+          title: "Функции:"
+          fs: "📂 Умное отслеживание файлов"
+          tts: "🤖 Встроенный TTS"
+
+      appearance:
+        title: "Облик"
+        language_label: "Язык интерфейса"
+        theme_label: "Цвет темы"
+        note: "Заметка: Вы сможете изменить это в любое время."
+
+      library:
+        title: "Где находятся ваши книги?"
+        description: "Выберите основную папку. Libera Reader будет следить за ней в реальном времени."
+        target_dir_label: "Выберите пожалуйста директорию для сканирования:"
+        target_path_status: "Выбранный путь:"
+        path_not_selected: "Путь не выбран"
+        select_btn: "Выбрать"
+
+      sync:
+        title: "Синхронизация между устройствами"
+        description: "Синхронизируйте книги, прогресс и заметки на всех устройствах через WebDAV."
+
+      tts:
+        title: "Больше, чем просто чтение"
+        description: "Libera поддерживает Piper-TTS для естественного озвучивания и ИИ для анализа метаданных."
+        providers:
+          offline: "Офлайн TTS (Piper) — приватность и скорость"
+          online: "Онлайн движки (Google/OpenAI) — максимальное качество"
+
+      finish:
+        title: "Всё готово!"
+        description: "Нажмите «Завершить», чтобы мгновенно индексировать свои книги и начать. Приятного чтения!"
+  settings:
+    used_formats: "Используемые форматы"
+    theme: "Цвет темы"
+
+components:
+  search_placeholder: "Поиск"
+  theme_select:
+    header: "Тема"
+    placeholder: "Поиск темы..."
+    search_placeholder: "Введите название темы"
+  lang_select:
+    header: "Язык"
+    placeholder: "Поиск языка..."
+    search_placeholder: "Введите название языка"
+
+lang:
+  ru: "Русский"
+  en: "Английский"

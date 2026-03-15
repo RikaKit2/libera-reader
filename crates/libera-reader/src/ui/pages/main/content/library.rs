@@ -3,6 +3,7 @@ use gpui_component::{
   ActiveTheme,
   input::{Input, InputEvent, InputState},
 };
+use rust_i18n::t;
 
 pub(crate) struct Library {
   input_state: Entity<InputState>,
@@ -10,7 +11,7 @@ pub(crate) struct Library {
 }
 impl Library {
   pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-    let input_state = cx.new(|cx| InputState::new(window, cx).placeholder("Search"));
+    let input_state = cx.new(|cx| InputState::new(window, cx).placeholder(t!("components.search_placeholder")));
 
     let _subscriptions = vec![cx.subscribe_in(&input_state, window, {
       // let input_state = input_state.clone();

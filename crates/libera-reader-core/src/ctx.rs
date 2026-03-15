@@ -1,5 +1,5 @@
 use crate::db::DB;
-use crate::db::models::GetText;
+use crate::db::models::{AppTheme, Lang, RootRoute};
 use crate::error_handler::{ErrorHandler, ErrorReceiver};
 use crate::services::Services;
 use crate::settings::SETTINGS;
@@ -7,6 +7,7 @@ use crate::{app_dirs::AppDirs, not_cached_books::NotCachedBooks};
 use anyhow::Result;
 use gpui::{App, Global};
 use std::path::PathBuf;
+use utils::debug;
 
 pub struct Ctx {
   pub settings: SETTINGS,
@@ -28,7 +29,10 @@ impl Ctx {
   }
   fn base_new(app_dirs: AppDirs) -> Result<Self> {
     let (error_handler, error_receiver) = ErrorHandler::new();
-    let db = DB::new(app_dirs.read().path_to_db.clone())?;
+    let path_to_db = app_dirs.read().path_to_db.clone();
+    debug!("Path to db: {:?}", &path_to_db);
+    debug!("DB exists: {:?}", &path_to_db.exists());
+    let db = DB::new(path_to_db)?;
     let settings = SETTINGS::new(db.clone())?;
     let not_cached_books = NotCachedBooks::new();
     let services = Services::new(settings.clone(), db.clone(), not_cached_books.clone(), error_handler.clone())?;
@@ -45,8 +49,14 @@ impl Ctx {
   pub fn global_mut(cx: &mut App) -> &mut Self {
     cx.global_mut::<Self>()
   }
-  pub fn theme(&self) -> crate::db::models::AppTheme {
+  pub fn theme(&self) -> AppTheme {
     self.settings.read().theme.clone()
+  }
+  pub fn lang(&self) -> Lang {
+    self.settings.read().language.clone()
+  }
+  pub fn get_curr_route(&self) -> RootRoute {
+    self.settings.read().route
   }
 }
 
@@ -54,7 +64,6 @@ impl Global for Ctx {}
 pub trait GlobalCTX {
   fn ctx(&self) -> &Ctx;
   fn ctx_mut(&mut self) -> &mut Ctx;
-  fn i18n<T: GetText>(&self, target_enum: T) -> &'static str;
 }
 impl GlobalCTX for App {
   fn ctx(&self) -> &Ctx {
@@ -62,8 +71,5 @@ impl GlobalCTX for App {
   }
   fn ctx_mut(&mut self) -> &mut Ctx {
     Ctx::global_mut(self)
-  }
-  fn i18n<T: GetText>(&self, target_enum: T) -> &'static str {
-    self.ctx().settings.read().language.get(target_enum)
   }
 }

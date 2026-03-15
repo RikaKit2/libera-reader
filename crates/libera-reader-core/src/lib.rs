@@ -1,4 +1,6 @@
 #![forbid(unsafe_code)]
+rust_i18n::i18n!("../../locales");
+
 pub mod app_dirs;
 pub mod ctx;
 pub mod db;
