@@ -120,33 +120,36 @@ impl NotifyService {
         FSEvent::CreateFile { file_path } => {
           let start_time = std::time::Instant::now();
           match BookPath::new(&file_path) {
-            Some(book_path) => match fs_handlers::insert_book(book_path, db, settings, not_cached_books).await {
-              Ok(_) => {
-                let total_time = start_time.elapsed();
-                debug!("The total time for adding a book: {:?}", &total_time);
+            Some(book_path) => {
+              let result = db.rw_t(|rw_t| fs_handlers::insert_book(book_path, rw_t, settings, not_cached_books));
+              match result {
+                Ok(_) => {
+                  let total_time = start_time.elapsed();
+                  debug!("The total time for adding a book: {:?}", &total_time);
+                }
+                Err(err) => {
+                  debug!("Error inserting book: {:?}", err);
+                }
               }
-              Err(err) => {
-                debug!("Error inserting book: {:?}", err);
-              }
-            },
+            }
             None => {
               debug!("Error creating BookPath from file_path: {:?}", file_path);
             }
           }
         }
         FSEvent::RenameFile { old_path, new_path } => {
-          if let Err(err) = fs_handlers::update_book_path(old_path, new_path, db).await {
+          if let Err(err) = db.rw_t(|rw_t| fs_handlers::update_book_path(old_path, new_path, rw_t)) {
             debug!("Error updating book path: {:?}", err);
           }
         }
         FSEvent::RenameDir { old_path, new_path } => {
-          if let Err(err) = fs_handlers::update_book_dir(old_path, new_path, db) {
+          if let Err(err) = db.rw_t(|rw_t| fs_handlers::update_book_dir(old_path, new_path, rw_t)) {
             debug!("Error updating book dir: {:?}", err);
           }
         }
         FSEvent::RemoveFile { file_path } => match BookPath::new(&file_path) {
           Some(book_path) => {
-            if let Err(err) = fs_handlers::remove_book(book_path, db).await {
+            if let Err(err) = db.rw_t(|rw_t| fs_handlers::remove_book(book_path, rw_t)) {
               debug!("Error removing book: {:?}", err);
             }
           }
@@ -155,7 +158,7 @@ impl NotifyService {
           }
         },
         FSEvent::RemoveDir { dir_path } => {
-          if let Err(err) = fs_handlers::remove_books_in_dir(BookDir::new(dir_path), db) {
+          if let Err(err) = db.rw_t(|rw_t| fs_handlers::remove_books_in_dir(BookDir::new(dir_path), rw_t)) {
             debug!("Error removing books in dir: {:?}", err);
           }
         }

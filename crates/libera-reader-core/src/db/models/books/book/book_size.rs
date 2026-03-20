@@ -1,7 +1,7 @@
 use native_db::*;
 #[allow(unused_imports)]
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 const MB_BYTES: u64 = 1024 * 1024;
 const MAX_FILE_SIZE_MB: u64 = 100;
@@ -11,9 +11,9 @@ pub enum BookSize {
   BYTES(u64),
 }
 impl BookSize {
-  pub(crate) async fn new(path_to_file: &PathBuf) -> anyhow::Result<Self> {
-    match tokio::fs::canonicalize(path_to_file).await {
-      Ok(path) => match tokio::fs::metadata(&path).await {
+  pub(crate) fn new(path_to_file: &PathBuf) -> anyhow::Result<Self> {
+    match fs::canonicalize(path_to_file) {
+      Ok(path) => match fs::metadata(&path) {
         Ok(metadata) => {
           let file_size = metadata.len();
           Ok(BookSize::BYTES(file_size))

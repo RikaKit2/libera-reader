@@ -87,20 +87,26 @@ impl ScanService {
 
         match BooksLocation::classify(&db, books_from_disk.len()).unwrap() {
           BooksLocation::Disk => {
-            for (_book_dir, set) in books_from_disk.into_iter() {
-              for book_path in set {
-                fs_handlers::insert_book(book_path, &db, &settings, &not_cached_books).await.unwrap();
+            let _ = db.rw_t(|rw_t| {
+              for (_book_dir, set) in books_from_disk.into_iter() {
+                for book_path in set {
+                  fs_handlers::insert_book(book_path, rw_t, &settings, &not_cached_books)?;
+                }
               }
-            }
+              Ok(())
+            });
           }
           BooksLocation::DB(books_from_db) => {
-            for (_book_dir, books) in books_from_db {
-              books.remove_self(&db).unwrap();
-            }
+            let _ = db.rw_t(|rw_t| {
+              for (_book_dir, books) in books_from_db {
+                books.remove_self(rw_t).unwrap();
+              }
+              Ok(())
+            });
           }
           BooksLocation::DiskAndDB(books_from_db) => {
-            Self::remove_outdated_books_from_db(&db, &books_from_disk, books_from_db).await.unwrap();
-            Self::insert_new_books_to_db(&db, books_from_disk).await.unwrap();
+            Self::remove_outdated_books_from_db(&db, &books_from_disk, books_from_db).unwrap();
+            Self::insert_new_books_to_db(&db, books_from_disk).unwrap();
           }
           BooksLocation::None => {}
         };
@@ -128,7 +134,7 @@ impl ScanService {
     debug!("The total time of receiving books from the disk: {:?}", start_time.elapsed());
     books_from_disk
   }
-  async fn remove_outdated_books_from_db(
+  fn remove_outdated_books_from_db(
     db: &DB, books_from_disk: &BooksFromDisk, books_from_db: BooksFromDB,
   ) -> anyhow::Result<()> {
     let mut num_of_outdated_books: usize = 0;
@@ -140,25 +146,25 @@ impl ScanService {
               true => {}
               false => {
                 num_of_outdated_books += 1;
-                books.remove_book(book.book_path.clone(), db).await.unwrap();
+                db.rw_t(|rw_t| books.remove_book(book.book_path.clone(), rw_t)).unwrap();
               }
             };
           }
         }
         None => {
           num_of_outdated_books += books.storage.len();
-          books.remove_self(db).unwrap();
+          db.rw_t(|rw_t| books.remove_self(rw_t)).unwrap();
         }
       };
     }
     debug!("Number of outdated books: {:?}", &num_of_outdated_books);
     Ok(())
   }
-  async fn insert_new_books_to_db(db: &DB, books_from_disk: BooksFromDisk) -> anyhow::Result<()> {
-    let mut books_from_db: (BooksFromDB, DBBooksCount) = Books::all(db);
+  fn insert_new_books_to_db(db: &DB, books_from_disk: BooksFromDisk) -> anyhow::Result<()> {
     let mut num_of_new_books: usize = 0;
     for (book_dir, disk_books) in books_from_disk.into_iter() {
-      match books_from_db.0.get_mut(&book_dir) {
+      let (mut books_from_db, _): (BooksFromDB, DBBooksCount) = db.rt(|r| Ok(Books::all(r)))?;
+      match books_from_db.get_mut(&book_dir) {
         Some(db_books) => {
           let mut new_books = vec![];
           for book_path in disk_books {
@@ -170,11 +176,11 @@ impl ScanService {
             };
           }
           num_of_new_books += new_books.len();
-          db_books.insert_many(new_books.into_iter(), db).await?;
+          db.rw_t(|rw_t| db_books.insert_many(new_books.into_iter(), rw_t))?;
         }
         None => {
           num_of_new_books += disk_books.len();
-          Books::insert_many_and_create_new_self(book_dir, disk_books.into_iter(), db).await?;
+          db.rw_t(|rw_t| Books::insert_many_and_create_new_self(book_dir, disk_books.into_iter(), rw_t))?;
         }
       };
     }

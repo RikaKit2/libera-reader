@@ -6,6 +6,7 @@ use crate::db::models::books::book_sizes::BookSizes;
 use crate::db::models::settings::Settings;
 use anyhow::Result;
 use itertools::Itertools;
+use native_db::transaction::{RTransaction, RwTransaction};
 use native_db::{Builder, Database, Models, ToInput, ToKey, db_type};
 use once_cell::sync::Lazy;
 use std::path::PathBuf;
@@ -110,9 +111,6 @@ impl DB {
   pub(crate) fn get_primary<T: ToInput>(&self, key: impl ToKey) -> Result<Option<T>> {
     Ok(self.db_type.read().r_transaction()?.get().primary(key)?)
   }
-  pub(crate) fn scan_primary<T: ToInput>(&self) -> Result<Vec<T>> {
-    Ok(self.db_type.read().r_transaction()?.scan().primary()?.all()?.try_collect()?)
-  }
   pub(crate) fn insert<T: ToInput>(&self, item: T) -> Result<(), Box<db_type::Error>> {
     let lock = self.db_type.write();
     let rw_conn = lock.rw_transaction().map_err(Box::new)?;
@@ -125,10 +123,28 @@ impl DB {
     rw_conn.update(old_data, new_data).map_err(Box::new)?;
     rw_conn.commit().map_err(Box::new)
   }
-  pub(crate) fn remove<T: ToInput>(&self, item: T) -> Result<(), Box<db_type::Error>> {
+
+  pub fn rw_t<F, T>(&self, func: F) -> Result<T>
+  where
+    F: FnOnce(&RwTransaction) -> Result<T>,
+  {
     let lock = self.db_type.write();
-    let rw_conn = lock.rw_transaction().map_err(Box::new)?;
-    rw_conn.remove(item).map_err(Box::new)?;
-    rw_conn.commit().map_err(Box::new)
+    let rw_txn = lock.rw_transaction()?;
+    let result = func(&rw_txn)?;
+    rw_txn.commit()?;
+    Ok(result)
   }
+  pub fn rt<F, T>(&self, func: F) -> Result<T>
+  where
+    F: FnOnce(&RTransaction) -> Result<T>,
+  {
+    let lock = self.db_type.write();
+    let r_txn = lock.r_transaction()?;
+    let result = func(&r_txn)?;
+    Ok(result)
+  }
+}
+
+pub(crate) fn scan_primary<T: ToInput>(r: &RTransaction<'_>) -> Result<Vec<T>> {
+  Ok(r.scan().primary()?.all()?.try_collect()?)
 }

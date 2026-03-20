@@ -154,7 +154,7 @@ impl TestLib {
     }
     let parent_dir = self.first_book.parent().unwrap().to_path_buf();
     let book_dir = BookDir::new(parent_dir);
-    let target_book = Books::get_by_parent_dir(book_dir, &self.ctx.db)?;
+    let target_book = self.ctx.db.rt(|r| Books::get_by_parent_dir(book_dir, r))?;
     assert_eq!(target_book, None, "there shouldn't be a book");
     Ok(())
   }
@@ -175,22 +175,28 @@ impl TestLib {
   {
     let book_path = BookPath::new(book_path_in_db);
     match book_path {
-      Some(book_path) => match Books::get_by_path(book_path, &self.ctx.db) {
-        Ok(Some(book)) => {
-          assert_fn(&book);
-        }
-        Ok(None) => {
-          error!("book in db not found: {:?}", book_path_in_db);
-          let (books_from_db, book_count) = Books::all(&self.ctx.db);
-          debug!("book count: {}", &book_count);
-          for (_book_dir, books) in books_from_db {
-            debug!("{:?}", books);
+      Some(book_path) => {
+        let book_result = self.ctx.db.rt(|r| Books::get_by_path(book_path, r));
+        match book_result {
+          Ok(Some(book)) => {
+            assert_fn(&book);
+          }
+          Ok(None) => {
+            error!("book in db not found: {:?}", book_path_in_db);
+            let Ok((books_from_db, book_count)) = self.ctx.db.rt(|r| Ok(Books::all(r))) else {
+              error!("failed to get books from db");
+              return Ok(());
+            };
+            debug!("book count: {}", &book_count);
+            for (_book_dir, books) in books_from_db {
+              debug!("{:?}", books);
+            }
+          }
+          Err(e) => {
+            error!("error getting book from db: {:?}", e);
           }
         }
-        Err(e) => {
-          error!("error getting book from db: {:?}", e);
-        }
-      },
+      }
       None => {
         error!("error creating book path from path: {:?}", book_path_in_db);
       }

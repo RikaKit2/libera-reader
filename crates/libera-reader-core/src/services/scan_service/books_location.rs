@@ -10,7 +10,7 @@ pub(crate) enum BooksLocation {
 }
 impl BooksLocation {
   pub(crate) fn classify(db: &DB, disk_books_count: usize) -> anyhow::Result<Self> {
-    let (books_from_db, db_books_count) = Books::all(db);
+    let (books_from_db, db_books_count) = db.rt(|r| Ok(Books::all(r))).unwrap();
     debug!("{} books on disk, {} books in db", disk_books_count, db_books_count);
 
     if db_books_count > 0 && disk_books_count > 0 {
