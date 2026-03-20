@@ -24,8 +24,8 @@ pub struct Book {
   pub user_data: UserData,
 }
 impl Book {
-  pub(crate) async fn new(book_path: BookPath) -> anyhow::Result<Self> {
-    let book_size = book_path.get_book_size().await.unwrap();
+  pub(crate) fn new(book_path: BookPath) -> anyhow::Result<Self> {
+    let book_size = book_path.get_book_size().unwrap();
     Ok(Self { book_path, book_size, user_data: UserData::default() })
   }
   pub fn exists_on_disk(&self) -> bool {

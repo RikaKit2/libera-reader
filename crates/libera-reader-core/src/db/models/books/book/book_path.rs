@@ -28,9 +28,9 @@ impl BookPath {
   pub(crate) fn as_pathbuf(&self) -> PathBuf {
     PathBuf::from(&self.parent_dir.inn).join(&self.name).with_extension(self.ext.to_string())
   }
-  pub(crate) async fn get_book_size(&self) -> anyhow::Result<BookSize> {
+  pub(crate) fn get_book_size(&self) -> anyhow::Result<BookSize> {
     let buf = &self.as_pathbuf();
-    BookSize::new(buf).await
+    BookSize::new(buf)
   }
   pub fn full_path_string(&self) -> String {
     self.as_pathbuf().to_str().unwrap().to_string()

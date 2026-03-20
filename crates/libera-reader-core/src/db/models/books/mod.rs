@@ -10,7 +10,6 @@ use utils::debug;
 
 use crate::{
   db::{
-    DB,
     models::{
       MutoolData,
       books::{
@@ -18,11 +17,13 @@ use crate::{
         book_sizes::BookSizes,
       },
     },
+    scan_primary,
   },
   services::scan_service::{BooksFromDB, DBBooksCount},
   types::HashMap,
 };
 
+use native_db::transaction::{RTransaction, RwTransaction};
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
@@ -67,8 +68,8 @@ impl Books {
     storage.insert(book.book_path.name.clone(), book);
     Self { parent_dir, storage }
   }
-  pub fn get_by_path(book_path: BookPath, db: &DB) -> anyhow::Result<Option<Book>> {
-    match Books::get_by_parent_dir(book_path.parent_dir, db)? {
+  pub fn get_by_path(book_path: BookPath, r: &RTransaction) -> anyhow::Result<Option<Book>> {
+    match Books::get_by_parent_dir(book_path.parent_dir, r)? {
       Some(books) => match books.storage.get(&book_path.name) {
         Some(book) => Ok(Some(book.clone())),
         None => Ok(None),
@@ -76,70 +77,73 @@ impl Books {
       None => Ok(None),
     }
   }
-  pub fn get_by_parent_dir(parent_dir: BookDir, db: &DB) -> anyhow::Result<Option<Self>> {
-    db.get_primary::<Books>(parent_dir)
+  pub fn get_by_parent_dir(parent_dir: BookDir, r: &RTransaction<'_>) -> anyhow::Result<Option<Self>> {
+    Ok(r.get().primary::<Books>(parent_dir)?)
   }
-  pub(crate) async fn insert_many(
-    &mut self, books: impl IntoIterator<Item = BookPath>, db: &DB,
+  pub fn get_by_parent_dir_rw(parent_dir: BookDir, rw_t: &RwTransaction<'_>) -> anyhow::Result<Option<Self>> {
+    Ok(rw_t.get().primary::<Books>(parent_dir)?)
+  }
+  pub(crate) fn insert_many(
+    &mut self, books: impl IntoIterator<Item = BookPath>, rw_t: &RwTransaction<'_>,
   ) -> anyhow::Result<()> {
     let old_self = self.clone();
     for book_path in books {
       let book_name = book_path.name.clone();
-      let new_book = Book::new(book_path).await?;
+      let new_book = Book::new(book_path)?;
       self.storage.insert(book_name, new_book);
     }
-    db.update(old_self, self.clone())?;
+    rw_t.update(old_self, self.clone())?;
     Ok(())
   }
-  pub(crate) async fn insert_many_and_create_new_self(
-    parent_dir: BookDir, books: impl IntoIterator<Item = BookPath>, db: &DB,
+  pub(crate) fn insert_many_and_create_new_self(
+    parent_dir: BookDir, books: impl IntoIterator<Item = BookPath>, rw_t: &RwTransaction<'_>,
   ) -> anyhow::Result<()> {
     let mut storage = HashMap::default();
     for book_path in books {
-      let book = Book::new(book_path).await?;
+      let book = Book::new(book_path)?;
       storage.insert(book.book_path.name.clone(), book);
     }
-    db.insert::<Self>(Self { parent_dir, storage })?;
+    rw_t.insert::<Self>(Self { parent_dir, storage })?;
     Ok(())
   }
-  pub(crate) async fn insert_book(new_book: Book, db: &DB) -> anyhow::Result<()> {
+  pub(crate) fn insert_book(new_book: Book, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
     let parent_dir = new_book.book_path.parent_dir.clone();
-    match Books::get_by_parent_dir(parent_dir, db).unwrap() {
+    match Books::get_by_parent_dir_rw(parent_dir, rw_t)? {
       Some(old_books) => {
         let mut updated_books = old_books.clone();
         match updated_books.storage.get_mut(&new_book.book_path.name) {
           Some(book) => {
             if book.book_path.deleted {
               book.book_path.deleted = false;
-              db.update::<Self>(old_books, updated_books).unwrap();
+              rw_t.update::<Self>(old_books, updated_books).unwrap();
             }
           }
           None => {
             updated_books.storage.insert(new_book.book_path.name.clone(), new_book);
-            db.update::<Self>(old_books, updated_books).unwrap();
+            rw_t.update::<Self>(old_books, updated_books).unwrap();
           }
         };
       }
       None => {
-        db.insert::<Self>(Self::new(new_book)).unwrap();
+        rw_t.insert::<Self>(Self::new(new_book)).unwrap();
       }
     };
     Ok(())
   }
-  pub fn all(db: &DB) -> (BooksFromDB, DBBooksCount) {
+  pub fn all(r: &RTransaction<'_>) -> (BooksFromDB, DBBooksCount) {
     let mut db_books_count: usize = 0;
     let mut res: HashMap<BookDir, Books> = Default::default();
-    for books in db.scan_primary::<Self>().unwrap() {
+    for books in scan_primary::<Books>(r).unwrap() {
       db_books_count += books.storage.len();
       res.insert(books.parent_dir.clone(), books);
     }
     (res, db_books_count)
   }
-  pub(crate) fn remove_self(self, db: &DB) -> anyhow::Result<()> {
+  pub(crate) fn remove_self(self, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
     let start_time = std::time::Instant::now();
     match self.storage.is_empty() {
       true => {
-        db.remove(self).unwrap();
+        rw_t.remove(self).unwrap();
       }
       false => {
         let mut updated_books = self.clone();
@@ -153,7 +157,7 @@ impl Books {
             }
             false => {
               book.mark_as_deleted();
-              BookSizes::mark_book_path_as_deleted(book.book_size, &book.book_path, db).unwrap();
+              BookSizes::mark_book_path_as_deleted(book.book_size, &book.book_path, rw_t).unwrap();
               new_storage.insert(book_name, book);
             }
           };
@@ -161,16 +165,16 @@ impl Books {
         updated_books.storage = new_storage;
 
         for book in deleted_books {
-          BookSizes::remove_book(book.book_size, &book.book_path, db).unwrap();
+          BookSizes::remove_book(book.book_size, &book.book_path, rw_t).unwrap();
         }
         let dir_exsits = updated_books.parent_dir.exists();
         let storage_is_empty = updated_books.storage.is_empty();
         match storage_is_empty || !dir_exsits {
           true => {
-            db.remove(self).unwrap();
+            rw_t.remove(self).unwrap();
           }
           false => {
-            db.update(self, updated_books).unwrap();
+            rw_t.update(self, updated_books).unwrap();
           }
         };
       }
@@ -179,7 +183,7 @@ impl Books {
     debug!("The total time of deleting books in the dir: {:?}", &total_time);
     Ok(())
   }
-  pub(crate) async fn remove_book(&self, book_path: BookPath, db: &DB) -> anyhow::Result<()> {
+  pub(crate) fn remove_book(&self, book_path: BookPath, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
     let old_self = self.clone();
     let mut updated_self = self.clone();
     if let Some(outdated_book_link) = updated_self.storage.get_mut(&book_path.name) {
@@ -187,15 +191,15 @@ impl Books {
       match outdated_book_link.can_delete() {
         true => {
           if let Some(outdated_book) = updated_self.storage.swap_remove(&book_path.name) {
-            BookSizes::remove_book(outdated_book.book_size, &book_path, db)?;
+            BookSizes::remove_book(outdated_book.book_size, &book_path, rw_t)?;
           };
         }
         false => {
           outdated_book_link.mark_as_deleted();
-          BookSizes::mark_book_path_as_deleted(outdated_book_link.book_size, &outdated_book_link.book_path, db)?;
+          BookSizes::mark_book_path_as_deleted(outdated_book_link.book_size, &outdated_book_link.book_path, rw_t)?;
         }
       };
-      db.update(old_self, updated_self)?;
+      rw_t.update(old_self, updated_self)?;
       let total_time = start_time.elapsed();
       debug!("The total time of deleting a book: {:?}", &total_time);
     };
