@@ -12,18 +12,12 @@ pub enum BookSize {
 }
 impl BookSize {
   pub(crate) fn new(path_to_file: &PathBuf) -> anyhow::Result<Self> {
-    match fs::canonicalize(path_to_file) {
-      Ok(path) => match fs::metadata(&path) {
-        Ok(metadata) => {
-          let file_size = metadata.len();
-          Ok(BookSize::BYTES(file_size))
-        }
-        Err(err) => Err(anyhow::anyhow!("Failed to get file size for {:?}: {:?}", &path, err)),
-      },
-      Err(err) => {
-        eprintln!("Path bytes: {:?}", path_to_file.as_os_str().as_encoded_bytes());
-        Err(anyhow::anyhow!("Failed to canonicalize path {:?}: {:?}", &path_to_file, err))
+    match fs::metadata(path_to_file) {
+      Ok(metadata) => {
+        let file_size = metadata.len();
+        Ok(BookSize::BYTES(file_size))
       }
+      Err(err) => Err(anyhow::anyhow!("Failed to get file size for {:?}: {:?}", &path_to_file, err)),
     }
   }
   pub fn as_mb(&self) -> u64 {

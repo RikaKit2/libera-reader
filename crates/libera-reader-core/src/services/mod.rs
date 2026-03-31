@@ -29,8 +29,6 @@ impl Services {
   pub async fn run(&mut self) -> Result<()> {
     self.scan_service.run().await?;
     self.db.compact()?;
-    self.db.save_to_storage()?;
-    self.db.reload_db()?;
     self.notify_service.run()?;
     Ok(())
   }

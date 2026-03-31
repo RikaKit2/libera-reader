@@ -10,9 +10,7 @@ use native_db::transaction::{RTransaction, RwTransaction};
 use native_db::{Builder, Database, Models, ToInput, ToKey, db_type};
 use once_cell::sync::Lazy;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use sysinfo::System;
-use utils::{debug, title};
+use std::sync::{Arc, RwLock};
 
 fn get_models() -> Result<Models> {
   let mut models = Models::new();
@@ -26,99 +24,38 @@ fn get_models() -> Result<Models> {
 static MODELS: Lazy<Models> = Lazy::new(|| get_models().unwrap());
 
 #[derive(Clone)]
-pub(crate) enum DBType {
-  InMemory(Arc<RwLock<Database<'static>>>),
-  InFile(Arc<RwLock<Database<'static>>>),
-}
-impl DBType {
-  pub(crate) fn new_in_memory() -> Self {
-    Self::InMemory(Arc::new(RwLock::new(Builder::new().create_in_memory(&MODELS).unwrap())))
-  }
-  pub(crate) fn new_in_file(path_to_db: &PathBuf) -> Self {
-    Self::InFile(Arc::new(RwLock::new(Builder::new().open(&MODELS, path_to_db).unwrap())))
-  }
-  pub(crate) fn read(&self) -> RwLockReadGuard<'_, Database<'static>> {
-    match self {
-      Self::InMemory(inn) => inn.read().unwrap(),
-      Self::InFile(inn) => inn.read().unwrap(),
-    }
-  }
-  pub(crate) fn write(&self) -> RwLockWriteGuard<'_, Database<'static>> {
-    match self {
-      Self::InMemory(inn) => inn.write().unwrap(),
-      Self::InFile(inn) => inn.write().unwrap(),
-    }
-  }
-}
-#[derive(Clone)]
 pub struct DB {
-  pub(crate) db_type: DBType,
-  path_to_db: Arc<RwLock<PathBuf>>,
+  db: Arc<RwLock<Database<'static>>>,
 }
+
 impl DB {
   pub fn new(path_to_db: PathBuf) -> Result<Self> {
-    let db = match path_to_db.exists() {
-      true => DBType::new_in_file(&path_to_db),
-      false => DBType::new_in_memory(),
+    let db = if path_to_db.exists() {
+      Builder::new().open(&MODELS, &path_to_db)?
+    } else {
+      Builder::new().create(&MODELS, &path_to_db)?
     };
-    Ok(Self { db_type: db, path_to_db: Arc::new(RwLock::new(path_to_db)) })
+    Ok(Self { db: Arc::new(RwLock::new(db)) })
   }
-  pub fn save_to_storage(&self) -> Result<()> {
-    match &self.db_type {
-      DBType::InMemory(_) => {
-        self.db_type.write().snapshot(&MODELS, &self.path_to_db.read().unwrap())?;
-      }
-      DBType::InFile(_) => {}
-    }
-    Ok(())
-  }
-  pub fn reload_db(&mut self) -> Result<()> {
-    let db_in_memory = match &self.db_type {
-      DBType::InMemory(_) => true,
-      DBType::InFile(_) => false,
-    };
 
-    if db_in_memory {
-      let pid = sysinfo::get_current_pid().unwrap();
-      let mut sys = System::new_all();
-
-      sys.refresh_all();
-      let before = sys.process(pid).map(|p| p.memory() as f64 / (1024.0 * 1024.0)).unwrap_or(0.0);
-
-      let path_to_db = &self.path_to_db.read().unwrap().clone();
-
-      let mut db = self.db_type.write();
-      let new_db = Builder::new().open(&MODELS, path_to_db).unwrap();
-      *db = new_db;
-
-      sys.refresh_all();
-      let after = sys.process(pid).map(|p| p.memory() as f64 / (1024.0 * 1024.0)).unwrap_or(0.0);
-
-      title!("DB RELOADED SUCCESSFULLY");
-      debug!(
-        "DB in memory, usage: {:.2} MB\nDB on disk, usage: {:.2} MB\nMemory {:.2} MB is released",
-        before,
-        after,
-        before - after
-      );
-    }
-    Ok(())
-  }
   pub fn compact(&self) -> Result<()> {
-    self.db_type.write().compact()?;
+    self.db.write().unwrap().compact()?;
     Ok(())
   }
+
   pub(crate) fn get_primary<T: ToInput>(&self, key: impl ToKey) -> Result<Option<T>> {
-    Ok(self.db_type.read().r_transaction()?.get().primary(key)?)
+    Ok(self.db.read().unwrap().r_transaction()?.get().primary(key)?)
   }
+
   pub(crate) fn insert<T: ToInput>(&self, item: T) -> Result<(), Box<db_type::Error>> {
-    let lock = self.db_type.write();
+    let lock = self.db.write().unwrap();
     let rw_conn = lock.rw_transaction().map_err(Box::new)?;
     rw_conn.insert(item).map_err(Box::new)?;
     rw_conn.commit().map_err(Box::new)
   }
+
   pub(crate) fn update<T: ToInput>(&self, old_data: T, new_data: T) -> Result<(), Box<db_type::Error>> {
-    let lock = self.db_type.write();
+    let lock = self.db.write().unwrap();
     let rw_conn = lock.rw_transaction().map_err(Box::new)?;
     rw_conn.update(old_data, new_data).map_err(Box::new)?;
     rw_conn.commit().map_err(Box::new)
@@ -128,17 +65,18 @@ impl DB {
   where
     F: FnOnce(&RwTransaction) -> Result<T>,
   {
-    let lock = self.db_type.write();
+    let lock = self.db.write().unwrap();
     let rw_txn = lock.rw_transaction()?;
     let result = func(&rw_txn)?;
     rw_txn.commit()?;
     Ok(result)
   }
+
   pub fn rt<F, T>(&self, func: F) -> Result<T>
   where
     F: FnOnce(&RTransaction) -> Result<T>,
   {
-    let lock = self.db_type.write();
+    let lock = self.db.write().unwrap();
     let r_txn = lock.r_transaction()?;
     let result = func(&r_txn)?;
     Ok(result)

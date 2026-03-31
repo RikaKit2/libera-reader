@@ -138,52 +138,56 @@ impl ScanService {
     db: &DB, books_from_disk: &BooksFromDisk, books_from_db: BooksFromDB,
   ) -> anyhow::Result<()> {
     let mut num_of_outdated_books: usize = 0;
-    for (book_dir, books) in books_from_db {
-      match books_from_disk.get(&book_dir) {
-        Some(disk_books) => {
-          for (_book_name, book) in books.storage.iter() {
-            match disk_books.contains(&book.book_path) {
-              true => {}
-              false => {
+
+    db.rw_t(|rw_t| {
+      for (book_dir, books) in books_from_db {
+        match books_from_disk.get(&book_dir) {
+          Some(disk_books) => {
+            for (_book_name, book) in books.storage.iter() {
+              if !disk_books.contains(&book.book_path) {
                 num_of_outdated_books += 1;
-                db.rw_t(|rw_t| books.remove_book(book.book_path.clone(), rw_t)).unwrap();
+                books.remove_book(book.book_path.clone(), rw_t)?;
               }
-            };
+            }
           }
-        }
-        None => {
-          num_of_outdated_books += books.storage.len();
-          db.rw_t(|rw_t| books.remove_self(rw_t)).unwrap();
-        }
-      };
-    }
+          None => {
+            num_of_outdated_books += books.storage.len();
+            books.remove_self(rw_t)?;
+          }
+        };
+      }
+      Ok(())
+    })?;
+
     debug!("Number of outdated books: {:?}", &num_of_outdated_books);
     Ok(())
   }
   fn insert_new_books_to_db(db: &DB, books_from_disk: BooksFromDisk) -> anyhow::Result<()> {
     let mut num_of_new_books: usize = 0;
-    for (book_dir, disk_books) in books_from_disk.into_iter() {
-      let (mut books_from_db, _): (BooksFromDB, DBBooksCount) = db.rt(|r| Ok(Books::all(r)))?;
-      match books_from_db.get_mut(&book_dir) {
-        Some(db_books) => {
-          let mut new_books = vec![];
-          for book_path in disk_books {
-            match db_books.storage.contains_key(&book_path.name) {
-              true => {}
-              false => {
+    let (mut books_from_db, _): (BooksFromDB, DBBooksCount) = db.rt(|r| Ok(Books::all(r)))?;
+
+    db.rw_t(|rw_t| {
+      for (book_dir, disk_books) in books_from_disk.into_iter() {
+        match books_from_db.get_mut(&book_dir) {
+          Some(db_books) => {
+            let mut new_books = vec![];
+            for book_path in disk_books {
+              if !db_books.storage.contains_key(&book_path.name) {
                 new_books.push(book_path);
               }
-            };
+            }
+            num_of_new_books += new_books.len();
+            db_books.insert_many(new_books.into_iter(), rw_t)?;
           }
-          num_of_new_books += new_books.len();
-          db.rw_t(|rw_t| db_books.insert_many(new_books.into_iter(), rw_t))?;
-        }
-        None => {
-          num_of_new_books += disk_books.len();
-          db.rw_t(|rw_t| Books::insert_many_and_create_new_self(book_dir, disk_books.into_iter(), rw_t))?;
-        }
-      };
-    }
+          None => {
+            num_of_new_books += disk_books.len();
+            Books::insert_many_and_create_new_self(book_dir, disk_books.into_iter(), rw_t)?;
+          }
+        };
+      }
+      Ok(())
+    })?;
+
     debug!("Number of new books: {:?}", &num_of_new_books);
     Ok(())
   }

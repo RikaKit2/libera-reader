@@ -63,6 +63,7 @@ fn finish_btn() -> Div {
     move |_event, _window, cx| {
       cx.ctx_mut().settings.set_setup_status(true).unwrap();
       cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
+      cx.ctx_mut().db.compact().unwrap();
     },
   ))
 }
