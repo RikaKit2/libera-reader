@@ -14,3 +14,11 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
+
+      - id: audit
+        name: cargo audit
+        entry: cargo audit --deny warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+        files: ^Cargo\.(toml|lock)$
