@@ -59,7 +59,7 @@ pub enum BookType {
 pub struct Books {
   #[primary_key]
   pub parent_dir: BookDir,
-  pub(crate) storage: HashMap<BookName, Book>,
+  pub storage: HashMap<BookName, Book>,
 }
 impl Books {
   fn new(book: Book) -> Self {

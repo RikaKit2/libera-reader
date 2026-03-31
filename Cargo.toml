@@ -26,7 +26,7 @@ sys-locale = "0.3.2"
 anyhow = "1.0.102"
 gpui = "0.2.2"
 gpui-component = "0.5.1"
-rfd = "0.17.2"
+rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
 unicode-segmentation = "1.12.0"
 tracing-subscriber = { version = "0.3", features = ["ansi"] }
 reqwest = { version = "0.13", features = ["stream"] }
@@ -38,7 +38,6 @@ dashmap = "6.1.0"
 image = "0.25.10"
 zune-core = "0.5.1"
 zune-jpegxl = "0.5.2"
-sysinfo = "0.38.4"
 jwalk = "0.8.1"
 mimalloc = { version = "0.1.48", features = ["v3"] }
 chrono = "0.4.44"
