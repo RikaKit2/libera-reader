@@ -83,29 +83,6 @@ impl Books {
   pub fn get_by_parent_dir_rw(parent_dir: BookDir, rw_t: &RwTransaction<'_>) -> anyhow::Result<Option<Self>> {
     Ok(rw_t.get().primary::<Books>(parent_dir)?)
   }
-  pub(crate) fn insert_many(
-    &mut self, books: impl IntoIterator<Item = BookPath>, rw_t: &RwTransaction<'_>,
-  ) -> anyhow::Result<()> {
-    let old_self = self.clone();
-    for book_path in books {
-      let book_name = book_path.name.clone();
-      let new_book = Book::new(book_path)?;
-      self.storage.insert(book_name, new_book);
-    }
-    rw_t.update(old_self, self.clone())?;
-    Ok(())
-  }
-  pub(crate) fn insert_many_and_create_new_self(
-    parent_dir: BookDir, books: impl IntoIterator<Item = BookPath>, rw_t: &RwTransaction<'_>,
-  ) -> anyhow::Result<()> {
-    let mut storage = HashMap::default();
-    for book_path in books {
-      let book = Book::new(book_path)?;
-      storage.insert(book.book_path.name.clone(), book);
-    }
-    rw_t.insert::<Self>(Self { parent_dir, storage })?;
-    Ok(())
-  }
   pub(crate) fn insert_book(new_book: Book, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
     let parent_dir = new_book.book_path.parent_dir.clone();
     match Books::get_by_parent_dir_rw(parent_dir, rw_t)? {

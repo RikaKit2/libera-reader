@@ -123,48 +123,45 @@ impl NotifyService {
   }
 }
 
-/// Main event processing loop with batching
+/// Main event processing loop with batching using tokio::select!
 async fn run_event_loop(
   mut rx: UnboundedReceiver<notify::Event>, settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB,
 ) {
-  let mut buffer: Vec<FSEvent> = Vec::with_capacity(256);
-
   loop {
-    // 1. Wait indefinitely for the first event
-    match rx.recv().await {
-      Some(event) => {
-        if let Some(fs_event) = FSEvent::from_event(event) {
-          buffer.push(fs_event);
-        }
-      }
-      None => break, // channel closed, exit
-    };
+    let mut buffer: Vec<FSEvent> = Vec::new();
+    let debounce_timer = tokio::time::sleep(DEBOUNCE_INTERVAL);
+    tokio::pin!(debounce_timer);
 
-    // 2. Once the first event arrives, collect "tail" events for 300ms
     loop {
-      match tokio::time::timeout(DEBOUNCE_INTERVAL, rx.recv()).await {
-        Ok(Some(event)) => {
-          if let Some(fs_event) = FSEvent::from_event(event) {
-            buffer.push(fs_event);
+      tokio::select! {
+        // Received event from channel
+        maybe_event = rx.recv() => {
+          if let Some(event) = maybe_event {
+            if let Some(fs_event) = FSEvent::from_event(event) {
+              buffer.push(fs_event);
+            }
+          } else {
+            // Channel closed, exit outer loop
+            return;
           }
         }
-        Ok(None) => break, // channel closed
-        Err(_) => break,   // timeout (300ms) elapsed, time to process the batch
+        // Timer expired
+        _ = &mut debounce_timer => {
+          break; // Exit collection loop
+        }
       }
     }
 
-    // 3. Process the batch
+    // Process buffer after timer expiration
     if !buffer.is_empty() {
-      // std::mem::take moves data from buffer into batch, leaving buffer empty for the next cycle
-      let batch = std::mem::take(&mut buffer);
-      process_batch(batch, settings.clone(), not_cached_books.clone(), db.clone()).await;
+      process_batch(buffer, settings.clone(), not_cached_books.clone(), db.clone()).await;
     }
   }
 }
 
 /// Process the entire batch of events in a SINGLE thread and a SINGLE DB transaction
 async fn process_batch(batch: Vec<FSEvent>, settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB) {
-  tokio::task::spawn_blocking(move || {
+  std::thread::spawn(move || {
     let start_time = std::time::Instant::now();
     let events_count = batch.len();
 
@@ -214,7 +211,5 @@ async fn process_batch(batch: Vec<FSEvent>, settings: SETTINGS, not_cached_books
       debug!("Batch processing error: {:?}", err);
     }
     debug!("Processed batch of {} events in {:?}", events_count, start_time.elapsed());
-  })
-  .await
-  .ok();
+  });
 }

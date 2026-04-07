@@ -8,3 +8,5 @@ use crate::db::models::books::book::BookPath;
 pub type HashMap<K, V> = IndexMap<K, V, GxBuildHasher>;
 pub type HashSet<T> = IndexSet<T, GxBuildHasher>;
 pub type NotCachedBooks = Arc<ConcurrentQueue<Box<BookPath>>>;
+
+pub const MUPDF_EXTENSIONS: [&str; 6] = ["pdf", "epub", "xps", "cbz", "mobi", "fb2"];

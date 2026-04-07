@@ -40,8 +40,7 @@ impl Ctx {
     let db = DB::new(path_to_db).unwrap();
     let settings = SETTINGS::new(db.clone()).unwrap();
     let not_cached_books = NotCachedBooks::new();
-    let services =
-      Services::new(settings.clone(), db.clone(), not_cached_books.clone(), error_handler.clone()).unwrap();
+    let services = Services::new(settings.clone(), db.clone(), not_cached_books.clone()).unwrap();
     Self { services, settings, app_dirs, not_cached_books, db, error_handler, error_receiver }
   }
   pub fn init(cx: &mut App) {
