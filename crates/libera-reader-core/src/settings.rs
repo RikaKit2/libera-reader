@@ -100,7 +100,6 @@ impl SETTINGS {
       BookExt::PDF(_) => model.pdf,
       BookExt::EPUB(_) => model.epub,
       BookExt::MOBI(_) => model.mobi,
-      BookExt::DJVU(_) => model.djvu,
     }
   }
   pub fn invert_pdf(&mut self) -> Result<()> {

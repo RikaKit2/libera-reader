@@ -9,7 +9,6 @@ pub enum BookExt {
   PDF(RealExtStr),
   EPUB(RealExtStr),
   MOBI(RealExtStr),
-  DJVU(RealExtStr),
 }
 
 impl BookExt {
@@ -22,7 +21,6 @@ impl BookExt {
           "pdf" => Some(Self::PDF(real_ext)),
           "epub" => Some(Self::EPUB(real_ext)),
           "mobi" => Some(Self::MOBI(real_ext)),
-          "djvu" => Some(Self::DJVU(real_ext)),
           _ => None,
         }
       }
@@ -37,7 +35,6 @@ impl fmt::Display for BookExt {
       Self::PDF(ext) => ext,
       Self::EPUB(ext) => ext,
       Self::MOBI(ext) => ext,
-      Self::DJVU(ext) => ext,
     };
     write!(f, "{}", s)
   }
