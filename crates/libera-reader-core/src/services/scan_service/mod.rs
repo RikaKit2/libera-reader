@@ -1,8 +1,8 @@
 use crate::{
   db::models::books::{Books, book::Book},
-  types::MUPDF_EXTENSIONS,
+  types::{LibraryEvent, MUPDF_EXTENSIONS},
 };
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 
 use jwalk::WalkDir;
 
@@ -14,10 +14,8 @@ use crate::{
   },
   settings::SETTINGS,
 };
-use tokio::{
-  sync::mpsc::UnboundedReceiver,
-  time::{self, Duration},
-};
+use tokio::sync::{broadcast, mpsc::UnboundedReceiver};
+use tokio::time::{self, Duration};
 use utils::debug;
 
 pub(crate) type DBBooksCount = usize;
@@ -26,18 +24,19 @@ pub(crate) type BooksFromDB = HashMap<BookDir, Books>;
 pub struct ScanService {
   settings: SETTINGS,
   db: DB,
+  event_tx: broadcast::Sender<LibraryEvent>,
 }
 
 impl ScanService {
-  pub(crate) fn new(settings: SETTINGS, db: DB) -> Self {
-    Self { settings, db }
+  pub(crate) fn new(settings: SETTINGS, db: DB, event_tx: broadcast::Sender<LibraryEvent>) -> Self {
+    Self { settings, db, event_tx }
   }
 
   fn get_books_from_disk(path_to_scan: PathBuf) -> UnboundedReceiver<BookPath> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
     tokio::task::spawn_blocking(move || {
-      let start_time = std::time::Instant::now();
+      let start_time = Instant::now();
       for entry in WalkDir::new(path_to_scan) {
         if let Ok(entry) = entry
           && entry.file_type().is_file()
@@ -55,8 +54,7 @@ impl ScanService {
           }
         }
       }
-      debug!("WalkDir finished in: {:?}", start_time.elapsed());
-      // When exiting the closure, `tx` is dropped, which signals closure to `rx`.
+      debug!("\nWalkDir finished in: {:?}", start_time.elapsed());
     });
     rx
   }
@@ -79,6 +77,9 @@ impl ScanService {
   }
 
   async fn run_event_loop(&self, mut rx: UnboundedReceiver<BookPath>, mut db_books: HashMap<BookDir, Books>) {
+    let mut total_new_books = 0;
+    let total_insert_start = Instant::now();
+
     loop {
       // 1. Wait for the FIRST batch item.
       // If the channel is empty and closed - exit the entire event loop.
@@ -119,16 +120,32 @@ impl ScanService {
       }
 
       if !buffer.is_empty() {
-        self.insert_books(buffer, &mut db_books).await;
+        let new_count = self.insert_books(buffer, &mut db_books);
+        total_new_books += new_count;
+        eprint!("\rAdding books: {} (elapsed: {:?})", total_new_books, total_insert_start.elapsed());
       }
     }
 
-    self.remove_outdated_books(db_books).await;
+    let total_insert_elapsed = total_insert_start.elapsed();
+    eprintln!();
+
+    let total_remove_start = Instant::now();
+    let removed_count = self.remove_outdated_books(db_books).await;
+    let total_remove_elapsed = total_remove_start.elapsed();
+
+    if total_new_books > 0 || removed_count > 0 {
+      debug!(
+        "Scan complete. Added {} new books in {:?}, removed {} outdated books in {:?}.",
+        total_new_books, total_insert_elapsed, removed_count, total_remove_elapsed
+      );
+    }
+
     debug!("Full scanning process finished.");
   }
 
-  async fn insert_books(&self, buffer: Vec<BookPath>, db_books: &mut HashMap<BookDir, Books>) {
+  fn insert_books(&self, buffer: Vec<BookPath>, db_books: &mut HashMap<BookDir, Books>) -> usize {
     let mut new_books = 0;
+    let event_tx = &self.event_tx;
 
     let _ = self.db.rw_t(|rw_t| {
       for book_path in buffer {
@@ -138,7 +155,9 @@ impl ScanService {
             None => {
               new_books += 1;
               if let Ok(new_book) = Book::new(book_path.clone()) {
-                let _ = Books::insert_book(new_book, rw_t);
+                let _ = Books::insert_book(new_book.clone(), rw_t);
+                // Шлём событие для каждой новой книги
+                let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
               }
             }
           },
@@ -146,7 +165,9 @@ impl ScanService {
           None => {
             new_books += 1;
             if let Ok(new_book) = Book::new(book_path.clone()) {
-              let _ = Books::insert_book(new_book, rw_t);
+              let _ = Books::insert_book(new_book.clone(), rw_t);
+              // Шлём событие для каждой новой книги
+              let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
             }
           }
         }
@@ -154,12 +175,10 @@ impl ScanService {
       Ok(())
     });
 
-    if new_books > 0 {
-      debug!("Batch processed. Added {} new books.", new_books);
-    }
+    new_books
   }
 
-  async fn remove_outdated_books(&self, dead_books: HashMap<BookDir, Books>) {
+  async fn remove_outdated_books(&self, dead_books: HashMap<BookDir, Books>) -> usize {
     let mut outdated_books_count = 0;
 
     let _ = self.db.rw_t(|rw_t| {
@@ -177,8 +196,6 @@ impl ScanService {
       Ok(())
     });
 
-    if outdated_books_count > 0 {
-      debug!("Removed {} dead books from DB.", outdated_books_count);
-    }
+    outdated_books_count
   }
 }

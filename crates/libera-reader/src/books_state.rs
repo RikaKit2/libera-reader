@@ -1,0 +1,261 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
+use gpui::*;
+use std::cmp::Ordering;
+use tokio::sync::broadcast;
+
+use libera_reader_core::db::models::books::Books;
+use libera_reader_core::db::models::books::book::{Book, BookDir, BookPath, BookSize};
+use libera_reader_core::types::{HashMap, LibraryEvent};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum SortField {
+  Name,
+  Size,
+  DateAdded,
+}
+
+#[derive(Clone, Copy)]
+pub struct SortConfig {
+  pub field: SortField,
+  pub is_reversed: bool,
+}
+
+impl Default for SortConfig {
+  fn default() -> Self {
+    Self { field: SortField::Name, is_reversed: false }
+  }
+}
+
+pub enum TargetList {
+  Library,
+  Favorites,
+  History,
+}
+
+pub struct BooksState {
+  pub books_map: HashMap<BookDir, Books>,
+
+  // Списки для разных страниц
+  pub library_keys: Vec<BookPath>,
+  pub favorites_keys: Vec<BookPath>,
+  pub history_keys: Vec<BookPath>,
+
+  // Настройки сортировки для КАЖДОЙ страницы
+  pub library_sort: SortConfig,
+  pub favorites_sort: SortConfig,
+  pub history_sort: SortConfig,
+}
+
+impl BooksState {
+  pub fn new(
+    initial_books: HashMap<BookDir, Books>, mut event_rx: broadcast::Receiver<LibraryEvent>,
+    cx: &mut Context<Self>,
+  ) -> Self {
+    let mut library_keys = Vec::new();
+    let mut favorites_keys = Vec::new();
+    let history_keys = Vec::new();
+
+    for (_, dir_books) in initial_books.iter() {
+      for (_, book) in dir_books.storage.iter() {
+        library_keys.push(book.book_path.clone());
+        if book.user_data.favorite {
+          favorites_keys.push(book.book_path.clone());
+        }
+      }
+    }
+
+    let mut state = Self {
+      books_map: initial_books,
+      library_keys,
+      favorites_keys,
+      history_keys,
+      library_sort: SortConfig::default(),
+      favorites_sort: SortConfig::default(),
+      history_sort: SortConfig::default(),
+    };
+
+    state.apply_sorting_to(TargetList::Library);
+    state.apply_sorting_to(TargetList::Favorites);
+
+    cx.spawn(|this: gpui::WeakEntity<BooksState>, cx: &mut gpui::AsyncApp| {
+      let mut owned_cx = cx.clone();
+      async move {
+        while let Ok(event) = event_rx.recv().await {
+          let _ =
+            this.update(&mut owned_cx, |state: &mut BooksState, context: &mut gpui::Context<'_, BooksState>| {
+              state.apply_event(event);
+              context.notify();
+            });
+        }
+      }
+    })
+    .detach();
+
+    state
+  }
+
+  pub fn get_book(&self, path: &BookPath) -> Option<&Book> {
+    self.books_map.get(&path.parent_dir).and_then(|dir_books| dir_books.storage.get(&path.name))
+  }
+
+  // === Публичные методы для управления сортировкой на каждой странице ===
+
+  pub fn set_sort_field(&mut self, field: SortField, target: TargetList, cx: &mut Context<Self>) {
+    let config = match target {
+      TargetList::Library => &mut self.library_sort,
+      TargetList::Favorites => &mut self.favorites_sort,
+      TargetList::History => &mut self.history_sort,
+    };
+    if config.field != field {
+      config.field = field;
+      self.apply_sorting_to(target);
+      cx.notify();
+    }
+  }
+
+  pub fn toggle_reverse(&mut self, target: TargetList, cx: &mut Context<Self>) {
+    let config = match target {
+      TargetList::Library => &mut self.library_sort,
+      TargetList::Favorites => &mut self.favorites_sort,
+      TargetList::History => &mut self.history_sort,
+    };
+    config.is_reversed = !config.is_reversed;
+    self.apply_sorting_to(target);
+    cx.notify();
+  }
+
+  /// Общая функция применения сортировки для конкретного списка
+  pub fn apply_sorting_to(&mut self, target: TargetList) {
+    let (keys, config) = match target {
+      TargetList::Library => (&mut self.library_keys, &self.library_sort),
+      TargetList::Favorites => (&mut self.favorites_keys, &self.favorites_sort),
+      TargetList::History => (&mut self.history_keys, &self.history_sort),
+    };
+
+    let field = config.field;
+    let reversed = config.is_reversed;
+    let map = &self.books_map;
+
+    keys.sort_by(|path_a, path_b| {
+      let book_a = map.get(&path_a.parent_dir).and_then(|d| d.storage.get(&path_a.name));
+      let book_b = map.get(&path_b.parent_dir).and_then(|d| d.storage.get(&path_b.name));
+
+      let cmp = match (book_a, book_b) {
+        (Some(a), Some(b)) => match field {
+          SortField::Name => a.book_path.name.to_lowercase().cmp(&b.book_path.name.to_lowercase()),
+          SortField::Size => {
+            let BookSize::BYTES(size_a) = a.book_size;
+            let BookSize::BYTES(size_b) = b.book_size;
+            size_a.cmp(&size_b)
+          }
+          SortField::DateAdded => Ordering::Equal, // TODO: реализовать при наличии поля
+        },
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => Ordering::Equal,
+      };
+
+      if reversed { cmp.reverse() } else { cmp }
+    });
+  }
+
+  fn apply_event(&mut self, event: LibraryEvent) {
+    match event {
+      LibraryEvent::BookAdded(book) => {
+        let path = book.book_path.clone();
+        let is_favorite = book.user_data.favorite;
+
+        let dir_books = self
+          .books_map
+          .entry(path.parent_dir.clone())
+          .or_insert_with(|| Books { parent_dir: path.parent_dir.clone(), storage: HashMap::default() });
+        dir_books.storage.insert(path.name.clone(), book);
+
+        if !self.library_keys.contains(&path) {
+          self.library_keys.push(path.clone());
+          self.apply_sorting_to(TargetList::Library);
+        }
+
+        if is_favorite && !self.favorites_keys.contains(&path) {
+          self.favorites_keys.push(path);
+          self.apply_sorting_to(TargetList::Favorites);
+        }
+      }
+
+      LibraryEvent::BookUpdated(book) => {
+        let path = book.book_path.clone();
+        let is_favorite = book.user_data.favorite;
+
+        if let Some(dir_books) = self.books_map.get_mut(&path.parent_dir) {
+          dir_books.storage.insert(path.name.clone(), book.clone());
+        }
+
+        if is_favorite && !self.favorites_keys.contains(&path) {
+          self.favorites_keys.push(path.clone());
+          self.apply_sorting_to(TargetList::Favorites);
+        } else if !is_favorite {
+          self.favorites_keys.retain(|k| k != &path);
+        }
+      }
+
+      LibraryEvent::BookRemoved(path) => {
+        if let Some(dir_books) = self.books_map.get_mut(&path.parent_dir) {
+          dir_books.storage.swap_remove(&path.name);
+          if dir_books.storage.is_empty() {
+            self.books_map.swap_remove(&path.parent_dir);
+          }
+        }
+
+        self.library_keys.retain(|k| k != &path);
+        self.favorites_keys.retain(|k| k != &path);
+        self.history_keys.retain(|k| k != &path);
+      }
+
+      LibraryEvent::BookPathUpdated { old_path, new_path } => {
+        let mut updated_book = None;
+        if let Some(dir_books) = self.books_map.get_mut(&old_path.parent_dir)
+          && let Some(mut book) = dir_books.storage.swap_remove(&old_path.name)
+        {
+          book.book_path = new_path.clone();
+          updated_book = Some(book);
+        }
+
+        if let Some(book) = updated_book {
+          let dir_books = self
+            .books_map
+            .entry(new_path.parent_dir.clone())
+            .or_insert_with(|| Books { parent_dir: new_path.parent_dir.clone(), storage: HashMap::default() });
+          dir_books.storage.insert(new_path.name.clone(), book);
+        }
+
+        for key in &mut self.library_keys {
+          if *key == old_path {
+            *key = new_path.clone();
+          }
+        }
+        for key in &mut self.favorites_keys {
+          if *key == old_path {
+            *key = new_path.clone();
+          }
+        }
+        for key in &mut self.history_keys {
+          if *key == old_path {
+            *key = new_path.clone();
+          }
+        }
+
+        self.apply_sorting_to(TargetList::Library);
+        self.apply_sorting_to(TargetList::Favorites);
+      }
+
+      LibraryEvent::DirRemoved(dir) => {
+        self.books_map.swap_remove(&dir);
+        self.library_keys.retain(|k| k.parent_dir != dir);
+        self.favorites_keys.retain(|k| k.parent_dir != dir);
+        self.history_keys.retain(|k| k.parent_dir != dir);
+      }
+    }
+  }
+}

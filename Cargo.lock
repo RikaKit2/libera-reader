@@ -3524,6 +3524,7 @@ dependencies = [
  "rust-embed",
  "rust-i18n",
  "serde",
+ "tokio",
  "tracing",
  "unicode-segmentation",
  "utils",

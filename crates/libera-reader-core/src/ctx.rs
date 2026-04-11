@@ -3,10 +3,14 @@ use crate::db::models::{AppTheme, Lang, RootRoute};
 use crate::error_handler::{ErrorHandler, ErrorReceiver};
 use crate::services::Services;
 use crate::settings::SETTINGS;
+use crate::types::LibraryEvent;
 use crate::{app_dirs::AppDirs, not_cached_books::NotCachedBooks};
 use gpui::{App, Global};
 use std::path::PathBuf;
+use tokio::sync::broadcast;
 use utils::debug;
+
+pub type LibraryEventSender = broadcast::Sender<LibraryEvent>;
 
 pub struct Ctx {
   pub settings: SETTINGS,
@@ -16,6 +20,7 @@ pub struct Ctx {
   pub error_handler: ErrorHandler,
   pub error_receiver: ErrorReceiver,
   pub db: DB,
+  pub event_tx: LibraryEventSender,
 }
 impl Default for Ctx {
   fn default() -> Self {
@@ -40,8 +45,10 @@ impl Ctx {
     let db = DB::new(path_to_db).unwrap();
     let settings = SETTINGS::new(db.clone()).unwrap();
     let not_cached_books = NotCachedBooks::new();
-    let services = Services::new(settings.clone(), db.clone(), not_cached_books.clone()).unwrap();
-    Self { services, settings, app_dirs, not_cached_books, db, error_handler, error_receiver }
+    let (event_tx, _) = broadcast::channel::<LibraryEvent>(1024);
+    let services =
+      Services::new(settings.clone(), db.clone(), not_cached_books.clone(), event_tx.clone()).unwrap();
+    Self { services, settings, app_dirs, not_cached_books, db, error_handler, error_receiver, event_tx }
   }
   pub fn init(cx: &mut App) {
     cx.set_global::<Self>(Self::new())

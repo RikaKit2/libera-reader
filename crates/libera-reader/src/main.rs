@@ -4,8 +4,10 @@
 static GLOBAL: MiMalloc = MiMalloc;
 rust_i18n::i18n!("../../locales");
 
+mod books_state;
 mod lang;
 mod theme;
+mod types;
 mod ui;
 
 use crate::lang::set_lang;
