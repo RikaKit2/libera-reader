@@ -4,10 +4,11 @@ use std::time::Duration;
 use crate::{
   db::{
     DB,
-    models::books::book::{BookDir, BookPath},
+    models::books::{book::Book, book::BookDir, book::BookPath},
   },
   not_cached_books::NotCachedBooks,
   settings::SETTINGS,
+  types::LibraryEvent,
 };
 
 use super::WorkStatus;
@@ -16,10 +17,19 @@ use notify::{
   Event, EventKind, RecommendedWatcher, Watcher,
   event::{CreateKind, ModifyKind, RemoveKind, RenameMode},
 };
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::{broadcast, mpsc::UnboundedReceiver};
 use utils::{debug, error};
 
 pub(crate) mod fs_handlers;
+
+/// Status returned when removing a book
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RemoveStatus {
+  /// Book was fully removed from DB
+  FullyDeleted,
+  /// Book was marked as deleted (soft delete) but remains in DB
+  MarkedAsDeleted,
+}
 
 /// Debounce interval for batching filesystem events
 const DEBOUNCE_INTERVAL: Duration = Duration::from_millis(300);
@@ -73,20 +83,31 @@ pub struct NotifyService {
   not_cached_books: NotCachedBooks,
   settings: SETTINGS,
   db: DB,
+  event_tx: broadcast::Sender<LibraryEvent>,
 }
 
 impl NotifyService {
-  pub(crate) fn new(not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB) -> Result<Self> {
+  pub(crate) fn new(
+    not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, event_tx: broadcast::Sender<LibraryEvent>,
+  ) -> Result<Self> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let watcher = notify::recommended_watcher(move |res| match res {
       Ok(event) => {
-        let _ = tx.send(event); // Игнорируем ошибку, если канал закрыт при выходе
+        let _ = tx.send(event);
       }
       Err(err) => {
         error!("Notify watcher error: {:?}", err)
       }
     })?;
-    Ok(Self { status: WorkStatus::NotWorking, watcher, notify_rx: Some(rx), not_cached_books, settings, db })
+    Ok(Self {
+      status: WorkStatus::NotWorking,
+      watcher,
+      notify_rx: Some(rx),
+      not_cached_books,
+      settings,
+      db,
+      event_tx,
+    })
   }
 
   pub fn run(&mut self) -> Result<()> {
@@ -99,12 +120,13 @@ impl NotifyService {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
           let settings = self.settings.clone();
+          let event_tx = self.event_tx.clone();
 
           self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
           self.status = WorkStatus::Working;
 
           tokio::spawn(async move {
-            run_event_loop(rx, settings, not_cached_books, db).await;
+            run_event_loop(rx, settings, not_cached_books, db, event_tx).await;
           });
         }
       }
@@ -126,6 +148,7 @@ impl NotifyService {
 /// Main event processing loop with batching using tokio::select!
 async fn run_event_loop(
   mut rx: UnboundedReceiver<notify::Event>, settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB,
+  event_tx: broadcast::Sender<LibraryEvent>,
 ) {
   loop {
     let mut buffer: Vec<FSEvent> = Vec::new();
@@ -154,13 +177,16 @@ async fn run_event_loop(
 
     // Process buffer after timer expiration
     if !buffer.is_empty() {
-      process_batch(buffer, settings.clone(), not_cached_books.clone(), db.clone()).await;
+      process_batch(buffer, settings.clone(), not_cached_books.clone(), db.clone(), event_tx.clone()).await;
     }
   }
 }
 
 /// Process the entire batch of events in a SINGLE thread and a SINGLE DB transaction
-async fn process_batch(batch: Vec<FSEvent>, settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB) {
+async fn process_batch(
+  batch: Vec<FSEvent>, settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB,
+  event_tx: broadcast::Sender<LibraryEvent>,
+) {
   std::thread::spawn(move || {
     let start_time = std::time::Instant::now();
     let events_count = batch.len();
@@ -172,34 +198,68 @@ async fn process_batch(batch: Vec<FSEvent>, settings: SETTINGS, not_cached_books
         match event {
           FSEvent::CreateFile { file_path } => {
             if let Some(book_path) = BookPath::new(&file_path)
-              && let Err(err) = fs_handlers::insert_book(book_path, rw_t, &settings, &not_cached_books)
+              && let Ok(new_book) = Book::new(book_path.clone())
+              && let Ok(_) = fs_handlers::insert_book(book_path, rw_t, &settings, &not_cached_books)
             {
-              debug!("Error inserting book {:?}: {:?}", file_path, err);
+              let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
             }
           }
 
           FSEvent::RemoveFile { file_path } => {
             // Use the new function that doesn't require reading metadata from disk
-            if let Err(err) = fs_handlers::remove_book_by_path(&file_path, rw_t) {
-              debug!("Error removing book {:?}: {:?}", file_path, err);
+            if let Some(book_path) = BookPath::new(&file_path) {
+              match fs_handlers::remove_book_by_path(&file_path, rw_t) {
+                Ok(RemoveStatus::FullyDeleted) => {
+                  let _ = event_tx.send(LibraryEvent::BookRemoved(book_path));
+                }
+                Ok(RemoveStatus::MarkedAsDeleted) => {
+                  // Достаем обновленную книгу из БД и шлем BookUpdated
+                  if let Ok(Some(books)) =
+                    crate::db::models::books::Books::get_by_parent_dir_rw(book_path.parent_dir.clone(), rw_t)
+                    && let Some(book) = books.storage.get(&book_path.name)
+                  {
+                    let _ = event_tx.send(LibraryEvent::BookUpdated(book.clone()));
+                  }
+                }
+                Err(err) => {
+                  debug!("Error removing book {:?}: {:?}", file_path, err);
+                }
+              }
             }
           }
 
           FSEvent::RenameFile { old_path, new_path } => {
-            if let Err(err) = fs_handlers::update_book_path(old_path, new_path, rw_t) {
+            if let Err(err) = fs_handlers::update_book_path(old_path.clone(), new_path.clone(), rw_t) {
               debug!("Error updating book path: {:?}", err);
+            } else {
+              let _ = event_tx.send(LibraryEvent::BookPathUpdated {
+                old_path: BookPath::new(&old_path).unwrap(),
+                new_path: BookPath::new(&new_path).unwrap(),
+              });
             }
           }
 
           FSEvent::RenameDir { old_path, new_path } => {
-            if let Err(err) = fs_handlers::update_book_dir(old_path, new_path, rw_t) {
+            if let Err(err) = fs_handlers::update_book_dir(old_path.clone(), new_path.clone(), rw_t) {
               debug!("Error updating book dir: {:?}", err);
+            } else {
+              // Отправляем события для всех книг в директории
+              if let Ok(Some(books)) =
+                crate::db::models::books::Books::get_by_parent_dir_rw(BookDir::new(new_path.clone()), rw_t)
+              {
+                for (_, book) in books.storage {
+                  let _ = event_tx.send(LibraryEvent::BookUpdated(book));
+                }
+              }
             }
           }
 
           FSEvent::RemoveDir { dir_path } => {
-            if let Err(err) = fs_handlers::remove_books_in_dir(BookDir::new(dir_path), rw_t) {
+            let dir = BookDir::new(dir_path.clone());
+            if let Err(err) = fs_handlers::remove_books_in_dir(dir.clone(), rw_t) {
               debug!("Error removing books in dir: {:?}", err);
+            } else {
+              let _ = event_tx.send(LibraryEvent::DirRemoved(dir));
             }
           }
         }
