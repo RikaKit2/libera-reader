@@ -9,8 +9,11 @@ use libera_reader_core::{
 };
 use rust_i18n::t;
 
-use crate::ui::pages::setup::{
-  appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage, welcome::Welcome,
+use crate::{
+  start_services,
+  ui::pages::setup::{
+    appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage, welcome::Welcome,
+  },
 };
 
 mod appearance;
@@ -64,6 +67,7 @@ fn finish_btn() -> Div {
       cx.ctx_mut().settings.set_setup_status(true).unwrap();
       cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
       cx.ctx_mut().db.compact().unwrap();
+      start_services(cx);
     },
   ))
 }
