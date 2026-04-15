@@ -19,11 +19,13 @@ pub(crate) struct MainPage {
 }
 
 impl MainPage {
-  pub(crate) fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
+  pub(crate) fn new(
+    window: &mut Window, cx: &mut App, books_state: Entity<crate::books_state::BooksState>,
+  ) -> Entity<Self> {
     let bookmarks = cx.new(|cx| BookMarks::new(window, cx));
-    let library = cx.new(|cx| Library::new(window, cx));
-    let history = cx.new(|cx| History::new(window, cx));
-    let favorite = cx.new(|cx| Favorite::new(window, cx));
+    let library = cx.new(|cx| Library::new(window, cx, books_state.clone()));
+    let history = cx.new(|cx| History::new(window, cx, books_state.clone()));
+    let favorite = cx.new(|cx| Favorite::new(window, cx, books_state.clone()));
     let settings = Settings::new(window, cx);
 
     cx.new(|c| Self {

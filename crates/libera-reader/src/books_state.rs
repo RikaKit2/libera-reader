@@ -2,7 +2,9 @@
 #![allow(unused_imports)]
 
 use gpui::*;
+use gpui_component::select::SelectItem;
 use std::cmp::Ordering;
+use std::fmt;
 use tokio::sync::broadcast;
 
 use libera_reader_core::db::models::books::Books;
@@ -14,6 +16,34 @@ pub enum SortField {
   Name,
   Size,
   DateAdded,
+}
+
+impl SortField {
+  pub fn all() -> &'static [Self] {
+    &[Self::Name, Self::Size, Self::DateAdded]
+  }
+}
+
+impl fmt::Display for SortField {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      SortField::Name => write!(f, "Name"),
+      SortField::Size => write!(f, "Size"),
+      SortField::DateAdded => write!(f, "Date Added"),
+    }
+  }
+}
+
+impl SelectItem for SortField {
+  type Value = SortField;
+
+  fn title(&self) -> SharedString {
+    self.to_string().into()
+  }
+
+  fn value(&self) -> &Self::Value {
+    self
+  }
 }
 
 #[derive(Clone, Copy)]
@@ -28,6 +58,7 @@ impl Default for SortConfig {
   }
 }
 
+#[derive(Clone, Copy)]
 pub enum TargetList {
   Library,
   Favorites,
@@ -37,12 +68,10 @@ pub enum TargetList {
 pub struct BooksState {
   pub books_map: HashMap<BookDir, Books>,
 
-  // Списки для разных страниц
   pub library_keys: Vec<BookPath>,
   pub favorites_keys: Vec<BookPath>,
   pub history_keys: Vec<BookPath>,
 
-  // Настройки сортировки для КАЖДОЙ страницы
   pub library_sort: SortConfig,
   pub favorites_sort: SortConfig,
   pub history_sort: SortConfig,
@@ -55,13 +84,18 @@ impl BooksState {
   ) -> Self {
     let mut library_keys = Vec::new();
     let mut favorites_keys = Vec::new();
-    let history_keys = Vec::new();
+    let mut history_keys = Vec::new();
 
     for (_, dir_books) in initial_books.iter() {
       for (_, book) in dir_books.storage.iter() {
-        library_keys.push(book.book_path.clone());
+        if !book.book_path.deleted {
+          library_keys.push(book.book_path.clone());
+        }
         if book.user_data.favorite {
           favorites_keys.push(book.book_path.clone());
+        }
+        if book.user_data.in_history {
+          history_keys.push(book.book_path.clone());
         }
       }
     }
@@ -78,6 +112,7 @@ impl BooksState {
 
     state.apply_sorting_to(TargetList::Library);
     state.apply_sorting_to(TargetList::Favorites);
+    state.apply_sorting_to(TargetList::History);
 
     cx.spawn(|this: gpui::WeakEntity<BooksState>, cx: &mut gpui::AsyncApp| {
       let mut owned_cx = cx.clone();
@@ -99,8 +134,6 @@ impl BooksState {
   pub fn get_book(&self, path: &BookPath) -> Option<&Book> {
     self.books_map.get(&path.parent_dir).and_then(|dir_books| dir_books.storage.get(&path.name))
   }
-
-  // === Публичные методы для управления сортировкой на каждой странице ===
 
   pub fn set_sort_field(&mut self, field: SortField, target: TargetList, cx: &mut Context<Self>) {
     let config = match target {
@@ -126,7 +159,6 @@ impl BooksState {
     cx.notify();
   }
 
-  /// Общая функция применения сортировки для конкретного списка
   pub fn apply_sorting_to(&mut self, target: TargetList) {
     let (keys, config) = match target {
       TargetList::Library => (&mut self.library_keys, &self.library_sort),
@@ -150,7 +182,7 @@ impl BooksState {
             let BookSize::BYTES(size_b) = b.book_size;
             size_a.cmp(&size_b)
           }
-          SortField::DateAdded => Ordering::Equal, // TODO: реализовать при наличии поля
+          SortField::DateAdded => Ordering::Equal,
         },
         (Some(_), None) => Ordering::Less,
         (None, Some(_)) => Ordering::Greater,
@@ -166,6 +198,7 @@ impl BooksState {
       LibraryEvent::BookAdded(book) => {
         let path = book.book_path.clone();
         let is_favorite = book.user_data.favorite;
+        let in_history = book.user_data.in_history;
 
         let dir_books = self
           .books_map
@@ -179,17 +212,31 @@ impl BooksState {
         }
 
         if is_favorite && !self.favorites_keys.contains(&path) {
-          self.favorites_keys.push(path);
+          self.favorites_keys.push(path.clone());
           self.apply_sorting_to(TargetList::Favorites);
+        }
+
+        if in_history && !self.history_keys.contains(&path) {
+          self.history_keys.push(path);
+          self.apply_sorting_to(TargetList::History);
         }
       }
 
       LibraryEvent::BookUpdated(book) => {
         let path = book.book_path.clone();
         let is_favorite = book.user_data.favorite;
+        let in_history = book.user_data.in_history;
+        let is_deleted = book.book_path.deleted;
 
         if let Some(dir_books) = self.books_map.get_mut(&path.parent_dir) {
           dir_books.storage.insert(path.name.clone(), book.clone());
+        }
+
+        if is_deleted {
+          self.library_keys.retain(|k| k != &path);
+        } else if !self.library_keys.contains(&path) {
+          self.library_keys.push(path.clone());
+          self.apply_sorting_to(TargetList::Library);
         }
 
         if is_favorite && !self.favorites_keys.contains(&path) {
@@ -197,6 +244,13 @@ impl BooksState {
           self.apply_sorting_to(TargetList::Favorites);
         } else if !is_favorite {
           self.favorites_keys.retain(|k| k != &path);
+        }
+
+        if in_history && !self.history_keys.contains(&path) {
+          self.history_keys.push(path.clone());
+          self.apply_sorting_to(TargetList::History);
+        } else if !in_history {
+          self.history_keys.retain(|k| k != &path);
         }
       }
 
@@ -248,6 +302,7 @@ impl BooksState {
 
         self.apply_sorting_to(TargetList::Library);
         self.apply_sorting_to(TargetList::Favorites);
+        self.apply_sorting_to(TargetList::History);
       }
 
       LibraryEvent::DirRemoved(dir) => {

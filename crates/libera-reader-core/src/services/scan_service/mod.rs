@@ -21,6 +21,7 @@ use utils::debug;
 pub(crate) type DBBooksCount = usize;
 pub(crate) type BooksFromDB = HashMap<BookDir, Books>;
 
+#[derive(Clone)]
 pub struct ScanService {
   settings: SETTINGS,
   db: DB,
@@ -45,12 +46,9 @@ impl ScanService {
           if let Some(ext) = path.extension().and_then(|e| e.to_str())
             && MUPDF_EXTENSIONS.contains(&ext.to_lowercase().as_str())
             && let Some(file_path) = BookPath::new(&path)
+            && tx.send(file_path).is_err()
           {
-            // If the channel is closed (UI cancelled scan), tx.send will return an error,
-            // and we can safely exit.
-            if tx.send(file_path).is_err() {
-              break;
-            }
+            break;
           }
         }
       }
@@ -156,7 +154,6 @@ impl ScanService {
               new_books += 1;
               if let Ok(new_book) = Book::new(book_path.clone()) {
                 let _ = Books::insert_book(new_book.clone(), rw_t);
-                // Шлём событие для каждой новой книги
                 let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
               }
             }
@@ -166,7 +163,6 @@ impl ScanService {
             new_books += 1;
             if let Ok(new_book) = Book::new(book_path.clone()) {
               let _ = Books::insert_book(new_book.clone(), rw_t);
-              // Шлём событие для каждой новой книги
               let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
             }
           }
@@ -178,17 +174,19 @@ impl ScanService {
     new_books
   }
 
-  async fn remove_outdated_books(&self, dead_books: HashMap<BookDir, Books>) -> usize {
+  async fn remove_outdated_books(&self, db_books: HashMap<BookDir, Books>) -> usize {
     let mut outdated_books_count = 0;
+    let event_tx = &self.event_tx;
 
     let _ = self.db.rw_t(|rw_t| {
-      for (dir, books_in_dir) in dead_books {
-        let paths_to_delete: Vec<BookPath> =
-          books_in_dir.storage.values().map(|book| book.book_path.clone()).collect();
+      for (books_dir, books) in db_books {
+        let paths_to_delete: Vec<BookPath> = books.storage.values().map(|book| book.book_path.clone()).collect();
 
         for path in paths_to_delete {
-          if let Ok(Some(fresh_dir_books)) = Books::get_by_parent_dir_rw(dir.clone(), rw_t) {
-            let _ = fresh_dir_books.remove_book(path, rw_t);
+          if let Ok(Some(fresh_dir_books)) = Books::get_by_parent_dir_rw(books_dir.clone(), rw_t)
+            && fresh_dir_books.remove_book(path.clone(), rw_t).is_ok()
+          {
+            let _ = event_tx.send(LibraryEvent::BookRemoved(path));
             outdated_books_count += 1;
           }
         }
