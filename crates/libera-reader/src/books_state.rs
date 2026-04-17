@@ -63,6 +63,7 @@ pub enum TargetList {
   Library,
   Favorites,
   History,
+  Bookmarks,
 }
 
 pub struct BooksState {
@@ -71,10 +72,12 @@ pub struct BooksState {
   pub library_keys: Vec<BookPath>,
   pub favorites_keys: Vec<BookPath>,
   pub history_keys: Vec<BookPath>,
+  pub bookmarks_keys: Vec<BookPath>,
 
   pub library_sort: SortConfig,
   pub favorites_sort: SortConfig,
   pub history_sort: SortConfig,
+  pub bookmarks_sort: SortConfig,
 }
 
 impl BooksState {
@@ -85,6 +88,7 @@ impl BooksState {
     let mut library_keys = Vec::new();
     let mut favorites_keys = Vec::new();
     let mut history_keys = Vec::new();
+    let mut bookmarks_keys = Vec::new();
 
     for (_, dir_books) in initial_books.iter() {
       for (_, book) in dir_books.storage.iter() {
@@ -97,6 +101,9 @@ impl BooksState {
         if book.user_data.in_history {
           history_keys.push(book.book_path.clone());
         }
+        if book.user_data.in_bookmark {
+          bookmarks_keys.push(book.book_path.clone());
+        }
       }
     }
 
@@ -105,14 +112,17 @@ impl BooksState {
       library_keys,
       favorites_keys,
       history_keys,
+      bookmarks_keys,
       library_sort: SortConfig::default(),
       favorites_sort: SortConfig::default(),
       history_sort: SortConfig::default(),
+      bookmarks_sort: SortConfig::default(),
     };
 
     state.apply_sorting_to(TargetList::Library);
     state.apply_sorting_to(TargetList::Favorites);
     state.apply_sorting_to(TargetList::History);
+    state.apply_sorting_to(TargetList::Bookmarks);
 
     cx.spawn(|this: gpui::WeakEntity<BooksState>, cx: &mut gpui::AsyncApp| {
       let mut owned_cx = cx.clone();
@@ -140,6 +150,7 @@ impl BooksState {
       TargetList::Library => &mut self.library_sort,
       TargetList::Favorites => &mut self.favorites_sort,
       TargetList::History => &mut self.history_sort,
+      TargetList::Bookmarks => &mut self.bookmarks_sort,
     };
     if config.field != field {
       config.field = field;
@@ -153,6 +164,7 @@ impl BooksState {
       TargetList::Library => &mut self.library_sort,
       TargetList::Favorites => &mut self.favorites_sort,
       TargetList::History => &mut self.history_sort,
+      TargetList::Bookmarks => &mut self.bookmarks_sort,
     };
     config.is_reversed = !config.is_reversed;
     self.apply_sorting_to(target);
@@ -164,6 +176,7 @@ impl BooksState {
       TargetList::Library => (&mut self.library_keys, &self.library_sort),
       TargetList::Favorites => (&mut self.favorites_keys, &self.favorites_sort),
       TargetList::History => (&mut self.history_keys, &self.history_sort),
+      TargetList::Bookmarks => (&mut self.bookmarks_keys, &self.bookmarks_sort),
     };
 
     let field = config.field;
@@ -199,6 +212,7 @@ impl BooksState {
         let path = book.book_path.clone();
         let is_favorite = book.user_data.favorite;
         let in_history = book.user_data.in_history;
+        let in_bookmark = book.user_data.in_bookmark;
 
         let dir_books = self
           .books_map
@@ -217,8 +231,13 @@ impl BooksState {
         }
 
         if in_history && !self.history_keys.contains(&path) {
-          self.history_keys.push(path);
+          self.history_keys.push(path.clone());
           self.apply_sorting_to(TargetList::History);
+        }
+
+        if in_bookmark && !self.bookmarks_keys.contains(&path) {
+          self.bookmarks_keys.push(path.clone());
+          self.apply_sorting_to(TargetList::Bookmarks);
         }
       }
 
@@ -252,6 +271,14 @@ impl BooksState {
         } else if !in_history {
           self.history_keys.retain(|k| k != &path);
         }
+
+        let in_bookmark = book.user_data.in_bookmark;
+        if in_bookmark && !self.bookmarks_keys.contains(&path) {
+          self.bookmarks_keys.push(path.clone());
+          self.apply_sorting_to(TargetList::Bookmarks);
+        } else if !in_bookmark {
+          self.bookmarks_keys.retain(|k| k != &path);
+        }
       }
 
       LibraryEvent::BookRemoved(path) => {
@@ -265,6 +292,7 @@ impl BooksState {
         self.library_keys.retain(|k| k != &path);
         self.favorites_keys.retain(|k| k != &path);
         self.history_keys.retain(|k| k != &path);
+        self.bookmarks_keys.retain(|k| k != &path);
       }
 
       LibraryEvent::BookPathUpdated { old_path, new_path } => {
@@ -299,10 +327,16 @@ impl BooksState {
             *key = new_path.clone();
           }
         }
+        for key in &mut self.bookmarks_keys {
+          if *key == old_path {
+            *key = new_path.clone();
+          }
+        }
 
         self.apply_sorting_to(TargetList::Library);
         self.apply_sorting_to(TargetList::Favorites);
         self.apply_sorting_to(TargetList::History);
+        self.apply_sorting_to(TargetList::Bookmarks);
       }
 
       LibraryEvent::DirRemoved(dir) => {
@@ -310,6 +344,7 @@ impl BooksState {
         self.library_keys.retain(|k| k.parent_dir != dir);
         self.favorites_keys.retain(|k| k.parent_dir != dir);
         self.history_keys.retain(|k| k.parent_dir != dir);
+        self.bookmarks_keys.retain(|k| k.parent_dir != dir);
       }
     }
   }

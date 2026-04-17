@@ -1,33 +1,28 @@
-use gpui::prelude::FluentBuilder;
 use gpui::{
   AbsoluteLength, App, AppContext, Context, Entity, IntoElement, ParentElement, Pixels, Render, Styled, Window,
   div, px,
 };
-use gpui_component::ActiveTheme;
-use gpui_component::{
-  Disableable, Icon, IconName, Sizable,
-  button::{Button, ButtonVariants},
-};
+use gpui_component::{ActiveTheme, Icon, IconName, Sizable};
 use libera_reader_core::ctx::GlobalCTX;
-use rfd::AsyncFileDialog;
 use rust_i18n::t;
-use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::ui::pages::setup::{back_btn, next_btn};
+use crate::ui::{
+  components::path_select::PathSelect,
+  pages::setup::{back_btn, next_btn},
+};
 
-static DIALOG_OPEN: AtomicBool = AtomicBool::new(false);
-
-pub(crate) struct Library {}
+pub(crate) struct Library {
+  path_select: Entity<PathSelect>,
+}
 
 impl Library {
   pub(crate) fn new(cx: &mut App) -> Entity<Self> {
-    cx.new(|_| Self {})
+    cx.new(|cx| Self { path_select: PathSelect::new(cx) })
   }
 }
 
 impl Render for Library {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let dialog_open = DIALOG_OPEN.load(Ordering::Relaxed);
     let theme = cx.theme();
 
     let page = div().w_full().h_full().flex().flex_col().children([
@@ -48,43 +43,8 @@ impl Render for Library {
         div().flex().items_center().gap_1().children([
           div().child(Icon::new(IconName::FolderOpen).small()),
           div().child(t!("pages.setup.pages.library.target_dir_label").to_string()),
-          div().child(
-            Button::new("select_folder_btn")
-              .primary()
-              .label(t!("pages.setup.pages.library.select_btn"))
-              .disabled(dialog_open)
-              .on_click(|_event, _window, cx| {
-                if DIALOG_OPEN.load(Ordering::Relaxed) {
-                  return; // Dialog already open, don't open another
-                }
-
-                DIALOG_OPEN.store(true, Ordering::Relaxed);
-
-                cx.spawn(async move |cx| {
-                  if let Some(folder) = AsyncFileDialog::new().pick_folder().await {
-                    let path = folder.path().to_path_buf();
-                    let _ = cx.update(|cx| {
-                      cx.ctx_mut().settings.set_path_to_scan(path).unwrap();
-                    });
-                  }
-                  // Reset dialog state when done
-                  DIALOG_OPEN.store(false, Ordering::Relaxed);
-                })
-                .detach();
-              }),
-          ),
         ]),
-        div().flex().items_center().gap_1().children([
-          div().child(Icon::new(IconName::Folder).small()),
-          div().child(t!("pages.setup.pages.library.target_path_status").to_string()),
-          div().children([div()
-            .when(cx.ctx().settings.read().path_to_scan.is_some(), |_| {
-              div().child(cx.ctx().settings.get_path_to_scan_str().unwrap())
-            })
-            .when(cx.ctx().settings.read().path_to_scan.is_none(), |_| {
-              div().child(t!("pages.setup.pages.library.path_not_selected").to_string())
-            })]),
-        ]),
+        div().child(self.path_select.clone()),
       ]),
     ]);
 

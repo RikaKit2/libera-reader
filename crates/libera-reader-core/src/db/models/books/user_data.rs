@@ -4,10 +4,11 @@ use serde::{Deserialize, Serialize};
 pub struct UserData {
   pub favorite: bool,
   pub in_history: bool,
+  pub in_bookmark: bool,
 }
 
 impl UserData {
   pub fn new(favorite: bool, in_history: bool) -> Self {
-    UserData { favorite, in_history }
+    UserData { favorite, in_history, in_bookmark: false }
   }
 }

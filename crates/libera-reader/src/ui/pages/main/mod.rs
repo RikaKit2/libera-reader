@@ -1,4 +1,4 @@
-use crate::ui::pages::main::content::{BookMarks, Favorite, FileManager, History, Library, Settings, Stats};
+use crate::ui::pages::main::content::{Bookmarks, Favorite, FileManager, History, Library, Settings, Stats};
 use crate::ui::pages::main::side_bar::SideBar;
 use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use libera_reader_core::ctx::GlobalCTX;
@@ -13,7 +13,7 @@ pub(crate) struct MainPage {
   file_manager: Entity<FileManager>,
   history: Entity<History>,
   favorite: Entity<Favorite>,
-  bookmarks: Entity<BookMarks>,
+  bookmarks: Entity<Bookmarks>,
   stats: Entity<Stats>,
   settings: Entity<Settings>,
 }
@@ -22,7 +22,7 @@ impl MainPage {
   pub(crate) fn new(
     window: &mut Window, cx: &mut App, books_state: Entity<crate::books_state::BooksState>,
   ) -> Entity<Self> {
-    let bookmarks = cx.new(|cx| BookMarks::new(window, cx));
+    let bookmarks = cx.new(|cx| Bookmarks::new(window, cx, books_state.clone()));
     let library = cx.new(|cx| Library::new(window, cx, books_state.clone()));
     let history = cx.new(|cx| History::new(window, cx, books_state.clone()));
     let favorite = cx.new(|cx| Favorite::new(window, cx, books_state.clone()));

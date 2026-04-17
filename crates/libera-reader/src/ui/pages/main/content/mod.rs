@@ -5,7 +5,7 @@ pub(crate) mod history;
 pub(crate) mod library;
 pub(crate) mod settings;
 pub(crate) mod stats;
-pub(crate) use bookmarks::BookMarks;
+pub(crate) use bookmarks::Bookmarks;
 pub(crate) use favorite::Favorite;
 pub(crate) use file_manager::FileManager;
 pub(crate) use history::History;

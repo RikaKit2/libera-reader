@@ -15,7 +15,7 @@ pages:
           tts: "🤖 Встроенный TTS"
 
       appearance:
-        title: "Облик"
+        title: "Тема"
         language_label: "Язык интерфейса"
         theme_label: "Цвет темы"
         note: "Заметка: Вы сможете изменить это в любое время."
@@ -24,9 +24,6 @@ pages:
         title: "Где находятся ваши книги?"
         description: "Выберите основную папку. Libera Reader будет следить за ней в реальном времени."
         target_dir_label: "Выберите пожалуйста директорию для сканирования:"
-        target_path_status: "Выбранный путь:"
-        path_not_selected: "Путь не выбран"
-        select_btn: "Выбрать"
 
       sync:
         title: "Синхронизация между устройствами"
@@ -44,18 +41,28 @@ pages:
         description: "Нажмите «Завершить», чтобы мгновенно индексировать свои книги и начать. Приятного чтения!"
   settings:
     used_formats: "Используемые форматы"
-    theme: "Цвет темы"
 
 components:
   search_placeholder: "Поиск"
+  
   theme_select:
     header: "Тема"
     placeholder: "Поиск темы..."
     search_placeholder: "Введите название темы"
+    
   lang_select:
-    header: "Язык"
+    header: "Язык интерфейса"
     placeholder: "Поиск языка..."
     search_placeholder: "Введите название языка"
+
+  columns_select:
+    header: "Количество колонок"
+    placeholder: "Выберите количество..."
+
+  path_select:
+    target_path: "Директория для сканирования:"
+    select_btn: "Выбрать директорию"
+    path_not_selected: "Директория не выбрана"
 
 lang:
   ru: "Русский"

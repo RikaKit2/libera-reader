@@ -120,6 +120,14 @@ impl SETTINGS {
     self.db.update(old_model, self.read().clone())?;
     Ok(())
   }
+  pub fn set_number_of_columns(&mut self, columns: u32) -> Result<()> {
+    let old_model = self.read().clone();
+    if old_model.number_of_columns != columns {
+      self.write().number_of_columns = columns;
+      self.db.update(old_model, self.read().clone())?;
+    }
+    Ok(())
+  }
   pub fn to_next_setup_route(&mut self) {
     let current_route = self.read().route;
     if let RootRoute::Setup(old_route) = current_route

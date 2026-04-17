@@ -1,4 +1,5 @@
 use crate::books_state::{BooksState, TargetList};
+use crate::ui::constants as C;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{ActiveTheme, VirtualListScrollHandle, scroll::Scrollbar, v_virtual_list};
@@ -21,7 +22,7 @@ fn render_grid_item(is_book: bool, cx: &mut Context<impl Render>) -> Div {
     .h_full()
     .flex()
     .flex_col()
-    .child(div().w_full().flex_1().mb_4().rounded_md().when(is_book, |this| {
+    .child(div().w_full().flex_1().rounded_md().when(is_book, |this| {
       this.bg(cx.theme().border).border_1().border_color(cx.theme().border).flex().items_center().justify_center()
     }))
     .child(div().h_0().overflow_hidden())
@@ -36,6 +37,7 @@ pub fn book_virtual_grid<V: Render + 'static>(
       TargetList::Library => books_state.library_keys.len(),
       TargetList::Favorites => books_state.favorites_keys.len(),
       TargetList::History => books_state.history_keys.len(),
+      TargetList::Bookmarks => books_state.bookmarks_keys.len(),
     }
   };
 
@@ -53,7 +55,7 @@ pub fn book_virtual_grid<V: Render + 'static>(
     .relative()
     .size_full()
     .child(
-      div().size_full().pr_4().child(
+      div().size_full().pr(px(C::GRID_PR)).child(
         v_virtual_list(view, id, item_sizes, move |_this, visible_range, _window, cx| {
           let book_exists_flags: Vec<bool> = {
             let books_state = state_clone.read(cx);
@@ -61,6 +63,7 @@ pub fn book_virtual_grid<V: Render + 'static>(
               TargetList::Library => &books_state.library_keys,
               TargetList::Favorites => &books_state.favorites_keys,
               TargetList::History => &books_state.history_keys,
+              TargetList::Bookmarks => &books_state.bookmarks_keys,
             };
 
             all_keys.iter().map(|path| books_state.get_book(path).is_some()).collect()
@@ -70,7 +73,14 @@ pub fn book_virtual_grid<V: Render + 'static>(
             .map(|row_index| {
               let start = row_index * columns;
 
-              let mut row = div().flex().flex_row().w_full().h(config.row_height).gap_4().pl_2();
+              let mut row = div()
+                .flex()
+                .flex_row()
+                .w_full()
+                .h(config.row_height)
+                .gap(px(C::GRID_CELL_GAP))
+                .pl(px(C::GRID_PL))
+                .pb(px(C::GRID_ROW_GAP));
 
               for i in 0..columns {
                 let book_exists = book_exists_flags.get(start + i).copied().unwrap_or(false);

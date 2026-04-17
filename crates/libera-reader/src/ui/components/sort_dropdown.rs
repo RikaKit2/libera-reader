@@ -19,6 +19,7 @@ impl SortControls {
       TargetList::Library => books_state.read(cx).library_sort.field,
       TargetList::Favorites => books_state.read(cx).favorites_sort.field,
       TargetList::History => books_state.read(cx).history_sort.field,
+      TargetList::Bookmarks => books_state.read(cx).bookmarks_sort.field,
     };
 
     let fields = SearchableVec::new(SortField::all().to_vec());
@@ -54,6 +55,7 @@ impl SortControls {
       TargetList::Library => self.books_state.read(cx).library_sort.field,
       TargetList::Favorites => self.books_state.read(cx).favorites_sort.field,
       TargetList::History => self.books_state.read(cx).history_sort.field,
+      TargetList::Bookmarks => self.books_state.read(cx).bookmarks_sort.field,
     };
     let current_index =
       SortField::all().iter().position(|f| *f == current_field).map(|i| IndexPath::default().row(i));
@@ -73,6 +75,7 @@ impl Render for SortControls {
       TargetList::Library => self.books_state.read(cx).library_sort.is_reversed,
       TargetList::Favorites => self.books_state.read(cx).favorites_sort.is_reversed,
       TargetList::History => self.books_state.read(cx).history_sort.is_reversed,
+      TargetList::Bookmarks => self.books_state.read(cx).bookmarks_sort.is_reversed,
     };
 
     let icon_name = if is_reversed { IconName::SortDescending } else { IconName::SortAscending };
