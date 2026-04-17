@@ -15,47 +15,54 @@ pages:
           tts: "🤖 Built-in TTS"
 
       appearance:
-        title: "Customize Appearance"
-        language_label: "Interface Language"
-        theme_label: "Color Theme"
-        note: "You can change these settings at any time later."
+        title: "Appearance"
+        language_label: "Interface language"
+        theme_label: "Theme color"
+        note: "Note: You can change this at any time."
 
       library:
         title: "Where are your books?"
-        description: "Select the main directory. Libera Reader will track changes in real-time."
-        target_dir_label: "Select Directory"
-        target_path_status: "Selected path:"
-        path_not_selected: "Path not selected"
-        select_btn: "Select"
+        description: "Select your main folder. Libera Reader will monitor it in real time."
+        target_dir_label: "Please select a directory to scan:"
 
       sync:
-        title: "Cross-device Sync"
+        title: "Sync across devices"
         description: "Sync books, progress, and notes across all your devices via WebDAV."
 
       tts:
-        title: "More Than Just Reading"
-        description: "Libera supports Piper-TTS for natural voiceover and AI for metadata analysis."
+        title: "More than just reading"
+        description: "Libera supports Piper-TTS for natural narration and AI for metadata analysis."
         providers:
-          offline: "Offline TTS (Piper) — privacy & speed"
-          online: "Online engines (Google/OpenAI) — quality & power"
+          offline: "Offline TTS (Piper) — privacy and speed"
+          online: "Online engines (Google/OpenAI) — maximum quality"
 
       finish:
-        title: "All set!"
-        description: "Click 'Finish' to instantly index your books and start."
+        title: "You're all set!"
+        description: "Click 'Finish' to instantly index your books and get started. Happy reading!"
   settings:
-    used_formats: "Used Formats"
-    theme: "Color Theme"
+    used_formats: "Supported formats"
 
 components:
   search_placeholder: "Search"
+
   theme_select:
     header: "Theme"
     placeholder: "Search theme..."
     search_placeholder: "Enter theme name"
+
   lang_select:
-    header: "Language"
+    header: "Interface Language"
     placeholder: "Search language..."
     search_placeholder: "Enter language name"
+
+  columns_select:
+    header: "Number of columns"
+    placeholder: "Select amount..."
+
+  path_select:
+    target_path: "Directory to scan:"
+    select_btn: "Select directory"
+    path_not_selected: "Directory not selected"
 
 lang:
   ru: "Russian"

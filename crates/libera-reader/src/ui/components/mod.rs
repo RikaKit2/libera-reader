@@ -1,5 +1,7 @@
 pub(crate) mod book_grid;
+pub(crate) mod columns_select;
 pub(crate) mod lang_select;
+pub(crate) mod path_select;
 pub(crate) mod sort_dropdown;
 pub(crate) mod theme_select;
 pub(crate) use book_grid::{BookGridConfig, book_virtual_grid};

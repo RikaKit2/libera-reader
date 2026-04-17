@@ -10,6 +10,7 @@ use rust_i18n::t;
 
 use crate::books_state::{BooksState, TargetList};
 use crate::ui::components::{BookGridConfig, SortControls, book_virtual_grid};
+use crate::ui::constants as C;
 
 pub(crate) struct Library {
   input_state: Entity<InputState>,
@@ -46,12 +47,10 @@ impl Render for Library {
       (settings.number_of_columns as usize, settings.ui_zoom)
     };
 
-    let gap = 16.0;
-
-    let available_width = window.viewport_size().width - px(48.0 + 32.0 + 16.0);
+    let available_width =
+      window.viewport_size().width - px(C::SIDEBAR_W + C::GRID_PL + C::GRID_PR + C::SCROLLBAR_W);
     let col_width = available_width / columns as f32;
-
-    let row_height = col_width * 1.4 * ui_zoom as f32 + px(gap);
+    let row_height = col_width * C::COVER_RATIO * ui_zoom as f32 + px(C::GRID_ROW_HEIGHT_EXTRA);
 
     div().w_full().h_full().flex().flex_col().text_color(cx.theme().foreground).children([
       div()
@@ -60,9 +59,9 @@ impl Render for Library {
         .h_12()
         .flex()
         .items_center()
-        .gap_x_2()
+        .gap(px(C::TOP_BAR_GAP))
         .children([div().flex_1().child(Input::new(&self.input_state)), div().child(self.sort_controls.clone())]),
-      div().bg(cx.theme().background).w_full().h_full().pt_2().child(book_virtual_grid(
+      div().bg(cx.theme().background).w_full().h_full().pt(px(C::GRID_PT)).child(book_virtual_grid(
         BookGridConfig {
           view: &cx.entity(),
           id: "library-virtual-grid".into(),

@@ -6,13 +6,6 @@ license = "AGPL-3"
 repository = "https://github.com/RikaKit2/libera-reader"
 edition = "2024"
 
-[profile.dev]
-opt-level = 1
-
-[profile.release]
-codegen-units = 1
-lto = true
-
 [dependencies]
 gpui = { workspace = true }
 rfd = { workspace = true }
