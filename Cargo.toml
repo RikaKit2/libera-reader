@@ -47,3 +47,6 @@ better-panic = "0.3"
 gpui-component-assets = "0.5.1"
 rust-embed = "8.11.0"
 rust-i18n = "3.1.5"
+
+[profile.dev.package."*"]
+opt-level = 3
