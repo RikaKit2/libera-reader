@@ -10,9 +10,9 @@ struct ColumnOption(u32);
 impl ColumnOption {
   fn all() -> Vec<Self> {
     vec![
+      Self(1),
       Self(2),
       Self(3),
-      Self(2),
       Self(4),
       Self(5),
       Self(6),

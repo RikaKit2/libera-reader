@@ -49,26 +49,32 @@ impl BooksGrid {
     Rc::new((0..row_count).map(|_| size(px(0.), self.row_height)).collect::<Vec<_>>())
   }
 
-  fn render_book(_book: &Book, border_color: Hsla) -> Div {
+  fn render_book_cover(border_color: Hsla) -> Div {
+    div()
+      .w_full()
+      .flex_1()
+      .rounded_md()
+      .bg(border_color)
+      .border_1()
+      .border_color(border_color)
+      .flex()
+      .items_center()
+      .justify_center()
+  }
+
+  fn render_book_title(book_name: SharedString) -> Div {
+    div().w_full().h(px(22.)).pt_1().overflow_hidden().text_xs().line_height(rems(1.1)).child(book_name)
+  }
+
+  fn render_book_card(book: &Book, border_color: Hsla) -> Div {
     div()
       .w_0()
       .flex_grow()
       .h_full()
       .flex()
       .flex_col()
-      .child(
-        div()
-          .w_full()
-          .flex_1()
-          .rounded_md()
-          .bg(border_color)
-          .border_1()
-          .border_color(border_color)
-          .flex()
-          .items_center()
-          .justify_center(),
-      )
-      .child(div().h_0().overflow_hidden())
+      .child(Self::render_book_cover(border_color))
+      .child(Self::render_book_title(SharedString::from(&book.book_path.name)))
   }
 
   fn render_placeholder() -> Div {
@@ -107,12 +113,11 @@ impl BooksGrid {
     let mut rendered_books = 0usize;
     for path in row_keys {
       if let Some(book) = state.get_book(path) {
-        row = row.child(Self::render_book(book, border_color));
+        row = row.child(Self::render_book_card(book, border_color));
         rendered_books += 1;
       }
     }
 
-    // Always fill the row up to `self.columns` to prevent stretching.
     let placeholders = self.columns.saturating_sub(rendered_books);
     for _ in 0..placeholders {
       row = row.child(Self::render_placeholder());
