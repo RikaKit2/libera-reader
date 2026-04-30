@@ -142,7 +142,8 @@ impl BooksState {
   }
 
   pub fn get_book(&self, path: &BookPath) -> Option<&Book> {
-    self.books_map.get(&path.parent_dir).and_then(|dir_books| dir_books.storage.get(&path.name))
+    let key = path.file_name();
+    self.books_map.get(&path.parent_dir).and_then(|dir_books| dir_books.storage.get(&key))
   }
 
   pub fn set_sort_field(&mut self, field: SortField, target: TargetList, cx: &mut Context<Self>) {
@@ -184,8 +185,10 @@ impl BooksState {
     let map = &self.books_map;
 
     keys.sort_by(|path_a, path_b| {
-      let book_a = map.get(&path_a.parent_dir).and_then(|d| d.storage.get(&path_a.name));
-      let book_b = map.get(&path_b.parent_dir).and_then(|d| d.storage.get(&path_b.name));
+      let key_a = path_a.file_name();
+      let key_b = path_b.file_name();
+      let book_a = map.get(&path_a.parent_dir).and_then(|d| d.storage.get(&key_a));
+      let book_b = map.get(&path_b.parent_dir).and_then(|d| d.storage.get(&key_b));
 
       let cmp = match (book_a, book_b) {
         (Some(a), Some(b)) => match field {
@@ -218,7 +221,7 @@ impl BooksState {
           .books_map
           .entry(path.parent_dir.clone())
           .or_insert_with(|| Books { parent_dir: path.parent_dir.clone(), storage: HashMap::default() });
-        dir_books.storage.insert(path.name.clone(), book);
+        dir_books.storage.insert(path.file_name(), book);
 
         if !self.library_keys.contains(&path) {
           self.library_keys.push(path.clone());
@@ -248,7 +251,7 @@ impl BooksState {
         let is_deleted = book.book_path.deleted;
 
         if let Some(dir_books) = self.books_map.get_mut(&path.parent_dir) {
-          dir_books.storage.insert(path.name.clone(), book.clone());
+          dir_books.storage.insert(path.file_name(), book.clone());
         }
 
         if is_deleted {
@@ -283,7 +286,9 @@ impl BooksState {
 
       LibraryEvent::BookRemoved(path) => {
         if let Some(dir_books) = self.books_map.get_mut(&path.parent_dir) {
-          dir_books.storage.swap_remove(&path.name);
+          let key = path.file_name();
+          dir_books.storage.swap_remove(&key);
+
           if dir_books.storage.is_empty() {
             self.books_map.swap_remove(&path.parent_dir);
           }
@@ -297,11 +302,12 @@ impl BooksState {
 
       LibraryEvent::BookPathUpdated { old_path, new_path } => {
         let mut updated_book = None;
-        if let Some(dir_books) = self.books_map.get_mut(&old_path.parent_dir)
-          && let Some(mut book) = dir_books.storage.swap_remove(&old_path.name)
-        {
-          book.book_path = new_path.clone();
-          updated_book = Some(book);
+        if let Some(dir_books) = self.books_map.get_mut(&old_path.parent_dir) {
+          let old_key = old_path.file_name();
+          if let Some(mut book) = dir_books.storage.swap_remove(&old_key) {
+            book.book_path = new_path.clone();
+            updated_book = Some(book);
+          }
         }
 
         if let Some(book) = updated_book {
@@ -309,7 +315,7 @@ impl BooksState {
             .books_map
             .entry(new_path.parent_dir.clone())
             .or_insert_with(|| Books { parent_dir: new_path.parent_dir.clone(), storage: HashMap::default() });
-          dir_books.storage.insert(new_path.name.clone(), book);
+          dir_books.storage.insert(new_path.file_name(), book);
         }
 
         for key in &mut self.library_keys {

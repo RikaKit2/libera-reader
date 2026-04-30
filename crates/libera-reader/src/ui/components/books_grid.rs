@@ -63,7 +63,12 @@ impl BooksGrid {
   }
 
   fn render_book_title(book_name: SharedString) -> Div {
-    div().w_full().h(px(22.)).pt_1().overflow_hidden().text_xs().line_height(rems(1.1)).child(book_name)
+    div()
+      .w_full()
+      .h(px(36.))
+      .pt_1()
+      .overflow_hidden()
+      .child(div().w_full().whitespace_normal().line_clamp(2).text_xs().line_height(rems(1.1)).child(book_name))
   }
 
   fn render_book_card(book: &Book, border_color: Hsla) -> Div {
@@ -73,8 +78,9 @@ impl BooksGrid {
       .h_full()
       .flex()
       .flex_col()
+      .overflow_hidden()
       .child(Self::render_book_cover(border_color))
-      .child(Self::render_book_title(SharedString::from(&book.book_path.name)))
+      .child(Self::render_book_title(book.book_path.display_name()))
   }
 
   fn render_placeholder() -> Div {

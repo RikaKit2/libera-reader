@@ -77,17 +77,19 @@ impl TestLib {
     create_empty_book(&path_to_mutool, &self.first_book).await.unwrap();
 
     self.wait_for_sync().await?;
-    self.test_fn(&self.first_book, |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_path.name))?;
+    self.test_fn(&self.first_book, |book: &Book| assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref()))?;
     Ok(())
   }
+
   pub async fn rename_first_book_to_second(&mut self) -> Result<()> {
     title!("FILE RENAME TEST: RENAME FIRST BOOK TO SECOND");
     rename(&self.first_book, &self.second_book).await?;
 
     self.wait_for_sync().await?;
-    self.test_fn(&self.second_book, |book: &Book| assert_eq!(&SECOND_BOOK, &book.book_path.name))?;
+    self.test_fn(&self.second_book, |book: &Book| assert_eq!(SECOND_BOOK, book.book_path.file_name().as_ref()))?;
     Ok(())
   }
+
   pub async fn move_second_book_to_first_dir(&mut self) -> Result<()> {
     title!("FILE MOVEMENT TEST: MOVE SECOND BOOK TO FIRST DIR");
     create_dir(&self.fist_dir).await?;
@@ -103,8 +105,9 @@ impl TestLib {
     self.wait_for_sync().await?;
 
     self.second_book = book_in_first_dir;
-    self
-      .test_fn(&self.second_book, |book: &Book| assert_eq!(&FIRST_DIR, &book.book_path.parent_dir.dir_name()))?;
+    self.test_fn(&self.second_book, |book: &Book| {
+      assert_eq!(FIRST_DIR, book.book_path.parent_dir.dir_name().as_ref())
+    })?;
     Ok(())
   }
 
@@ -115,8 +118,9 @@ impl TestLib {
     self.wait_for_sync().await?;
 
     self.second_book = self.tmp_dir.join(SECOND_DIR).join(SECOND_BOOK);
-    self
-      .test_fn(&self.second_book, |book: &Book| assert_eq!(&SECOND_DIR, &book.book_path.parent_dir.dir_name()))?;
+    self.test_fn(&self.second_book, |book: &Book| {
+      assert_eq!(SECOND_DIR, book.book_path.parent_dir.dir_name().as_ref())
+    })?;
     Ok(())
   }
 
@@ -128,7 +132,7 @@ impl TestLib {
 
     self.wait_for_sync().await?;
 
-    self.test_fn(&self.first_book, |book: &Book| assert_eq!(&FIRST_BOOK, &book.book_path.name))?;
+    self.test_fn(&self.first_book, |book: &Book| assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref()))?;
     Ok(())
   }
 

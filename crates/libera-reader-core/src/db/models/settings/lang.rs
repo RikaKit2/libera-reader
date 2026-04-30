@@ -14,7 +14,7 @@ impl Lang {
     &[Lang::EN, Lang::RU]
   }
   pub fn detect_system_lang() -> Lang {
-    let locale = get_locale().unwrap_or_else(|| String::from("en-US"));
+    let locale = get_locale().unwrap_or_else(|| "en-US".to_owned());
     let lang_code = locale.split(&['-', '_'][..]).next().unwrap_or("en").to_lowercase();
     match lang_code.as_str() {
       "ru" => Lang::RU,

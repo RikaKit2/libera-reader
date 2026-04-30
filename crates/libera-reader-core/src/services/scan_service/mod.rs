@@ -147,8 +147,9 @@ impl ScanService {
 
     let _ = self.db.rw_t(|rw_t| {
       for book_path in buffer {
+        let key = book_path.file_name();
         match db_books.get_mut(&book_path.parent_dir) {
-          Some(dir_books) => match dir_books.storage.swap_remove(&book_path.name) {
+          Some(dir_books) => match dir_books.storage.swap_remove(&key) {
             Some(_existing_book) => {}
             None => {
               new_books += 1;
