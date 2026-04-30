@@ -184,11 +184,21 @@ impl ScanService {
         let paths_to_delete: Vec<BookPath> = books.storage.values().map(|book| book.book_path.clone()).collect();
 
         for path in paths_to_delete {
-          if let Ok(Some(fresh_dir_books)) = Books::get_by_parent_dir_rw(books_dir.clone(), rw_t)
-            && fresh_dir_books.remove_book(path.clone(), rw_t).is_ok()
-          {
-            let _ = event_tx.send(LibraryEvent::BookRemoved(path));
-            outdated_books_count += 1;
+          if let Ok(Some(fresh_dir_books)) = Books::get_by_parent_dir_rw(books_dir.clone(), rw_t) {
+            let key = path.file_name();
+            if let Some(book_before_remove) = fresh_dir_books.storage.get(&key) {
+              let can_delete = book_before_remove.can_delete();
+              if fresh_dir_books.remove_book(path.clone(), rw_t).is_ok() {
+                if can_delete {
+                  let _ = event_tx.send(LibraryEvent::BookRemoved(path));
+                } else if let Ok(Some(updated_dir_books)) = Books::get_by_parent_dir_rw(books_dir.clone(), rw_t)
+                  && let Some(updated_book) = updated_dir_books.storage.get(&key)
+                {
+                  let _ = event_tx.send(LibraryEvent::BookUpdated(updated_book.clone()));
+                }
+                outdated_books_count += 1;
+              }
+            }
           }
         }
       }

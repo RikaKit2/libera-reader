@@ -1,4 +1,7 @@
 use crate::db::DB;
+use crate::db::models::BookMark;
+use crate::db::models::books::book::BookPath;
+
 use crate::db::models::{AppTheme, Lang, RootRoute};
 use crate::error_handler::{ErrorHandler, ErrorReceiver};
 use crate::services::Services;
@@ -69,6 +72,30 @@ impl Ctx {
   }
   pub fn get_curr_route(&self) -> RootRoute {
     self.settings.read().route
+  }
+
+  pub fn add_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> anyhow::Result<()> {
+    if let Some(updated_book) = self.db.add_bookmark(book_path.clone(), bookmark)? {
+      let _ = self.event_tx.send(LibraryEvent::BookUpdated(updated_book));
+      let _ = self.event_tx.send(LibraryEvent::BookMarkAdded { book_path });
+    }
+    Ok(())
+  }
+
+  pub fn update_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> anyhow::Result<()> {
+    if let Some(updated_book) = self.db.update_bookmark(book_path.clone(), bookmark)? {
+      let _ = self.event_tx.send(LibraryEvent::BookUpdated(updated_book));
+      let _ = self.event_tx.send(LibraryEvent::BookMarkUpdated { book_path });
+    }
+    Ok(())
+  }
+
+  pub fn remove_bookmark(&self, book_path: BookPath, time_created: &str) -> anyhow::Result<()> {
+    if let Some(updated_book) = self.db.remove_bookmark(book_path.clone(), time_created)? {
+      let _ = self.event_tx.send(LibraryEvent::BookUpdated(updated_book));
+      let _ = self.event_tx.send(LibraryEvent::BookMarkRemoved { book_path });
+    }
+    Ok(())
   }
 }
 

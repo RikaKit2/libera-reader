@@ -64,6 +64,12 @@ components:
     select_btn: "Select directory"
     path_not_selected: "Directory not selected"
 
+  sort_dropdown:
+    fields:
+      name: "Name"
+      size: "Size"
+      type: "Type"
+
 lang:
   ru: "Russian"
   en: "English"

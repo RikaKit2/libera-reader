@@ -44,12 +44,12 @@ pages:
 
 components:
   search_placeholder: "Поиск"
-  
+
   theme_select:
     header: "Тема"
     placeholder: "Поиск темы..."
     search_placeholder: "Введите название темы"
-    
+
   lang_select:
     header: "Язык интерфейса"
     placeholder: "Поиск языка..."
@@ -63,6 +63,12 @@ components:
     target_path: "Директория для сканирования:"
     select_btn: "Выбрать директорию"
     path_not_selected: "Директория не выбрана"
+
+  sort_dropdown:
+    fields:
+      name: "Название"
+      size: "Размер"
+      type: "Тип"
 
 lang:
   ru: "Русский"
