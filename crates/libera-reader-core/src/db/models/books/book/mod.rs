@@ -6,7 +6,8 @@ use std::{
 use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 
-use crate::db::models::UserData;
+use crate::db::models::{BookMark, UserData};
+
 pub(crate) type BookName = SharedString;
 mod book_dir;
 mod book_ext;
@@ -23,12 +24,16 @@ pub struct Book {
   pub book_path: BookPath,
   pub book_size: BookSize,
   pub user_data: UserData,
+  #[serde(default)]
+  pub bookmarks: Vec<BookMark>,
 }
+
 impl Book {
   pub(crate) fn new(book_path: BookPath) -> anyhow::Result<Self> {
     let book_size = book_path.get_book_size().unwrap();
-    Ok(Self { book_path, book_size, user_data: UserData::default() })
+    Ok(Self { book_path, book_size, user_data: UserData::default(), bookmarks: Vec::new() })
   }
+
   pub fn exists_on_disk(&self) -> bool {
     self.book_path.exists_on_disk()
   }
@@ -39,8 +44,28 @@ impl Book {
     self.pathbuf().to_str().unwrap().to_string().into()
   }
   pub fn can_delete(&self) -> bool {
-    !self.user_data.favorite && !self.user_data.in_history
+    !self.user_data.favorite && !self.user_data.in_history && self.bookmarks.is_empty()
   }
+
+  pub fn add_bookmark(&mut self, bookmark: BookMark) {
+    self.bookmarks.push(bookmark);
+  }
+
+  pub fn update_bookmark(&mut self, bookmark: BookMark) -> bool {
+    if let Some(existing) = self.bookmarks.iter_mut().find(|b| b.time_created == bookmark.time_created) {
+      *existing = bookmark;
+      true
+    } else {
+      false
+    }
+  }
+
+  pub fn remove_bookmark(&mut self, time_created: &str) -> bool {
+    let old_len = self.bookmarks.len();
+    self.bookmarks.retain(|b| b.time_created.as_ref() != time_created);
+    old_len != self.bookmarks.len()
+  }
+
   pub(crate) fn mark_as_deleted(&mut self) {
     self.book_path.mark_as_deleted();
   }

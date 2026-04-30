@@ -3,6 +3,7 @@
 
 use gpui::*;
 use gpui_component::select::SelectItem;
+use rust_i18n::t;
 use std::cmp::Ordering;
 use std::fmt;
 use tokio::sync::broadcast;
@@ -15,12 +16,12 @@ use libera_reader_core::types::{HashMap, LibraryEvent};
 pub enum SortField {
   Name,
   Size,
-  DateAdded,
+  Type,
 }
 
 impl SortField {
   pub fn all() -> &'static [Self] {
-    &[Self::Name, Self::Size, Self::DateAdded]
+    &[Self::Name, Self::Size, Self::Type]
   }
 }
 
@@ -29,7 +30,7 @@ impl fmt::Display for SortField {
     match self {
       SortField::Name => write!(f, "Name"),
       SortField::Size => write!(f, "Size"),
-      SortField::DateAdded => write!(f, "Date Added"),
+      SortField::Type => write!(f, "Type"),
     }
   }
 }
@@ -38,7 +39,11 @@ impl SelectItem for SortField {
   type Value = SortField;
 
   fn title(&self) -> SharedString {
-    self.to_string().into()
+    match self {
+      SortField::Name => t!("components.sort_dropdown.fields.name").to_string().into(),
+      SortField::Size => t!("components.sort_dropdown.fields.size").to_string().into(),
+      SortField::Type => t!("components.sort_dropdown.fields.type").to_string().into(),
+    }
   }
 
   fn value(&self) -> &Self::Value {
@@ -101,7 +106,7 @@ impl BooksState {
         if book.user_data.in_history {
           history_keys.push(book.book_path.clone());
         }
-        if book.user_data.in_bookmark {
+        if !book.bookmarks.is_empty() {
           bookmarks_keys.push(book.book_path.clone());
         }
       }
@@ -198,8 +203,11 @@ impl BooksState {
             let BookSize::BYTES(size_b) = b.book_size;
             size_a.cmp(&size_b)
           }
-          SortField::DateAdded => Ordering::Equal,
+          SortField::Type => {
+            a.book_path.ext.to_string().to_lowercase().cmp(&b.book_path.ext.to_string().to_lowercase())
+          }
         },
+
         (Some(_), None) => Ordering::Less,
         (None, Some(_)) => Ordering::Greater,
         (None, None) => Ordering::Equal,
@@ -215,7 +223,7 @@ impl BooksState {
         let path = book.book_path.clone();
         let is_favorite = book.user_data.favorite;
         let in_history = book.user_data.in_history;
-        let in_bookmark = book.user_data.in_bookmark;
+        let in_bookmark = !book.bookmarks.is_empty();
 
         let dir_books = self
           .books_map
@@ -275,7 +283,7 @@ impl BooksState {
           self.history_keys.retain(|k| k != &path);
         }
 
-        let in_bookmark = book.user_data.in_bookmark;
+        let in_bookmark = !book.bookmarks.is_empty();
         if in_bookmark && !self.bookmarks_keys.contains(&path) {
           self.bookmarks_keys.push(path.clone());
           self.apply_sorting_to(TargetList::Bookmarks);
@@ -343,6 +351,20 @@ impl BooksState {
         self.apply_sorting_to(TargetList::Favorites);
         self.apply_sorting_to(TargetList::History);
         self.apply_sorting_to(TargetList::Bookmarks);
+      }
+
+      LibraryEvent::BookMarkAdded { book_path }
+      | LibraryEvent::BookMarkUpdated { book_path }
+      | LibraryEvent::BookMarkRemoved { book_path } => {
+        if let Some(book) = self.get_book(&book_path) {
+          let in_bookmark = !book.bookmarks.is_empty();
+          if in_bookmark && !self.bookmarks_keys.contains(&book_path) {
+            self.bookmarks_keys.push(book_path.clone());
+            self.apply_sorting_to(TargetList::Bookmarks);
+          } else if !in_bookmark {
+            self.bookmarks_keys.retain(|k| k != &book_path);
+          }
+        }
       }
 
       LibraryEvent::DirRemoved(dir) => {

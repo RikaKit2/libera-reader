@@ -1,7 +1,7 @@
 use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct BookMark {
   pub title: SharedString,
   pub content: SharedString,

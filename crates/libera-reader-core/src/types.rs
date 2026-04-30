@@ -17,5 +17,8 @@ pub enum LibraryEvent {
   BookRemoved(BookPath),
   BookUpdated(Book),
   BookPathUpdated { old_path: BookPath, new_path: BookPath },
+  BookMarkAdded { book_path: BookPath },
+  BookMarkUpdated { book_path: BookPath },
+  BookMarkRemoved { book_path: BookPath },
   DirRemoved(BookDir),
 }

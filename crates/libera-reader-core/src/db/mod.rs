@@ -1,6 +1,9 @@
 pub mod models;
 
+use crate::db::models::BookMark;
 use crate::db::models::books::Books;
+use crate::db::models::books::book::{Book, BookPath};
+
 use crate::db::models::books::book_hashes::BookHashes;
 use crate::db::models::books::book_sizes::BookSizes;
 use crate::db::models::settings::Settings;
@@ -41,6 +44,99 @@ impl DB {
   pub fn compact(&self) -> Result<()> {
     self.db.write().unwrap().compact()?;
     Ok(())
+  }
+
+  pub fn get_book(&self, book_path: BookPath) -> Result<Option<Book>> {
+    self.rt(|r| Books::get_by_path(book_path, r))
+  }
+
+  pub fn update_book(&self, updated_book: Book) -> Result<()> {
+    self.rw_t(|rw_t| {
+      let parent_dir = updated_book.book_path.parent_dir.clone();
+      let key = updated_book.book_path.file_name();
+
+      match Books::get_by_parent_dir_rw(parent_dir, rw_t)? {
+        Some(old_books) => {
+          let mut new_books = old_books.clone();
+          new_books.storage.insert(key, updated_book);
+          rw_t.update(old_books, new_books)?;
+        }
+        None => {
+          Books::insert_book(updated_book, rw_t)?;
+        }
+      }
+
+      Ok(())
+    })
+  }
+
+  pub fn add_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> Result<Option<Book>> {
+    self.rw_t(|rw_t| {
+      let parent_dir = book_path.parent_dir.clone();
+      let key = book_path.file_name();
+
+      let Some(old_books) = Books::get_by_parent_dir_rw(parent_dir, rw_t)? else {
+        return Ok(None);
+      };
+      let mut new_books = old_books.clone();
+
+      let Some(book) = new_books.storage.get_mut(&key) else {
+        return Ok(None);
+      };
+
+      book.add_bookmark(bookmark);
+      let updated_book = book.clone();
+      rw_t.update(old_books, new_books)?;
+      Ok(Some(updated_book))
+    })
+  }
+
+  pub fn update_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> Result<Option<Book>> {
+    self.rw_t(|rw_t| {
+      let parent_dir = book_path.parent_dir.clone();
+      let key = book_path.file_name();
+
+      let Some(old_books) = Books::get_by_parent_dir_rw(parent_dir, rw_t)? else {
+        return Ok(None);
+      };
+      let mut new_books = old_books.clone();
+
+      let Some(book) = new_books.storage.get_mut(&key) else {
+        return Ok(None);
+      };
+
+      if !book.update_bookmark(bookmark) {
+        return Ok(None);
+      }
+
+      let updated_book = book.clone();
+      rw_t.update(old_books, new_books)?;
+      Ok(Some(updated_book))
+    })
+  }
+
+  pub fn remove_bookmark(&self, book_path: BookPath, time_created: &str) -> Result<Option<Book>> {
+    self.rw_t(|rw_t| {
+      let parent_dir = book_path.parent_dir.clone();
+      let key = book_path.file_name();
+
+      let Some(old_books) = Books::get_by_parent_dir_rw(parent_dir, rw_t)? else {
+        return Ok(None);
+      };
+      let mut new_books = old_books.clone();
+
+      let Some(book) = new_books.storage.get_mut(&key) else {
+        return Ok(None);
+      };
+
+      if !book.remove_bookmark(time_created) {
+        return Ok(None);
+      }
+
+      let updated_book = book.clone();
+      rw_t.update(old_books, new_books)?;
+      Ok(Some(updated_book))
+    })
   }
 
   pub(crate) fn get_primary<T: ToInput>(&self, key: impl ToKey) -> Result<Option<T>> {
