@@ -5,20 +5,26 @@ repos:
         name: cargo fmt
         entry: cargo fmt --all --
         language: system
-        types: [rust]
         pass_filenames: false
+        always_run: true
 
       - id: clippy
         name: cargo clippy
         entry: cargo clippy --all-targets --all-features -- -D warnings
         language: system
-        types: [rust]
         pass_filenames: false
+        always_run: true
+
+      - id: test
+        name: cargo test
+        entry: cargo test --all-targets --all-features
+        language: system
+        pass_filenames: false
+        always_run: true
 
       - id: audit
         name: cargo audit
         entry: cargo audit --deny warnings
         language: system
-        types: [rust]
         pass_filenames: false
-        files: ^Cargo\.(toml|lock)$
+        always_run: true
