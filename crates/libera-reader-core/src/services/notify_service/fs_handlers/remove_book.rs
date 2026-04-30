@@ -19,9 +19,9 @@ pub(crate) fn remove_book_by_path(file_path: &Path, rw_t: &RwTransaction<'_>) ->
   let file_name_str = file_name.to_string_lossy().to_string();
 
   if let Some(books) = Books::get_by_parent_dir_rw(parent_dir, rw_t)? {
-    for (book_name, book) in &books.storage {
-      let full_name = format!("{}.{}", book_name, book.book_path.ext);
-      if full_name == file_name_str {
+    for (_book_name, book) in &books.storage {
+      let full_name = book.book_path.file_name();
+      if full_name.as_ref() == file_name_str {
         let can_delete = book.can_delete();
 
         if can_delete {

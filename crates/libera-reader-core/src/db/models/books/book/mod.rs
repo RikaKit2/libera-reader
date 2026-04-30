@@ -3,10 +3,11 @@ use std::{
   path::PathBuf,
 };
 
+use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 
 use crate::db::models::UserData;
-pub(crate) type BookName = String;
+pub(crate) type BookName = SharedString;
 mod book_dir;
 mod book_ext;
 mod book_path;
@@ -34,8 +35,8 @@ impl Book {
   pub(crate) fn pathbuf(&self) -> PathBuf {
     self.book_path.as_pathbuf()
   }
-  pub(crate) fn full_path_str(&self) -> String {
-    self.pathbuf().to_str().unwrap().to_string()
+  pub(crate) fn full_path_str(&self) -> SharedString {
+    self.pathbuf().to_str().unwrap().to_string().into()
   }
   pub fn can_delete(&self) -> bool {
     !self.user_data.favorite && !self.user_data.in_history

@@ -1,10 +1,11 @@
 use chrono::{DateTime, Local};
+use gpui::SharedString;
 use tokio::sync::mpsc::{self, UnboundedReceiver};
 
 #[derive(Debug)]
 pub struct ErrorEntry {
   pub timestamp: DateTime<Local>,
-  pub message: String,
+  pub message: SharedString,
   pub error_type: ErrorType,
 }
 
@@ -36,7 +37,7 @@ impl ErrorHandler {
     (Self { sender: tx }, ErrorReceiver::new(rx))
   }
 
-  pub fn report(&self, message: String, error_type: ErrorType) {
+  pub fn report(&self, message: SharedString, error_type: ErrorType) {
     self.sender.send(ErrorEntry { timestamp: Local::now(), message, error_type }).unwrap();
   }
 }
@@ -50,7 +51,7 @@ impl<T, E: std::fmt::Display> ErrorHandlerExt<T, E> for Result<T, E> {
     match self {
       Ok(val) => Some(val),
       Err(e) => {
-        handler.report(e.to_string(), error_type);
+        handler.report(e.to_string().into(), error_type);
         None
       }
     }

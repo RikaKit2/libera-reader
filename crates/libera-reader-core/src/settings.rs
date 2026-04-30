@@ -2,6 +2,7 @@ use crate::db::DB;
 use crate::db::models::books::book::BookExt;
 use crate::db::models::{AppTheme, GetOrCreate, Lang, RootRoute, Settings};
 use anyhow::Result;
+use gpui::SharedString;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -39,9 +40,10 @@ impl SETTINGS {
     self.db.update(old_model, self.read().clone())?;
     Ok(())
   }
-  pub fn get_path_to_scan_str(&self) -> Option<String> {
+  pub fn get_path_to_scan_str(&self) -> Option<SharedString> {
     let guard = self.read();
-    guard.path_to_scan.as_ref().map(|path| path.to_string_lossy().to_string())
+    let res = guard.path_to_scan.as_ref().map(|path| path.to_string_lossy().to_string());
+    res.map(|string| string.into())
   }
   pub fn get_path_to_scan_if_exists(&self) -> Option<PathBuf> {
     let guard = self.read();

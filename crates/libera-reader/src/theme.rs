@@ -14,7 +14,7 @@ pub fn set_app_theme(cx: &mut App, theme: String) {
       let ctx = Ctx::global(cx);
       let msg = format!("Theme not faund: {:?}", theme_name);
       error!("{}", &msg);
-      ctx.error_handler.report(msg, Other);
+      ctx.error_handler.report(msg.into(), Other);
     }
   };
 }
@@ -28,7 +28,7 @@ pub fn init_theme(themes_dir: PathBuf, cx: &mut App) {
     Ok(_) => {}
     Err(err) => {
       let ctx = Ctx::global(cx);
-      ctx.error_handler.report(err.to_string(), Other);
+      ctx.error_handler.report(err.to_string().into(), Other);
     }
   };
 }

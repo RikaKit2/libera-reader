@@ -3,6 +3,7 @@ use std::{
   path::PathBuf,
 };
 
+use gpui::SharedString;
 use native_db::{Key, ToKey};
 use serde::{Deserialize, Serialize};
 
@@ -14,11 +15,11 @@ impl BookDir {
   pub fn new(dir_path: PathBuf) -> Self {
     Self { inn: dir_path }
   }
-  pub fn dir_name(&self) -> String {
-    self.inn.file_name().unwrap().to_string_lossy().to_string()
+  pub fn dir_name(&self) -> SharedString {
+    self.inn.file_name().unwrap().to_string_lossy().to_string().into()
   }
-  pub fn full_path(&self) -> String {
-    self.inn.to_string_lossy().to_string()
+  pub fn full_path(&self) -> SharedString {
+    self.inn.to_string_lossy().to_string().into()
   }
   pub fn exists(&self) -> bool {
     self.inn.exists()
@@ -44,6 +45,6 @@ impl ToKey for BookDir {
   }
 
   fn key_names() -> Vec<String> {
-    vec!["BookDir".to_string()]
+    vec!["BookDir".into()]
   }
 }

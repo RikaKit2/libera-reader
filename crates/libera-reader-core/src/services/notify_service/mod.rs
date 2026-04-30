@@ -216,11 +216,14 @@ async fn process_batch(
                   // Достаем обновленную книгу из БД и шлем BookUpdated
                   if let Ok(Some(books)) =
                     crate::db::models::books::Books::get_by_parent_dir_rw(book_path.parent_dir.clone(), rw_t)
-                    && let Some(book) = books.storage.get(&book_path.name)
                   {
-                    let _ = event_tx.send(LibraryEvent::BookUpdated(book.clone()));
+                    let key = book_path.file_name();
+                    if let Some(book) = books.storage.get(&key) {
+                      let _ = event_tx.send(LibraryEvent::BookUpdated(book.clone()));
+                    }
                   }
                 }
+
                 Err(err) => {
                   debug!("Error removing book {:?}: {:?}", file_path, err);
                 }

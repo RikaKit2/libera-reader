@@ -1,8 +1,9 @@
 use std::{
   hash::{Hash, Hasher},
-  path::PathBuf,
+  path::{Path, PathBuf},
 };
 
+use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 
 use crate::db::models::books::book::{BookDir, BookExt, BookName, BookSize};
@@ -15,25 +16,52 @@ pub struct BookPath {
   pub deleted: bool,
 }
 impl BookPath {
-  pub fn new(path: &std::path::Path) -> Option<Self> {
+  pub fn new(path: &Path) -> Option<Self> {
     match BookExt::from_pathbuf(path) {
       Some(ext) => {
-        let name = path.file_name().unwrap().to_string_lossy().to_string();
-        let parent_dir = BookDir::new(path.parent().unwrap().to_path_buf());
+        let name = path.file_stem()?.to_string_lossy().to_string().into();
+        let parent_dir = BookDir::new(path.parent()?.to_path_buf());
         Some(Self { parent_dir, name, ext, deleted: false })
       }
       None => None,
     }
   }
-  pub(crate) fn as_pathbuf(&self) -> PathBuf {
-    PathBuf::from(&self.parent_dir.inn).join(&self.name).with_extension(self.ext.to_string())
+
+  pub fn file_name(&self) -> BookName {
+    let name = self.name.as_ref();
+    let ext = self.ext.to_string();
+    let expected_suffix = format!(".{}", ext);
+
+    if name.to_ascii_lowercase().ends_with(&expected_suffix.to_ascii_lowercase()) {
+      self.name.clone()
+    } else {
+      format!("{}.{}", name, ext).into()
+    }
   }
+
+  pub fn display_name(&self) -> BookName {
+    let name = self.name.as_ref();
+    let ext = self.ext.to_string();
+    let expected_suffix = format!(".{}", ext);
+
+    if name.to_ascii_lowercase().ends_with(&expected_suffix.to_ascii_lowercase()) {
+      name[..name.len() - expected_suffix.len()].to_string().into()
+    } else {
+      self.name.clone()
+    }
+  }
+
+  pub(crate) fn as_pathbuf(&self) -> PathBuf {
+    let file_name = self.file_name();
+    PathBuf::from(&self.parent_dir.inn).join(file_name.as_ref())
+  }
+
   pub(crate) fn get_book_size(&self) -> anyhow::Result<BookSize> {
     let buf = &self.as_pathbuf();
     BookSize::new(buf)
   }
-  pub fn full_path_string(&self) -> String {
-    self.as_pathbuf().to_str().unwrap().to_string()
+  pub fn full_path_string(&self) -> SharedString {
+    self.as_pathbuf().to_str().unwrap().to_string().into()
   }
   pub fn exists_on_disk(&self) -> bool {
     self.as_pathbuf().exists()

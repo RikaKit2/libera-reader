@@ -5,6 +5,7 @@ pub mod bookmark;
 pub(crate) mod mutool_data;
 pub(crate) mod thumbnail;
 pub(crate) mod user_data;
+use gpui::SharedString;
 use std::hash::{Hash, Hasher};
 use utils::debug;
 
@@ -25,12 +26,35 @@ use crate::{
 
 use native_db::transaction::{RTransaction, RwTransaction};
 use native_db::*;
+use native_db::{Key, ToKey};
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
-pub(crate) type BookHash = String;
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct BookHash(pub SharedString);
 
+impl From<SharedString> for BookHash {
+  fn from(value: SharedString) -> Self {
+    Self(value)
+  }
+}
+
+impl From<String> for BookHash {
+  fn from(value: String) -> Self {
+    Self(value.into())
+  }
+}
+
+impl ToKey for BookHash {
+  fn to_key(&self) -> Key {
+    Key::new(self.0.as_bytes().to_vec())
+  }
+
+  fn key_names() -> Vec<String> {
+    vec!["BookHash".into()]
+  }
+}
 impl PartialEq for Books {
   fn eq(&self, other: &Self) -> bool {
     self.parent_dir.eq(&other.parent_dir)
@@ -65,18 +89,22 @@ impl Books {
   fn new(book: Book) -> Self {
     let parent_dir = book.book_path.parent_dir.clone();
     let mut storage = HashMap::default();
-    storage.insert(book.book_path.name.clone(), book);
+    storage.insert(book.book_path.file_name(), book);
     Self { parent_dir, storage }
   }
+
   pub fn get_by_path(book_path: BookPath, r: &RTransaction) -> anyhow::Result<Option<Book>> {
-    match Books::get_by_parent_dir(book_path.parent_dir, r)? {
-      Some(books) => match books.storage.get(&book_path.name) {
+    let parent_dir = book_path.parent_dir.clone();
+    let key = book_path.file_name();
+    match Books::get_by_parent_dir(parent_dir, r)? {
+      Some(books) => match books.storage.get(&key) {
         Some(book) => Ok(Some(book.clone())),
         None => Ok(None),
       },
       None => Ok(None),
     }
   }
+
   pub fn get_by_parent_dir(parent_dir: BookDir, r: &RTransaction<'_>) -> anyhow::Result<Option<Self>> {
     Ok(r.get().primary::<Books>(parent_dir)?)
   }
@@ -88,7 +116,8 @@ impl Books {
     match Books::get_by_parent_dir_rw(parent_dir, rw_t)? {
       Some(old_books) => {
         let mut updated_books = old_books.clone();
-        match updated_books.storage.get_mut(&new_book.book_path.name) {
+        let key = new_book.book_path.file_name();
+        match updated_books.storage.get_mut(&key) {
           Some(book) => {
             if book.book_path.deleted {
               book.book_path.deleted = false;
@@ -96,7 +125,8 @@ impl Books {
             }
           }
           None => {
-            updated_books.storage.insert(new_book.book_path.name.clone(), new_book);
+            updated_books.storage.insert(key, new_book);
+
             rw_t.update::<Self>(old_books, updated_books).unwrap();
           }
         };
@@ -163,11 +193,12 @@ impl Books {
   pub(crate) fn remove_book(&self, book_path: BookPath, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
     let old_self = self.clone();
     let mut updated_self = self.clone();
-    if let Some(outdated_book_link) = updated_self.storage.get_mut(&book_path.name) {
+    let key = book_path.file_name();
+    if let Some(outdated_book_link) = updated_self.storage.get_mut(&key) {
       let start_time = std::time::Instant::now();
       match outdated_book_link.can_delete() {
         true => {
-          if let Some(outdated_book) = updated_self.storage.swap_remove(&book_path.name) {
+          if let Some(outdated_book) = updated_self.storage.swap_remove(&key) {
             BookSizes::remove_book(outdated_book.book_size, &book_path, rw_t)?;
           };
         }

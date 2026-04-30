@@ -19,11 +19,13 @@ pub(crate) fn update_book_path(
         if let Some(old_books) = Books::get_by_parent_dir_rw(old_book_path.parent_dir.clone(), rw_t)? {
           let mut updated_books = old_books.clone();
 
-          if let Some(mut book) = updated_books.storage.swap_remove(&old_book_path.name) {
+          let old_key = old_book_path.file_name();
+          if let Some(mut book) = updated_books.storage.swap_remove(&old_key) {
             book.book_path = new_book_path.clone();
             BookSizes::update_book_path(book.book_size, &old_book_path, new_book_path, rw_t)?;
             updated_books.parent_dir = book.book_path.parent_dir.clone();
-            updated_books.storage.insert(book.book_path.name.clone(), book);
+            let new_key = book.book_path.file_name();
+            updated_books.storage.insert(new_key, book);
 
             rw_t.update(old_books, updated_books)?;
             let total_time = start_time.elapsed();
