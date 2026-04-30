@@ -2574,7 +2574,7 @@ dependencies = [
  "paste",
  "regex",
  "ropey",
- "rust-i18n",
+ "rust-i18n 3.1.5",
  "schemars",
  "serde",
  "serde_json",
@@ -3613,7 +3613,7 @@ dependencies = [
  "mimalloc",
  "rfd",
  "rust-embed",
- "rust-i18n",
+ "rust-i18n 4.0.0",
  "serde",
  "tokio",
  "tracing",
@@ -3645,7 +3645,7 @@ dependencies = [
  "num_cpus",
  "once_cell",
  "rfd",
- "rust-i18n",
+ "rust-i18n 4.0.0",
  "serde",
  "sys-locale",
  "tokio",
@@ -5534,8 +5534,21 @@ dependencies = [
  "globwalk",
  "once_cell",
  "regex",
- "rust-i18n-macro",
- "rust-i18n-support",
+ "rust-i18n-macro 3.1.5",
+ "rust-i18n-support 3.1.5",
+ "smallvec",
+]
+
+[[package]]
+name = "rust-i18n"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21031bf5e6f2c0ae745d831791c403608e99a8bd3776c7e5e5535acd70c3b7ba"
+dependencies = [
+ "globwalk",
+ "regex",
+ "rust-i18n-macro 4.0.0",
+ "rust-i18n-support 4.0.0",
  "smallvec",
 ]
 
@@ -5549,7 +5562,23 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "rust-i18n-support",
+ "rust-i18n-support 3.1.5",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "syn 2.0.117",
+]
+
+[[package]]
+name = "rust-i18n-macro"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51fe5295763b358606f7ca26a564e20f4469775a57ec1f09431249a33849ff52"
+dependencies = [
+ "glob",
+ "proc-macro2",
+ "quote",
+ "rust-i18n-support 4.0.0",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -5569,6 +5598,28 @@ dependencies = [
  "lazy_static",
  "normpath",
  "once_cell",
+ "proc-macro2",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "siphasher",
+ "toml 0.8.23",
+ "triomphe",
+]
+
+[[package]]
+name = "rust-i18n-support"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69bcc115c8eea2803aa3d85362e339776f4988a0349f2f475af572e497443f6f"
+dependencies = [
+ "arc-swap",
+ "base62",
+ "globwalk",
+ "itertools 0.11.0",
+ "lazy_static",
+ "normpath",
  "proc-macro2",
  "regex",
  "serde",
