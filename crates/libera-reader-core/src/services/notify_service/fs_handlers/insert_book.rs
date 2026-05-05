@@ -12,7 +12,8 @@ use crate::{
 };
 
 pub(crate) fn insert_book(
-  book_path: BookPath, rw_t: &RwTransaction<'_>, settings: &SETTINGS, _not_cached_books: &NotCachedBooks,
+  book_path: BookPath, rw_t: &RwTransaction<'_>, settings: &SETTINGS,
+  _not_cached_books: &NotCachedBooks,
 ) -> anyhow::Result<()> {
   match settings.contains_ext(&book_path.ext) {
     true => {

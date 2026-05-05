@@ -16,6 +16,13 @@ pub use {
   theme::AppTheme,
 };
 
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum CardDisplayMode {
+  Compact,
+  #[default]
+  Detailed,
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 #[native_model(id = 1, version = 1)]
 #[native_db]
@@ -36,6 +43,7 @@ pub struct Settings {
   pub workers_num: u32,
   pub route: RootRoute,
   pub setup_is_done: bool,
+  pub card_display_mode: CardDisplayMode,
 }
 
 impl Default for Settings {
@@ -56,6 +64,7 @@ impl Default for Settings {
       workers_num: 2,
       route: RootRoute::Setup(Welcome),
       setup_is_done: false,
+      card_display_mode: CardDisplayMode::Detailed,
     }
   }
 }

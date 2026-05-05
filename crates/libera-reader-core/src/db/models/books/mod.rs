@@ -105,10 +105,14 @@ impl Books {
     }
   }
 
-  pub fn get_by_parent_dir(parent_dir: BookDir, r: &RTransaction<'_>) -> anyhow::Result<Option<Self>> {
+  pub fn get_by_parent_dir(
+    parent_dir: BookDir, r: &RTransaction<'_>,
+  ) -> anyhow::Result<Option<Self>> {
     Ok(r.get().primary::<Books>(parent_dir)?)
   }
-  pub fn get_by_parent_dir_rw(parent_dir: BookDir, rw_t: &RwTransaction<'_>) -> anyhow::Result<Option<Self>> {
+  pub fn get_by_parent_dir_rw(
+    parent_dir: BookDir, rw_t: &RwTransaction<'_>,
+  ) -> anyhow::Result<Option<Self>> {
     Ok(rw_t.get().primary::<Books>(parent_dir)?)
   }
   pub(crate) fn insert_book(new_book: Book, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
@@ -190,7 +194,9 @@ impl Books {
     debug!("The total time of deleting books in the dir: {:?}", &total_time);
     Ok(())
   }
-  pub(crate) fn remove_book(&self, book_path: BookPath, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
+  pub(crate) fn remove_book(
+    &self, book_path: BookPath, rw_t: &RwTransaction<'_>,
+  ) -> anyhow::Result<()> {
     let old_self = self.clone();
     let mut updated_self = self.clone();
     let key = book_path.file_name();
@@ -204,7 +210,11 @@ impl Books {
         }
         false => {
           outdated_book_link.mark_as_deleted();
-          BookSizes::mark_book_path_as_deleted(outdated_book_link.book_size, &outdated_book_link.book_path, rw_t)?;
+          BookSizes::mark_book_path_as_deleted(
+            outdated_book_link.book_size,
+            &outdated_book_link.book_path,
+            rw_t,
+          )?;
         }
       };
       rw_t.update(old_self, updated_self)?;

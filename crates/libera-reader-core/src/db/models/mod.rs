@@ -2,13 +2,15 @@ pub mod books;
 pub mod settings;
 
 use anyhow::Result;
-pub use books::{bookmark::BookMark, mutool_data::MutoolData, thumbnail::Thumbnail, user_data::UserData};
+pub use books::{
+  bookmark::BookMark, mutool_data::MutoolData, thumbnail::Thumbnail, user_data::UserData,
+};
 use native_db::ToInput;
 use native_db::ToKey;
 pub use settings::Settings;
 pub use settings::lang::*;
 pub use settings::theme::AppTheme;
-pub use settings::{RootRoute, Route};
+pub use settings::{CardDisplayMode, RootRoute, Route};
 
 use crate::db::DB;
 

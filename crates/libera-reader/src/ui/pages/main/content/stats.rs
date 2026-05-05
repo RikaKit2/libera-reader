@@ -1,4 +1,6 @@
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
+};
 use gpui_component::ActiveTheme;
 
 pub(crate) struct Stats {}

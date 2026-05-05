@@ -1,4 +1,7 @@
-use gpui::{App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div, px, svg};
+use gpui::{
+  App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div, px,
+  svg,
+};
 use gpui::{Stateful, prelude::*};
 use gpui_component::ActiveTheme;
 use libera_reader_core::ctx::GlobalCTX;
@@ -17,7 +20,9 @@ pub(crate) struct Btn {
 }
 
 impl Btn {
-  pub fn new(route: Route, image_source: &'static str, click_event_handler: Option<ClickHandler>) -> Self {
+  pub fn new(
+    route: Route, image_source: &'static str, click_event_handler: Option<ClickHandler>,
+  ) -> Self {
     Self {
       id: image_source.into(),
       on_click: click_event_handler,
@@ -61,7 +66,9 @@ impl RenderOnce for Btn {
     let is_active = self.get_active_status(cx);
     let (btn, icon) = self.build_icon_and_button(is_active, cx);
 
-    fn attach_click_handler(this: Stateful<gpui::Div>, on_click: ClickHandler) -> Stateful<gpui::Div> {
+    fn attach_click_handler(
+      this: Stateful<gpui::Div>, on_click: ClickHandler,
+    ) -> Stateful<gpui::Div> {
       this.on_click(move |evt, window, cx| on_click(evt, window, cx))
     }
 

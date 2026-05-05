@@ -88,7 +88,8 @@ pub struct NotifyService {
 
 impl NotifyService {
   pub(crate) fn new(
-    not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, event_tx: broadcast::Sender<LibraryEvent>,
+    not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB,
+    event_tx: broadcast::Sender<LibraryEvent>,
   ) -> Result<Self> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let watcher = notify::recommended_watcher(move |res| match res {
@@ -147,8 +148,8 @@ impl NotifyService {
 
 /// Main event processing loop with batching using tokio::select!
 async fn run_event_loop(
-  mut rx: UnboundedReceiver<notify::Event>, settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB,
-  event_tx: broadcast::Sender<LibraryEvent>,
+  mut rx: UnboundedReceiver<notify::Event>, settings: SETTINGS, not_cached_books: NotCachedBooks,
+  db: DB, event_tx: broadcast::Sender<LibraryEvent>,
 ) {
   loop {
     let mut buffer: Vec<FSEvent> = Vec::new();
@@ -177,7 +178,14 @@ async fn run_event_loop(
 
     // Process buffer after timer expiration
     if !buffer.is_empty() {
-      process_batch(buffer, settings.clone(), not_cached_books.clone(), db.clone(), event_tx.clone()).await;
+      process_batch(
+        buffer,
+        settings.clone(),
+        not_cached_books.clone(),
+        db.clone(),
+        event_tx.clone(),
+      )
+      .await;
     }
   }
 }
@@ -213,10 +221,11 @@ async fn process_batch(
                   let _ = event_tx.send(LibraryEvent::BookRemoved(book_path));
                 }
                 Ok(RemoveStatus::MarkedAsDeleted) => {
-                  // Достаем обновленную книгу из БД и шлем BookUpdated
-                  if let Ok(Some(books)) =
-                    crate::db::models::books::Books::get_by_parent_dir_rw(book_path.parent_dir.clone(), rw_t)
-                  {
+                  // Fetch updated book from DB and send BookUpdated
+                  if let Ok(Some(books)) = crate::db::models::books::Books::get_by_parent_dir_rw(
+                    book_path.parent_dir.clone(),
+                    rw_t,
+                  ) {
                     let key = book_path.file_name();
                     if let Some(book) = books.storage.get(&key) {
                       let _ = event_tx.send(LibraryEvent::BookUpdated(book.clone()));
@@ -232,7 +241,9 @@ async fn process_batch(
           }
 
           FSEvent::RenameFile { old_path, new_path } => {
-            if let Err(err) = fs_handlers::update_book_path(old_path.clone(), new_path.clone(), rw_t) {
+            if let Err(err) =
+              fs_handlers::update_book_path(old_path.clone(), new_path.clone(), rw_t)
+            {
               debug!("Error updating book path: {:?}", err);
             } else {
               let _ = event_tx.send(LibraryEvent::BookPathUpdated {
@@ -243,13 +254,15 @@ async fn process_batch(
           }
 
           FSEvent::RenameDir { old_path, new_path } => {
-            if let Err(err) = fs_handlers::update_book_dir(old_path.clone(), new_path.clone(), rw_t) {
+            if let Err(err) = fs_handlers::update_book_dir(old_path.clone(), new_path.clone(), rw_t)
+            {
               debug!("Error updating book dir: {:?}", err);
             } else {
-              // Отправляем события для всех книг в директории
-              if let Ok(Some(books)) =
-                crate::db::models::books::Books::get_by_parent_dir_rw(BookDir::new(new_path.clone()), rw_t)
-              {
+              // Send events for all books in the directory
+              if let Ok(Some(books)) = crate::db::models::books::Books::get_by_parent_dir_rw(
+                BookDir::new(new_path.clone()),
+                rw_t,
+              ) {
                 for (_, book) in books.storage {
                   let _ = event_tx.send(LibraryEvent::BookUpdated(book));
                 }

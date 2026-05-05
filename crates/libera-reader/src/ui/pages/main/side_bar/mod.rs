@@ -5,7 +5,9 @@ use gpui::prelude::*;
 use gpui::{App, Entity, IntoElement, ParentElement, Styled, Window, div};
 use gpui_component::ActiveTheme;
 use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::models::Route::{BookMarks, Favorite, FileManager, History, Library, Stats};
+use libera_reader_core::db::models::Route::{
+  BookMarks, Favorite, FileManager, History, Library, Stats,
+};
 use libera_reader_core::db::models::{RootRoute, Route};
 
 pub(crate) struct SideBar {}

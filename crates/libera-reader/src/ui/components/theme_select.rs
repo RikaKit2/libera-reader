@@ -14,12 +14,14 @@ impl ThemeSelect {
     let current_theme = cx.ctx().theme();
     let initial_index =
       AppTheme::all().iter().position(|t| t == &current_theme).map(|i| IndexPath::default().row(i));
-    let theme_select = cx.new(|cx| SelectState::new(themes, initial_index, window, cx).searchable(true));
+    let theme_select =
+      cx.new(|cx| SelectState::new(themes, initial_index, window, cx).searchable(true));
 
     cx.new(|cx| {
       fn fun_name(
         _this: &mut ThemeSelect, _state: &Entity<SelectState<SearchableVec<AppTheme>>>,
-        event: &SelectEvent<SearchableVec<AppTheme>>, _window: &mut Window, cx: &mut Context<'_, ThemeSelect>,
+        event: &SelectEvent<SearchableVec<AppTheme>>, _window: &mut Window,
+        cx: &mut Context<'_, ThemeSelect>,
       ) {
         let SelectEvent::Confirm(new_theme) = event;
         if let Some(new_theme) = new_theme {

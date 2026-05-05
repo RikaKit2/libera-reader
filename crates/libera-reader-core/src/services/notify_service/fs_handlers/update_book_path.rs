@@ -16,7 +16,9 @@ pub(crate) fn update_book_path(
   match old_book_path {
     Some(old_book_path) => match new_book_path {
       Some(new_book_path) => {
-        if let Some(old_books) = Books::get_by_parent_dir_rw(old_book_path.parent_dir.clone(), rw_t)? {
+        if let Some(old_books) =
+          Books::get_by_parent_dir_rw(old_book_path.parent_dir.clone(), rw_t)?
+        {
           let mut updated_books = old_books.clone();
 
           let old_key = old_book_path.file_name();

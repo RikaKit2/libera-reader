@@ -1,4 +1,6 @@
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
+};
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable};
 use rust_i18n::t;
 
@@ -16,7 +18,12 @@ impl Render for TTSPage {
     let theme = cx.theme();
     let page = div().flex().flex_col().justify_center().items_center().children([
       div().child(Icon::new(IconName::Bot).with_size(px(40.0))),
-      div().mt_2().flex().justify_center().items_center().child(t!("pages.setup.pages.tts.title").to_string()),
+      div()
+        .mt_2()
+        .flex()
+        .justify_center()
+        .items_center()
+        .child(t!("pages.setup.pages.tts.title").to_string()),
       div().mt_2().child(t!("pages.setup.pages.tts.description").to_string()).text_size(px(14.0)),
       div().mt_4().flex().flex_col().gap_2().children([
         div().child(t!("pages.setup.pages.tts.providers.offline").to_string()),

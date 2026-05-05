@@ -150,7 +150,9 @@ impl DB {
     rw_conn.commit().map_err(Box::new)
   }
 
-  pub(crate) fn update<T: ToInput>(&self, old_data: T, new_data: T) -> Result<(), Box<db_type::Error>> {
+  pub(crate) fn update<T: ToInput>(
+    &self, old_data: T, new_data: T,
+  ) -> Result<(), Box<db_type::Error>> {
     let lock = self.db.write().unwrap();
     let rw_conn = lock.rw_transaction().map_err(Box::new)?;
     rw_conn.update(old_data, new_data).map_err(Box::new)?;

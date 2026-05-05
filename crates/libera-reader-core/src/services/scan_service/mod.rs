@@ -74,7 +74,9 @@ impl ScanService {
     Ok(())
   }
 
-  async fn run_event_loop(&self, mut rx: UnboundedReceiver<BookPath>, mut db_books: HashMap<BookDir, Books>) {
+  async fn run_event_loop(
+    &self, mut rx: UnboundedReceiver<BookPath>, mut db_books: HashMap<BookDir, Books>,
+  ) {
     let mut total_new_books = 0;
     let total_insert_start = Instant::now();
 
@@ -120,7 +122,11 @@ impl ScanService {
       if !buffer.is_empty() {
         let new_count = self.insert_books(buffer, &mut db_books);
         total_new_books += new_count;
-        eprint!("\rAdding books: {} (elapsed: {:?})", total_new_books, total_insert_start.elapsed());
+        eprint!(
+          "\rAdding books: {} (elapsed: {:?})",
+          total_new_books,
+          total_insert_start.elapsed()
+        );
       }
     }
 
@@ -181,7 +187,8 @@ impl ScanService {
 
     let _ = self.db.rw_t(|rw_t| {
       for (books_dir, books) in db_books {
-        let paths_to_delete: Vec<BookPath> = books.storage.values().map(|book| book.book_path.clone()).collect();
+        let paths_to_delete: Vec<BookPath> =
+          books.storage.values().map(|book| book.book_path.clone()).collect();
 
         for path in paths_to_delete {
           if let Ok(Some(fresh_dir_books)) = Books::get_by_parent_dir_rw(books_dir.clone(), rw_t) {
@@ -191,7 +198,8 @@ impl ScanService {
               if fresh_dir_books.remove_book(path.clone(), rw_t).is_ok() {
                 if can_delete {
                   let _ = event_tx.send(LibraryEvent::BookRemoved(path));
-                } else if let Ok(Some(updated_dir_books)) = Books::get_by_parent_dir_rw(books_dir.clone(), rw_t)
+                } else if let Ok(Some(updated_dir_books)) =
+                  Books::get_by_parent_dir_rw(books_dir.clone(), rw_t)
                   && let Some(updated_book) = updated_dir_books.storage.get(&key)
                 {
                   let _ = event_tx.send(LibraryEvent::BookUpdated(updated_book.clone()));

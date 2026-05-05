@@ -1,6 +1,10 @@
-use crate::ui::pages::main::content::{Bookmarks, Favorite, FileManager, History, Library, Settings, Stats};
+use crate::ui::pages::main::content::{
+  Bookmarks, Favorite, FileManager, History, Library, Settings, Stats,
+};
 use crate::ui::pages::main::side_bar::SideBar;
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
+};
 use libera_reader_core::ctx::GlobalCTX;
 use libera_reader_core::db::models::{RootRoute, Route};
 

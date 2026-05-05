@@ -1,7 +1,11 @@
 use crate::ui::components::columns_select::ColumnsSelect;
-use crate::ui::components::{lang_select::LangSelect, path_select::PathSelect, theme_select::ThemeSelect};
+use crate::ui::components::{
+  lang_select::LangSelect, path_select::PathSelect, theme_select::ThemeSelect,
+};
 
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
+};
 use rust_i18n::t;
 
 pub(crate) struct Settings {
