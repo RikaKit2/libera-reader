@@ -49,9 +49,24 @@ impl Ctx {
     let settings = SETTINGS::new(db.clone()).unwrap();
     let not_cached_books = NotCachedBooks::new();
     let (event_tx, _) = broadcast::channel::<LibraryEvent>(1024);
-    let services =
-      Services::new(settings.clone(), db.clone(), not_cached_books.clone(), event_tx.clone()).unwrap();
-    Self { services, settings, app_dirs, not_cached_books, db, error_handler, error_receiver, event_tx }
+    let services = Services::new(
+      settings.clone(),
+      db.clone(),
+      not_cached_books.clone(),
+      event_tx.clone(),
+      app_dirs.clone(),
+    )
+    .unwrap();
+    Self {
+      services,
+      settings,
+      app_dirs,
+      not_cached_books,
+      db,
+      error_handler,
+      error_receiver,
+      event_tx,
+    }
   }
   pub fn init(cx: &mut App) {
     cx.set_global::<Self>(Self::new())

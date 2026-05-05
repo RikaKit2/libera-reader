@@ -52,7 +52,9 @@ impl Book {
   }
 
   pub fn update_bookmark(&mut self, bookmark: BookMark) -> bool {
-    if let Some(existing) = self.bookmarks.iter_mut().find(|b| b.time_created == bookmark.time_created) {
+    if let Some(existing) =
+      self.bookmarks.iter_mut().find(|b| b.time_created == bookmark.time_created)
+    {
       *existing = bookmark;
       true
     } else {

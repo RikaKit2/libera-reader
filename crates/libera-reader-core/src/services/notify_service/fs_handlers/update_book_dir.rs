@@ -5,7 +5,9 @@ use utils::debug;
 
 use crate::db::models::books::{Books, book::BookDir, book_sizes::BookSizes};
 
-pub(crate) fn update_book_dir(old_dir: PathBuf, new_dir: PathBuf, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
+pub(crate) fn update_book_dir(
+  old_dir: PathBuf, new_dir: PathBuf, rw_t: &RwTransaction<'_>,
+) -> anyhow::Result<()> {
   let start_time = std::time::Instant::now();
   let old_book_dir = BookDir::new(old_dir);
   let new_book_dir = BookDir::new(new_dir);

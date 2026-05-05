@@ -1,4 +1,6 @@
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
+};
 
 use gpui_component::ActiveTheme;
 use rust_i18n::t;
@@ -34,6 +36,9 @@ impl Render for Welcome {
       .flex_col()
       .justify_between()
       .text_color(theme.foreground)
-      .children([div().mx_1_6().child(page), div().w_full().flex().justify_end().children([next_btn(false)])])
+      .children([
+        div().mx_1_6().child(page),
+        div().w_full().flex().justify_end().children([next_btn(false)]),
+      ])
   }
 }

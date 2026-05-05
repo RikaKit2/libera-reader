@@ -1,4 +1,6 @@
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
+};
 use gpui_component::{ActiveTheme, Icon, Sizable};
 use rust_i18n::t;
 
@@ -16,7 +18,12 @@ impl Render for SyncPage {
     let theme = cx.theme();
     let page = div().flex().flex_col().justify_center().items_center().children([
       div().child(Icon::new(Icon::empty()).path("refresh-ccw.svg").with_size(px(40.0))),
-      div().mt_2().flex().justify_center().items_center().child(t!("pages.setup.pages.sync.title").to_string()),
+      div()
+        .mt_2()
+        .flex()
+        .justify_center()
+        .items_center()
+        .child(t!("pages.setup.pages.sync.title").to_string()),
       div().mt_2().child(t!("pages.setup.pages.sync.description").to_string()).text_size(px(14.0)),
     ]);
 

@@ -1,6 +1,6 @@
 use gpui::{
-  AbsoluteLength, App, AppContext, Context, Entity, IntoElement, ParentElement, Pixels, Render, Styled, Window,
-  div, px,
+  AbsoluteLength, App, AppContext, Context, Entity, IntoElement, ParentElement, Pixels, Render,
+  Styled, Window, div, px,
 };
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable};
 use libera_reader_core::ctx::GlobalCTX;

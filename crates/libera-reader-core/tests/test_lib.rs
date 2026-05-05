@@ -77,7 +77,9 @@ impl TestLib {
     create_empty_book(&path_to_mutool, &self.first_book).await.unwrap();
 
     self.wait_for_sync().await?;
-    self.test_fn(&self.first_book, |book: &Book| assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref()))?;
+    self.test_fn(&self.first_book, |book: &Book| {
+      assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref())
+    })?;
     Ok(())
   }
 
@@ -86,7 +88,9 @@ impl TestLib {
     rename(&self.first_book, &self.second_book).await?;
 
     self.wait_for_sync().await?;
-    self.test_fn(&self.second_book, |book: &Book| assert_eq!(SECOND_BOOK, book.book_path.file_name().as_ref()))?;
+    self.test_fn(&self.second_book, |book: &Book| {
+      assert_eq!(SECOND_BOOK, book.book_path.file_name().as_ref())
+    })?;
     Ok(())
   }
 
@@ -132,7 +136,9 @@ impl TestLib {
 
     self.wait_for_sync().await?;
 
-    self.test_fn(&self.first_book, |book: &Book| assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref()))?;
+    self.test_fn(&self.first_book, |book: &Book| {
+      assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref())
+    })?;
     Ok(())
   }
 
@@ -155,7 +161,7 @@ impl TestLib {
 
   pub async fn drop_files(tmp_dir: &PathBuf) {
     debug!("Drop test files");
-    let _ = remove_dir_all(tmp_dir).await; // Игнорируем ошибку, если папки еще нет
+    let _ = remove_dir_all(tmp_dir).await; // Ignore error if folder doesn't exist yet
     match create_dir(tmp_dir).await {
       Ok(_) => {}
       Err(e) => error!("error when creating tests_files_dir: {:?}", e),

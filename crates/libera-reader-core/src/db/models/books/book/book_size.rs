@@ -17,7 +17,9 @@ impl BookSize {
         let file_size = metadata.len();
         Ok(BookSize::BYTES(file_size))
       }
-      Err(err) => Err(anyhow::anyhow!("Failed to get file size for {:?}: {:?}", &path_to_file, err)),
+      Err(err) => {
+        Err(anyhow::anyhow!("Failed to get file size for {:?}: {:?}", &path_to_file, err))
+      }
     }
   }
   pub fn as_mb(&self) -> u64 {

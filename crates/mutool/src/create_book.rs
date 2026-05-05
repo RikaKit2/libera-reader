@@ -18,7 +18,9 @@ fn find_system_mutool() -> Option<PathBuf> {
   }
   None
 }
-pub async fn create_empty_book(path_to_mutool: &Path, path_to_book: &Path) -> Result<(), MuToolError> {
+pub async fn create_empty_book(
+  path_to_mutool: &Path, path_to_book: &Path,
+) -> Result<(), MuToolError> {
   let exec_path: PathBuf = if let Some(system) = find_system_mutool() {
     system
   } else if path_to_mutool.is_file() {

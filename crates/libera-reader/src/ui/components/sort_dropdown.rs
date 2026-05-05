@@ -4,6 +4,8 @@ use gpui_component::button::ButtonVariants;
 use gpui_component::{button::Button, select::*, *};
 
 use crate::books_state::{BooksState, SortField, TargetList};
+use libera_reader_core::ctx::Ctx;
+use libera_reader_core::db::models::CardDisplayMode;
 
 pub struct SortControls {
   books_state: Entity<BooksState>,
@@ -23,10 +25,13 @@ impl SortControls {
     };
 
     let fields = SearchableVec::new(SortField::all().to_vec());
-    let initial_index =
-      SortField::all().iter().position(|f| *f == current_field).map(|i| IndexPath::default().row(i));
+    let initial_index = SortField::all()
+      .iter()
+      .position(|f| *f == current_field)
+      .map(|i| IndexPath::default().row(i));
 
-    let sort_select = cx.new(|cx| SelectState::new(fields, initial_index, window, cx).searchable(false));
+    let sort_select =
+      cx.new(|cx| SelectState::new(fields, initial_index, window, cx).searchable(false));
 
     cx.new(|cx| {
       cx.subscribe_in(&sort_select, window, {
@@ -57,8 +62,10 @@ impl SortControls {
       TargetList::History => self.books_state.read(cx).history_sort.field,
       TargetList::Bookmarks => self.books_state.read(cx).bookmarks_sort.field,
     };
-    let current_index =
-      SortField::all().iter().position(|f| *f == current_field).map(|i| IndexPath::default().row(i));
+    let current_index = SortField::all()
+      .iter()
+      .position(|f| *f == current_field)
+      .map(|i| IndexPath::default().row(i));
     if let Some(idx) = current_index {
       self.sort_select.update(cx, |s, cx| {
         s.set_selected_index(Some(idx), window, cx);
@@ -80,6 +87,11 @@ impl Render for SortControls {
 
     let icon_name = if is_reversed { IconName::SortDescending } else { IconName::SortAscending };
 
+    let display_mode = Ctx::global(cx).settings.read().card_display_mode;
+    let mode_label = if display_mode == CardDisplayMode::Compact { "Compact" } else { "Detailed" };
+
+    let view_entity = cx.entity().clone();
+
     div().flex().gap_x_2().mr_2().items_center().children([
       div().child(Select::new(&self.sort_select).w(px(140.0))),
       div().child(Button::new("reverse_btn").text().icon(Icon::new(icon_name).small()).on_click({
@@ -91,6 +103,18 @@ impl Render for SortControls {
           });
         }
       })),
+      div().child(Button::new("toggle_display_mode").text().child(mode_label).on_click(
+        move |_ev, _window, cx| {
+          let current = Ctx::global(cx).settings.read().card_display_mode;
+          let new_mode = if current == CardDisplayMode::Compact {
+            CardDisplayMode::Detailed
+          } else {
+            CardDisplayMode::Compact
+          };
+          let _ = Ctx::global_mut(cx).settings.set_display_mode(new_mode);
+          cx.notify(view_entity.entity_id());
+        },
+      )),
     ])
   }
 }

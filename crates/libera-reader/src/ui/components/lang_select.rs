@@ -13,13 +13,16 @@ impl LangSelect {
   pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
     let langs = SearchableVec::new(Lang::all().to_vec());
     let current_lang = cx.ctx().lang();
-    let initial_index = Lang::all().iter().position(|t| t == &current_lang).map(|i| IndexPath::default().row(i));
-    let lang_select = cx.new(|cx| SelectState::new(langs, initial_index, window, cx).searchable(true));
+    let initial_index =
+      Lang::all().iter().position(|t| t == &current_lang).map(|i| IndexPath::default().row(i));
+    let lang_select =
+      cx.new(|cx| SelectState::new(langs, initial_index, window, cx).searchable(true));
 
     cx.new(|cx| {
       fn fun_name(
         _this: &mut LangSelect, _state: &Entity<SelectState<SearchableVec<Lang>>>,
-        event: &SelectEvent<SearchableVec<Lang>>, _window: &mut Window, cx: &mut Context<'_, LangSelect>,
+        event: &SelectEvent<SearchableVec<Lang>>, _window: &mut Window,
+        cx: &mut Context<'_, LangSelect>,
       ) {
         let SelectEvent::Confirm(new_lang) = event;
         if let Some(new_lang) = new_lang {

@@ -25,7 +25,9 @@ impl BookHashes {
   pub(crate) fn new(book_hash: BookHash, books: HashSet<BookPath>) -> Self {
     Self { hash: book_hash, books, mutool_data: MutoolData::default() }
   }
-  fn get_by_hash(book_hash: BookHash, rw_t: &RwTransaction<'_>) -> Result<Option<BookHashes>, anyhow::Error> {
+  fn get_by_hash(
+    book_hash: BookHash, rw_t: &RwTransaction<'_>,
+  ) -> Result<Option<BookHashes>, anyhow::Error> {
     Ok(rw_t.get().primary::<BookHashes>(book_hash)?)
   }
   #[allow(dead_code)]
@@ -88,7 +90,8 @@ impl BookHashes {
     Ok(())
   }
   pub(crate) fn update_book_path(
-    book_hash: BookHash, old_book_path: &BookPath, new_book_path: &BookPath, rw_t: &RwTransaction<'_>,
+    book_hash: BookHash, old_book_path: &BookPath, new_book_path: &BookPath,
+    rw_t: &RwTransaction<'_>,
   ) -> anyhow::Result<()> {
     if let Some(old_self) = Self::get_by_hash(book_hash, rw_t)? {
       let mut updated_self = old_self.clone();

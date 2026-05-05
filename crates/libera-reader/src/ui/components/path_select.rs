@@ -1,5 +1,7 @@
 use gpui::prelude::FluentBuilder;
-use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
+};
 use gpui_component::{
   Disableable,
   button::{Button, ButtonVariants},
@@ -59,6 +61,10 @@ impl Render for PathSelect {
       })
       .max_w(px(300.0));
 
-    div().flex().flex_col().gap_2().children([div().flex().gap_x_2().children([header, path_to_scan]), btn])
+    div()
+      .flex()
+      .flex_col()
+      .gap_2()
+      .children([div().flex().gap_x_2().children([header, path_to_scan]), btn])
   }
 }

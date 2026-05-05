@@ -7,7 +7,9 @@ use crate::db::models::books::Books;
 use crate::db::models::books::book::BookDir;
 use crate::services::notify_service::RemoveStatus;
 
-pub(crate) fn remove_book_by_path(file_path: &Path, rw_t: &RwTransaction<'_>) -> anyhow::Result<RemoveStatus> {
+pub(crate) fn remove_book_by_path(
+  file_path: &Path, rw_t: &RwTransaction<'_>,
+) -> anyhow::Result<RemoveStatus> {
   let Some(parent_dir) = file_path.parent() else {
     return Ok(RemoveStatus::FullyDeleted);
   };

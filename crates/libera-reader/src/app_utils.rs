@@ -24,13 +24,11 @@ pub(crate) fn start_services(cx: &mut App) {
     async move {
       let tokio_rt = TOKIO.get().unwrap();
 
-      let _ = tokio_rt
-        .spawn(async move {
-          if let Err(e) = scan_service.run().await {
-            eprintln!("ScanService error: {:?}", e);
-          }
-        })
-        .await;
+      tokio_rt.spawn(async move {
+        if let Err(e) = scan_service.run().await {
+          eprintln!("ScanService error: {:?}", e);
+        }
+      });
 
       let _ = owned_app.update(|cx| {
         let _guard = tokio_rt.enter();
@@ -44,6 +42,9 @@ pub(crate) fn start_services(cx: &mut App) {
         if let Err(e) = ctx.services.notify_service.run() {
           eprintln!("NotifyService error: {:?}", e);
         }
+
+        // Start thumbnail extraction
+        ctx.services.run_data_extraction_service();
       });
     }
   })

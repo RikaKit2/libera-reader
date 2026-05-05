@@ -1,5 +1,5 @@
 fn_params_layout = "Compressed"
 tab_spaces = 2
 hard_tabs = false
-max_width = 115
+max_width = 100
 use_small_heuristics = "Max"

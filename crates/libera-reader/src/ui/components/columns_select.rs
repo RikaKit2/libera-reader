@@ -45,9 +45,12 @@ impl ColumnsSelect {
   pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
     let columns = SearchableVec::new(ColumnOption::all());
     let current_columns = cx.ctx().settings.read().number_of_columns;
-    let initial_index =
-      ColumnOption::all().iter().position(|c| c.0 == current_columns).map(|i| IndexPath::default().row(i));
-    let columns_select = cx.new(|cx| SelectState::new(columns, initial_index, window, cx).searchable(false));
+    let initial_index = ColumnOption::all()
+      .iter()
+      .position(|c| c.0 == current_columns)
+      .map(|i| IndexPath::default().row(i));
+    let columns_select =
+      cx.new(|cx| SelectState::new(columns, initial_index, window, cx).searchable(false));
 
     cx.new(|cx| {
       fn fun_name(
@@ -70,7 +73,9 @@ impl ColumnsSelect {
 impl Render for ColumnsSelect {
   fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div().child(
-      Select::new(&self.columns_select).placeholder(t!("components.columns_select.placeholder")).w(px(210.0)),
+      Select::new(&self.columns_select)
+        .placeholder(t!("components.columns_select.placeholder"))
+        .w(px(210.0)),
     )
   }
 }

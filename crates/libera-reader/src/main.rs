@@ -7,7 +7,6 @@ rust_i18n::i18n!("../../locales");
 mod app_utils;
 mod books_state;
 mod theme;
-mod types;
 mod ui;
 
 use crate::app_utils::{set_lang, start_services};
@@ -15,7 +14,9 @@ use crate::theme::init_theme;
 use crate::ui::{assets::Assets, pages::Pages};
 use anyhow::Result;
 use gpui::AppContext;
-use gpui::{App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
+use gpui::{
+  App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size,
+};
 use gpui_component::Root;
 use libera_reader_core::ctx::Ctx;
 use libera_reader_core::db::models::books::Books;

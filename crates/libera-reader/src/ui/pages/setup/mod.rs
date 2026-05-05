@@ -1,4 +1,6 @@
-use gpui::{App, AppContext, Context, Div, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
+use gpui::{
+  App, AppContext, Context, Div, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
+};
 use gpui_component::{
   Disableable,
   button::{Button, ButtonVariants},
@@ -12,7 +14,8 @@ use rust_i18n::t;
 use crate::{
   start_services,
   ui::pages::setup::{
-    appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage, welcome::Welcome,
+    appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage,
+    welcome::Welcome,
   },
 };
 
@@ -46,11 +49,13 @@ impl SetupPage {
 
 fn next_btn(disabled: bool) -> Div {
   div().child(
-    Button::new("pages.setup.next_btn").primary().label(t!("pages.setup.next_btn")).disabled(disabled).on_click(
-      |_event, _window, cx| {
+    Button::new("pages.setup.next_btn")
+      .primary()
+      .label(t!("pages.setup.next_btn"))
+      .disabled(disabled)
+      .on_click(|_event, _window, cx| {
         cx.ctx_mut().settings.to_next_setup_route();
-      },
-    ),
+      }),
   )
 }
 fn back_btn() -> Div {
@@ -62,14 +67,16 @@ fn back_btn() -> Div {
 }
 
 fn finish_btn() -> Div {
-  div().child(Button::new("pages.setup.finish_btn").primary().label(t!("pages.setup.finish_btn")).on_click(
-    move |_event, _window, cx| {
-      cx.ctx_mut().settings.set_setup_status(true).unwrap();
-      cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
-      cx.ctx_mut().db.compact().unwrap();
-      start_services(cx);
-    },
-  ))
+  div().child(
+    Button::new("pages.setup.finish_btn").primary().label(t!("pages.setup.finish_btn")).on_click(
+      move |_event, _window, cx| {
+        cx.ctx_mut().settings.set_setup_status(true).unwrap();
+        cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
+        cx.ctx_mut().db.compact().unwrap();
+        start_services(cx);
+      },
+    ),
+  )
 }
 
 impl Render for SetupPage {

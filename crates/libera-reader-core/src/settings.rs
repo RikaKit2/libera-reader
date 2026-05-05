@@ -1,6 +1,6 @@
 use crate::db::DB;
 use crate::db::models::books::book::BookExt;
-use crate::db::models::{AppTheme, GetOrCreate, Lang, RootRoute, Settings};
+use crate::db::models::{AppTheme, CardDisplayMode, GetOrCreate, Lang, RootRoute, Settings};
 use anyhow::Result;
 use gpui::SharedString;
 use std::path::PathBuf;
@@ -139,6 +139,14 @@ impl SETTINGS {
       self.write().route = RootRoute::Setup(new_route);
       self.db.update(old_model, self.read().clone()).unwrap();
     }
+  }
+  pub fn set_display_mode(&mut self, mode: CardDisplayMode) -> Result<()> {
+    let old_model = self.read().clone();
+    if old_model.card_display_mode != mode {
+      self.write().card_display_mode = mode;
+      self.db.update(old_model, self.read().clone())?;
+    }
+    Ok(())
   }
   pub fn to_previous_setup_route(&mut self) {
     let current_route = self.read().route;
