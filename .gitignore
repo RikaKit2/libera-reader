@@ -16,3 +16,4 @@ crates/libera-reader-core/test_files/mutool.exe
 .zed/
 .direnv/
 .qwen/
+*.txt
