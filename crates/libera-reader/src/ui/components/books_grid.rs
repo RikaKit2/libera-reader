@@ -12,6 +12,14 @@ use libera_reader_core::db::models::{
 };
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 
+const TITLE_BREAKABLE_CAPACITY_MULTIPLIER: usize = 4;
+const TITLE_FONT_SIZE_REM: f32 = 0.9;
+const TITLE_LINE_HEIGHT_REM: f32 = 1.1;
+const FAVORITE_INACTIVE_OPACITY: f32 = 0.7;
+const FOOTER_HEIGHT_PX: f32 = 52.0;
+const COVER_ID_PREFIX: &str = "cover_";
+const FAVORITE_ID_PREFIX: &str = "fav_";
+
 fn push_at_history(path: BookPath, books_state: Entity<BooksState>, cx: &mut App) {
   let mut should_persist = false;
   books_state.update(cx, |state, cx| {
@@ -83,14 +91,6 @@ pub struct BooksGrid {
 }
 
 impl BooksGrid {
-  const TITLE_BREAKABLE_CAPACITY_MULTIPLIER: usize = 4;
-  const TITLE_FONT_SIZE_REM: f32 = 0.9;
-  const TITLE_LINE_HEIGHT_REM: f32 = 1.1;
-  const FAVORITE_INACTIVE_OPACITY: f32 = 0.7;
-  const FOOTER_HEIGHT_PX: f32 = 52.0;
-  const COVER_ID_PREFIX: &'static str = "cover_";
-  const FAVORITE_ID_PREFIX: &'static str = "fav_";
-
   pub fn new(
     state: Entity<BooksState>, target: TargetList, columns: usize, row_height: Pixels,
     id: ElementId, cx: &mut Context<Self>,
@@ -111,7 +111,7 @@ impl BooksGrid {
   pub fn set_layout(&mut self, columns: usize, row_height: Pixels, mode: CardDisplayMode) {
     self.columns = columns.max(1);
     self.row_height = if mode == CardDisplayMode::Detailed {
-      row_height + px(Self::FOOTER_HEIGHT_PX)
+      row_height + px(FOOTER_HEIGHT_PX)
     } else {
       row_height
     };
@@ -142,7 +142,7 @@ impl BooksGrid {
 
   fn format_title_pixel_perfect(title: &str) -> SharedString {
     let mut breakable_title =
-      String::with_capacity(title.len() * Self::TITLE_BREAKABLE_CAPACITY_MULTIPLIER);
+      String::with_capacity(title.len() * TITLE_BREAKABLE_CAPACITY_MULTIPLIER);
     for ch in title.chars() {
       breakable_title.push(ch);
       breakable_title.push('\u{200B}');
@@ -170,8 +170,8 @@ impl BooksGrid {
         .line_clamp(2)
         .text_ellipsis()
         .overflow_hidden()
-        .text_size(rems(Self::TITLE_FONT_SIZE_REM))
-        .line_height(rems(Self::TITLE_LINE_HEIGHT_REM))
+        .text_size(rems(TITLE_FONT_SIZE_REM))
+        .line_height(rems(TITLE_LINE_HEIGHT_REM))
         .text_color(foreground)
         .child(display_name),
     )
@@ -233,11 +233,7 @@ impl BooksGrid {
       .flex()
       .items_center()
       .justify_center()
-      .text_color(if is_favorite {
-        primary
-      } else {
-        foreground.opacity(Self::FAVORITE_INACTIVE_OPACITY)
-      })
+      .text_color(if is_favorite { primary } else { foreground.opacity(FAVORITE_INACTIVE_OPACITY) })
       .hover(move |h| h.text_color(primary))
       .child(
         Button::new(id)
@@ -255,10 +251,10 @@ impl BooksGrid {
   fn render_book_footer(&self, book: &Book, foreground: Hsla, primary: Hsla) -> Div {
     let title = self.render_book_title(&book.book_path, foreground);
     let fav_id: SharedString =
-      format!("{}{}", Self::FAVORITE_ID_PREFIX, book.book_path.full_path_string()).into();
+      format!("{}{}", FAVORITE_ID_PREFIX, book.book_path.full_path_string()).into();
     div()
       .w_full()
-      .h(px(Self::FOOTER_HEIGHT_PX))
+      .h(px(FOOTER_HEIGHT_PX))
       .flex_shrink_0()
       .flex()
       .flex_row()
@@ -278,10 +274,10 @@ impl BooksGrid {
     let theme = cx.theme();
     let mode = Ctx::global(cx).settings.read().card_display_mode;
     let cover_id: SharedString =
-      format!("{}{}", Self::COVER_ID_PREFIX, book.book_path.full_path_string()).into();
+      format!("{}{}", COVER_ID_PREFIX, book.book_path.full_path_string()).into();
 
     let footer_height =
-      if mode == CardDisplayMode::Detailed { px(Self::FOOTER_HEIGHT_PX) } else { px(0.0) };
+      if mode == CardDisplayMode::Detailed { px(FOOTER_HEIGHT_PX) } else { px(0.0) };
     let cover_height = card_height - footer_height;
 
     let mut card = div()
