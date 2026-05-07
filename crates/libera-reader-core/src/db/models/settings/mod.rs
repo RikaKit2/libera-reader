@@ -21,6 +21,7 @@ pub enum CardDisplayMode {
   Compact,
   #[default]
   Detailed,
+  List,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

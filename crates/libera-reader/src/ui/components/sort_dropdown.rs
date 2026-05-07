@@ -1,7 +1,6 @@
 use gpui::*;
 use gpui::{App, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, px};
-use gpui_component::button::ButtonVariants;
-use gpui_component::{button::Button, select::*, *};
+use gpui_component::{Icon, button::Button, select::*, *};
 
 use crate::books_state::{BooksState, SortField, TargetList};
 use libera_reader_core::ctx::Ctx;
@@ -24,8 +23,9 @@ impl SortControls {
       TargetList::Bookmarks => books_state.read(cx).bookmarks_sort.field,
     };
 
-    let fields = SearchableVec::new(SortField::all().to_vec());
-    let initial_index = SortField::all()
+    let available_fields = SortField::available_for(target);
+    let fields = SearchableVec::new(available_fields.clone());
+    let initial_index = available_fields
       .iter()
       .position(|f| *f == current_field)
       .map(|i| IndexPath::default().row(i));
@@ -62,7 +62,8 @@ impl SortControls {
       TargetList::History => self.books_state.read(cx).history_sort.field,
       TargetList::Bookmarks => self.books_state.read(cx).bookmarks_sort.field,
     };
-    let current_index = SortField::all()
+    let available_fields = SortField::available_for(self.target);
+    let current_index = available_fields
       .iter()
       .position(|f| *f == current_field)
       .map(|i| IndexPath::default().row(i));
@@ -85,36 +86,46 @@ impl Render for SortControls {
       TargetList::Bookmarks => self.books_state.read(cx).bookmarks_sort.is_reversed,
     };
 
-    let icon_name = if is_reversed { IconName::SortDescending } else { IconName::SortAscending };
+    let dir_icon_path = if is_reversed { "a-arrow-down.svg" } else { "a-arrow-up.svg" };
 
     let display_mode = Ctx::global(cx).settings.read().card_display_mode;
-    let mode_label = if display_mode == CardDisplayMode::Compact { "Compact" } else { "Detailed" };
+    let mode_icon = match display_mode {
+      CardDisplayMode::Compact => "layout-grid.svg",
+      CardDisplayMode::Detailed => "layout-dashboard.svg",
+      CardDisplayMode::List => "layout-list.svg",
+    };
 
     let view_entity = cx.entity().clone();
 
     div().flex().gap_x_2().mr_2().items_center().children([
-      div().child(Select::new(&self.sort_select).w(px(140.0))),
-      div().child(Button::new("reverse_btn").text().icon(Icon::new(icon_name).small()).on_click({
-        let books_state = self.books_state.clone();
-        let target = self.target;
-        move |_ev, _window, cx| {
-          books_state.update(cx, |state, cx| {
-            state.toggle_reverse(target, cx);
-          });
-        }
-      })),
-      div().child(Button::new("toggle_display_mode").text().child(mode_label).on_click(
-        move |_ev, _window, cx| {
-          let current = Ctx::global(cx).settings.read().card_display_mode;
-          let new_mode = if current == CardDisplayMode::Compact {
-            CardDisplayMode::Detailed
-          } else {
-            CardDisplayMode::Compact
-          };
-          let _ = Ctx::global_mut(cx).settings.set_display_mode(new_mode);
-          cx.notify(view_entity.entity_id());
-        },
-      )),
+      div().child(Select::new(&self.sort_select).w(px(190.0))),
+      div().child(
+        Button::new("reverse_btn")
+          .icon(Icon::new(Icon::empty()).path(dir_icon_path).with_size(px(18.0)))
+          .on_click({
+            let books_state = self.books_state.clone();
+            let target = self.target;
+            move |_ev, _window, cx| {
+              books_state.update(cx, |state, cx| {
+                state.toggle_reverse(target, cx);
+              });
+            }
+          }),
+      ),
+      div().child(
+        Button::new("toggle_display_mode")
+          .icon(Icon::new(Icon::empty()).path(mode_icon).with_size(px(18.0)))
+          .on_click(move |_ev, _window, cx| {
+            let current = Ctx::global(cx).settings.read().card_display_mode;
+            let new_mode = match current {
+              CardDisplayMode::Compact => CardDisplayMode::Detailed,
+              CardDisplayMode::Detailed => CardDisplayMode::List,
+              CardDisplayMode::List => CardDisplayMode::Compact,
+            };
+            let _ = Ctx::global_mut(cx).settings.set_display_mode(new_mode);
+            cx.notify(view_entity.entity_id());
+          }),
+      ),
     ])
   }
 }
