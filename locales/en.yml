@@ -69,6 +69,15 @@ components:
       name: "Name"
       size: "Size"
       type: "Type"
+      last_opened: "Last Opened"
+    direction:
+      ascending: "Ascending"
+      descending: "Descending"
+    mode:
+      compact: "Compact"
+      detailed: "Detailed"
+    card:
+      format_label: "Format"
 
 lang:
   ru: "Russian"

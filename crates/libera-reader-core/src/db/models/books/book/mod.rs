@@ -44,7 +44,7 @@ impl Book {
     self.pathbuf().to_str().unwrap().to_string().into()
   }
   pub fn can_delete(&self) -> bool {
-    !self.user_data.favorite && !self.user_data.in_history && self.bookmarks.is_empty()
+    !self.user_data.favorite && self.user_data.last_opened == 0 && self.bookmarks.is_empty()
   }
 
   pub fn add_bookmark(&mut self, bookmark: BookMark) {

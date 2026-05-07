@@ -69,6 +69,15 @@ components:
       name: "Название"
       size: "Размер"
       type: "Тип"
+      last_opened: "Последнее открытие"
+    direction:
+      ascending: "По возрастанию"
+      descending: "По убыванию"
+    mode:
+      compact: "Компактный"
+      detailed: "Детальный"
+  card:
+    format_label: "Формат"
 
 lang:
   ru: "Русский"
