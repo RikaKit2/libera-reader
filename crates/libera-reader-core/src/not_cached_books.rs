@@ -1,48 +1,29 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use crate::db::models::books::book::BookPath;
-use crate::types::{ExtractorQueues, HashSet};
 
+/// Simple channel-based queue for thumbnail extraction.
+/// Books are processed sequentially in FIFO order.
 #[derive(Clone)]
 pub struct NotCachedBooks {
-  inner: Arc<ExtractorQueues>,
-  // Receivers are wrapped in Option and Mutex since they can only be taken once
-  high_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<BookPath>>>>,
-  low_rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<BookPath>>>>,
+  tx: mpsc::UnboundedSender<BookPath>,
+  rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<BookPath>>>>,
 }
 
 impl NotCachedBooks {
   pub(crate) fn new() -> Self {
-    let (queues, high_rx, low_rx) = ExtractorQueues::new();
-    Self {
-      inner: Arc::new(queues),
-      high_rx: Arc::new(Mutex::new(Some(high_rx))),
-      low_rx: Arc::new(Mutex::new(Some(low_rx))),
-    }
+    let (tx, rx) = mpsc::unbounded_channel();
+    Self { tx, rx: Arc::new(Mutex::new(Some(rx))) }
   }
 
-  pub fn inner(&self) -> &Arc<ExtractorQueues> {
-    &self.inner
+  /// Take the receiver (can only be called once).
+  pub fn take_rx(&self) -> Option<mpsc::UnboundedReceiver<BookPath>> {
+    self.rx.lock().unwrap().take()
   }
 
-  pub fn take_high_rx(&self) -> Option<mpsc::UnboundedReceiver<BookPath>> {
-    self.high_rx.lock().ok().and_then(|mut opt| opt.take())
-  }
-
-  pub fn take_low_rx(&self) -> Option<mpsc::UnboundedReceiver<BookPath>> {
-    self.low_rx.lock().ok().and_then(|mut opt| opt.take())
-  }
-
-  pub fn high_tx(&self) -> &mpsc::UnboundedSender<BookPath> {
-    &self.inner.high_tx
-  }
-
-  pub fn low_tx(&self) -> &mpsc::UnboundedSender<BookPath> {
-    &self.inner.low_tx
-  }
-
-  pub fn processing_now(&self) -> &Arc<RwLock<HashSet<BookPath>>> {
-    &self.inner.processing_now
+  /// Get a sender to push books into the extraction queue.
+  pub fn tx(&self) -> &mpsc::UnboundedSender<BookPath> {
+    &self.tx
   }
 }

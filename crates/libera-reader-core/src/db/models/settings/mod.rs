@@ -18,8 +18,8 @@ pub use {
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum CardDisplayMode {
-  Compact,
   #[default]
+  Compact,
   Detailed,
   List,
 }
@@ -34,9 +34,7 @@ pub struct Settings {
   pub path_to_scan: Option<PathBuf>,
   pub previous_path_to_scan: Option<PathBuf>,
   pub theme: AppTheme,
-  pub pdf: bool,
-  pub epub: bool,
-  pub mobi: bool,
+
   pub number_of_columns: u32,
   pub page_scaling_factor: f64,
   pub thumbnails_scaling_factor: f64,
@@ -55,17 +53,15 @@ impl Default for Settings {
       path_to_scan: None,
       previous_path_to_scan: None,
       theme: AppTheme::EverforestDark,
-      pdf: true,
-      epub: false,
-      mobi: false,
-      number_of_columns: 3,
+
+      number_of_columns: 6,
       page_scaling_factor: 1.0,
       thumbnails_scaling_factor: 4.0,
       ui_zoom: 1.0,
       workers_num: 2,
       route: RootRoute::Setup(Welcome),
       setup_is_done: false,
-      card_display_mode: CardDisplayMode::Detailed,
+      card_display_mode: CardDisplayMode::Compact,
     }
   }
 }

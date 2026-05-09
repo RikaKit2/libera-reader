@@ -7,7 +7,9 @@ use gpui::{Context, SharedString, Task};
 use libera_reader_core::db::models::books::Books;
 use libera_reader_core::db::models::books::book::{Book, BookDir, BookPath};
 use libera_reader_core::types::{HashMap, LibraryEvent};
+use std::cell::RefCell;
 use std::collections::HashMap as StdHashMap;
+use std::rc::Rc;
 use tokio::sync::broadcast::Receiver;
 
 pub use models::{SortConfig, SortField, TargetList};
@@ -31,6 +33,10 @@ pub struct BooksState {
   pub bookmarks_search: SharedString,
 
   pub search_tasks: StdHashMap<TargetList, Task<()>>,
+
+  /// Global cover cache shared with BooksGrid.
+  /// When a thumbnail is generated, BookUpdated clears the entry so next render re-checks.
+  pub cover_cache: Rc<RefCell<HashMap<BookPath, bool>>>,
 }
 
 impl BooksState {
@@ -56,6 +62,7 @@ impl BooksState {
       history_search: "".into(),
       bookmarks_search: "".into(),
       search_tasks: StdHashMap::new(),
+      cover_cache: Rc::new(RefCell::new(HashMap::default())),
     };
 
     state.rebuild_and_sort(TargetList::Library);
@@ -68,7 +75,7 @@ impl BooksState {
       async move {
         while let Ok(event) = event_rx.recv().await {
           let _ = this.update(&mut owned_cx, |state, context| {
-            state.apply_event(event);
+            state.apply_event(event, context);
             context.notify();
           });
         }

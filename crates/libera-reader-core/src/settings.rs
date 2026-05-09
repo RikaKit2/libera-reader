@@ -1,5 +1,4 @@
 use crate::db::DB;
-use crate::db::models::books::book::BookExt;
 use crate::db::models::{AppTheme, CardDisplayMode, GetOrCreate, Lang, RootRoute, Settings};
 use anyhow::Result;
 use gpui::SharedString;
@@ -94,32 +93,6 @@ impl SETTINGS {
         self.db.update(old_model, self.read().clone())?;
       }
     }
-    Ok(())
-  }
-  pub fn contains_ext(&self, ext: &BookExt) -> bool {
-    let model = self.read();
-    match ext {
-      BookExt::PDF(_) => model.pdf,
-      BookExt::EPUB(_) => model.epub,
-      BookExt::MOBI(_) => model.mobi,
-    }
-  }
-  pub fn invert_pdf(&mut self) -> Result<()> {
-    let old_model = self.read().clone();
-    self.write().pdf = !old_model.pdf;
-    self.db.update(old_model, self.read().clone())?;
-    Ok(())
-  }
-  pub fn invert_epub(&mut self) -> Result<()> {
-    let old_model = self.read().clone();
-    self.write().epub = !old_model.epub;
-    self.db.update(old_model, self.read().clone())?;
-    Ok(())
-  }
-  pub fn invert_mobi(&mut self) -> Result<()> {
-    let old_model = self.read().clone();
-    self.write().mobi = !old_model.mobi;
-    self.db.update(old_model, self.read().clone())?;
     Ok(())
   }
   pub fn set_number_of_columns(&mut self, columns: u32) -> Result<()> {

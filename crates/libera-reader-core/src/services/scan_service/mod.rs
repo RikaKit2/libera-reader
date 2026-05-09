@@ -1,5 +1,6 @@
 use crate::{
   db::models::books::{Books, book::Book},
+  not_cached_books::NotCachedBooks,
   types::{LibraryEvent, MUPDF_EXTENSIONS},
 };
 use std::{path::PathBuf, time::Instant};
@@ -26,11 +27,15 @@ pub struct ScanService {
   settings: SETTINGS,
   db: DB,
   event_tx: broadcast::Sender<LibraryEvent>,
+  not_cached_books: NotCachedBooks,
 }
 
 impl ScanService {
-  pub(crate) fn new(settings: SETTINGS, db: DB, event_tx: broadcast::Sender<LibraryEvent>) -> Self {
-    Self { settings, db, event_tx }
+  pub(crate) fn new(
+    settings: SETTINGS, db: DB, event_tx: broadcast::Sender<LibraryEvent>,
+    not_cached_books: NotCachedBooks,
+  ) -> Self {
+    Self { settings, db, event_tx, not_cached_books }
   }
 
   fn get_books_from_disk(path_to_scan: PathBuf) -> UnboundedReceiver<BookPath> {
@@ -144,11 +149,26 @@ impl ScanService {
       );
     }
 
+    // --- SEND ALL BOOKS TO EXTRACTION QUEUE IN ALPHABETICAL ORDER ---
+    // Sort by display name so thumbnails are extracted left-to-right.
+    let (all_books, _) = self.db.rt(|r| Ok(Books::all(r))).unwrap_or_default();
+    let mut all_paths: Vec<BookPath> = all_books
+      .iter()
+      .flat_map(|(_, books)| books.storage.values().map(|b| b.book_path.clone()))
+      .collect();
+    all_paths.sort_by_key(|a| a.display_name().to_lowercase());
+
+    let tx = self.not_cached_books.tx();
+    for path in all_paths {
+      let _ = tx.send(path);
+    }
+
     debug!("Full scanning process finished.");
   }
 
   fn insert_books(&self, buffer: Vec<BookPath>, db_books: &mut HashMap<BookDir, Books>) -> usize {
     let mut new_books = 0;
+    let mut batch_to_send = Vec::new();
     let event_tx = &self.event_tx;
 
     let _ = self.db.rw_t(|rw_t| {
@@ -161,7 +181,7 @@ impl ScanService {
               new_books += 1;
               if let Ok(new_book) = Book::new(book_path.clone()) {
                 let _ = Books::insert_book(new_book.clone(), rw_t);
-                let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
+                batch_to_send.push(new_book);
               }
             }
           },
@@ -170,13 +190,18 @@ impl ScanService {
             new_books += 1;
             if let Ok(new_book) = Book::new(book_path.clone()) {
               let _ = Books::insert_book(new_book.clone(), rw_t);
-              let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
+              batch_to_send.push(new_book);
             }
           }
         }
       }
       Ok(())
     });
+
+    // Send ONE batch event instead of thousands of individual events
+    if !batch_to_send.is_empty() {
+      let _ = event_tx.send(LibraryEvent::BooksBatchAdded(batch_to_send));
+    }
 
     new_books
   }
