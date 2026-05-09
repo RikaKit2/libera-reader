@@ -25,7 +25,6 @@ impl Library {
       cx.new(|cx| InputState::new(window, cx).placeholder(t!("components.search_placeholder")));
     let sort_controls = SortControls::new(window, cx, books_state.clone(), TargetList::Library);
 
-    // ВАЖНО: передаем `cx` внутрь `BooksGrid::new`, чтобы работала подписка `cx.observe()`
     let book_grid = cx.new(|cx| {
       BooksGrid::new(
         books_state.clone(),

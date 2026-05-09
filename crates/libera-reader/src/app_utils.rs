@@ -43,7 +43,6 @@ pub(crate) fn start_services(cx: &mut App) {
           eprintln!("NotifyService error: {:?}", e);
         }
 
-        // Start thumbnail extraction
         ctx.services.run_data_extraction_service();
       });
     }
