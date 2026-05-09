@@ -1,7 +1,16 @@
-use gpui::SharedString;
-use gpui_component::select::SelectItem;
+use gpui::{AnyElement, App, IntoElement, ParentElement, SharedString, Styled, Window, div};
+use gpui_component::{Icon, select::SelectItem};
+use libera_reader_core::db::models::CardDisplayMode;
 use rust_i18n::t;
 use std::fmt;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TargetList {
+  Library,
+  Favorites,
+  History,
+  Bookmarks,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SortField {
@@ -58,10 +67,55 @@ impl Default for SortConfig {
   }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TargetList {
-  Library,
-  Favorites,
-  History,
-  Bookmarks,
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DisplayModeOption(pub CardDisplayMode);
+
+impl DisplayModeOption {
+  pub fn all() -> Vec<Self> {
+    vec![
+      Self(CardDisplayMode::Compact),
+      Self(CardDisplayMode::Detailed),
+      Self(CardDisplayMode::List),
+    ]
+  }
+}
+
+impl SelectItem for DisplayModeOption {
+  type Value = CardDisplayMode;
+
+  fn title(&self) -> SharedString {
+    match self.0 {
+      CardDisplayMode::Compact => t!("components.sort_dropdown.mode.compact").to_string().into(),
+      CardDisplayMode::Detailed => t!("components.sort_dropdown.mode.detailed").to_string().into(),
+      CardDisplayMode::List => t!("components.sort_dropdown.mode.list").to_string().into(),
+    }
+  }
+
+  fn value(&self) -> &Self::Value {
+    &self.0
+  }
+
+  fn display_title(&self) -> Option<AnyElement> {
+    let icon_path = match self.0 {
+      CardDisplayMode::Compact => "layout-grid.svg",
+      CardDisplayMode::Detailed => "layout-dashboard.svg",
+      CardDisplayMode::List => "layout-list.svg",
+    };
+    Some(Icon::new(Icon::empty()).path(icon_path).into_any_element())
+  }
+
+  fn render(&self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+    let icon_path = match self.0 {
+      CardDisplayMode::Compact => "layout-grid.svg",
+      CardDisplayMode::Detailed => "layout-dashboard.svg",
+      CardDisplayMode::List => "layout-list.svg",
+    };
+    div()
+      .w_full()
+      .flex()
+      .justify_center()
+      .items_center()
+      .py_1()
+      .child(Icon::new(Icon::empty()).path(icon_path))
+  }
 }
