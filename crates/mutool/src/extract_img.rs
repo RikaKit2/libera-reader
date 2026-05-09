@@ -53,10 +53,8 @@ fn imp_to_jpeg(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, JxlEncodeErrors> 
   let (w, h) = image.dimensions();
   let img_pixels = image.as_rgb8().unwrap();
   let opts = EncoderOptions::new(w as usize, h as usize, ColorSpace::RGB, BitDepth::Eight);
-  // `JxlSimpleEncoder::new` expects a `&[u8]`, so pass the raw pixel slice.
   let jxl_encoder = JxlSimpleEncoder::new(img_pixels.as_raw(), opts);
   let mut output: Vec<u8> = Vec::new();
-  // encode writes into the provided sink and returns number of bytes written.
   jxl_encoder.encode(&mut output)?;
   Ok(output)
 }

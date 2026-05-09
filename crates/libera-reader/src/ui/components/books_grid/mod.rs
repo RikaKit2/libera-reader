@@ -98,6 +98,7 @@ impl BooksGrid {
 
     let thumbnails_dir = Ctx::global(cx).app_dirs.read().thumbnails_dir.join("unhashed_books");
     let state = self.state.read(cx);
+    let cover_cache = state.cover_cache.clone();
 
     let keys = match self.target {
       TargetList::Library => &state.library_keys,
@@ -113,16 +114,14 @@ impl BooksGrid {
     for path in row_keys {
       if let Some(book) = state.get_book(path) {
         let thumbnail_path = thumbnails_dir.join(path.file_name().as_ref()).with_extension("png");
-        let has_thumbnail = thumbnail_path.exists();
 
-        if !has_thumbnail {
-          let ctx = Ctx::global(cx);
-          let mut processing = ctx.not_cached_books.inner().processing_now.write().unwrap();
-          if !processing.contains(path) {
-            processing.insert(path.clone());
-            let _ = ctx.not_cached_books.high_tx().send(path.clone());
-          }
-        }
+        // --- SIMPLE COVER CHECK: no disk I/O, just read from in-memory cache ---
+        // The data_extraction_service processes books sequentially and emits
+        // ThumbnailExtracted when a thumbnail is ready, which sets this to true.
+        let has_thumbnail = {
+          let cache = cover_cache.borrow();
+          *cache.get(path).unwrap_or(&false)
+        };
 
         row =
           row.child(self.render_book_card(book, has_thumbnail, thumbnail_path, card_height, cx));

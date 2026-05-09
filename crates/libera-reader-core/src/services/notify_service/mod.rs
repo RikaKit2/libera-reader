@@ -120,14 +120,13 @@ impl NotifyService {
         {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
-          let settings = self.settings.clone();
           let event_tx = self.event_tx.clone();
 
           self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
           self.status = WorkStatus::Working;
 
           tokio::spawn(async move {
-            run_event_loop(rx, settings, not_cached_books, db, event_tx).await;
+            run_event_loop(rx, not_cached_books, db, event_tx).await;
           });
         }
       }
@@ -148,8 +147,8 @@ impl NotifyService {
 
 /// Main event processing loop with batching using tokio::select!
 async fn run_event_loop(
-  mut rx: UnboundedReceiver<notify::Event>, settings: SETTINGS, not_cached_books: NotCachedBooks,
-  db: DB, event_tx: broadcast::Sender<LibraryEvent>,
+  mut rx: UnboundedReceiver<notify::Event>, not_cached_books: NotCachedBooks, db: DB,
+  event_tx: broadcast::Sender<LibraryEvent>,
 ) {
   loop {
     let mut buffer: Vec<FSEvent> = Vec::new();
@@ -178,21 +177,14 @@ async fn run_event_loop(
 
     // Process buffer after timer expiration
     if !buffer.is_empty() {
-      process_batch(
-        buffer,
-        settings.clone(),
-        not_cached_books.clone(),
-        db.clone(),
-        event_tx.clone(),
-      )
-      .await;
+      process_batch(buffer, not_cached_books.clone(), db.clone(), event_tx.clone()).await;
     }
   }
 }
 
 /// Process the entire batch of events in a SINGLE thread and a SINGLE DB transaction
 async fn process_batch(
-  batch: Vec<FSEvent>, settings: SETTINGS, not_cached_books: NotCachedBooks, db: DB,
+  batch: Vec<FSEvent>, not_cached_books: NotCachedBooks, db: DB,
   event_tx: broadcast::Sender<LibraryEvent>,
 ) {
   std::thread::spawn(move || {
@@ -207,7 +199,7 @@ async fn process_batch(
           FSEvent::CreateFile { file_path } => {
             if let Some(book_path) = BookPath::new(&file_path)
               && let Ok(new_book) = Book::new(book_path.clone())
-              && let Ok(_) = fs_handlers::insert_book(book_path, rw_t, &settings, &not_cached_books)
+              && let Ok(_) = fs_handlers::insert_book(book_path, rw_t, &not_cached_books)
             {
               let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
             }
