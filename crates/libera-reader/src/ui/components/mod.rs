@@ -4,6 +4,7 @@ pub(crate) mod lang_select;
 pub(crate) mod path_select;
 pub(crate) mod sort_dropdown;
 pub(crate) mod theme_select;
+pub(crate) mod workers_select;
 
 pub(crate) use books_grid::BooksGrid;
 pub(crate) use lang_select::LangSelect;

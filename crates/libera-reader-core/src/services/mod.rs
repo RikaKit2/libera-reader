@@ -63,10 +63,14 @@ impl Services {
       let db = self.db.clone();
       let app_dirs = self.app_dirs.clone();
       let event_tx = self.event_tx.clone();
+      let settings = self.scan_service.settings().clone();
 
       if let Some(rx) = self.not_cached_books.take_rx() {
         tokio::spawn(async move {
-          data_extraction_service::run_data_extraction_service(db, app_dirs, rx, event_tx).await;
+          data_extraction_service::run_data_extraction_service(
+            db, app_dirs, rx, event_tx, settings,
+          )
+          .await;
         });
 
         self.data_extraction_service_working_status = WorkStatus::Working;

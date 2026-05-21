@@ -1,20 +1,18 @@
 use crate::{
   db::models::books::{Books, book::Book},
   not_cached_books::NotCachedBooks,
+  settings::SETTINGS,
   types::{LibraryEvent, MUPDF_EXTENSIONS},
 };
 use std::{path::PathBuf, time::Instant};
 
 use jwalk::WalkDir;
 
-use crate::types::HashMap;
-use crate::{
-  db::{
-    DB,
-    models::books::book::{BookDir, BookPath},
-  },
-  settings::SETTINGS,
+use crate::db::{
+  DB,
+  models::books::book::{BookDir, BookPath},
 };
+use crate::types::HashMap;
 use tokio::sync::{broadcast, mpsc::UnboundedReceiver};
 use tokio::time::{self, Duration};
 use utils::debug;
@@ -36,6 +34,10 @@ impl ScanService {
     not_cached_books: NotCachedBooks,
   ) -> Self {
     Self { settings, db, event_tx, not_cached_books }
+  }
+
+  pub fn settings(&self) -> &SETTINGS {
+    &self.settings
   }
 
   fn get_books_from_disk(path_to_scan: PathBuf) -> UnboundedReceiver<BookPath> {

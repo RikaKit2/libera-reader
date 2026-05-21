@@ -1,7 +1,9 @@
 mod actions;
 mod card;
+mod lru_cache;
 
 use crate::books_state::{BooksState, TargetList};
+use crate::ui::components::books_grid::lru_cache::LruImageCache;
 use crate::ui::constants as C;
 use gpui::*;
 use gpui_component::{VirtualListScrollHandle, scroll::Scrollbar, v_virtual_list};
@@ -26,6 +28,7 @@ pub struct BooksGrid {
   pub(crate) scroll_handle: VirtualListScrollHandle,
   pub(crate) id: ElementId,
   pub(crate) title_cache: RefCell<HashMap<BookPath, SharedString>>,
+  pub(crate) image_cache: Entity<LruImageCache>,
 }
 
 impl BooksGrid {
@@ -34,6 +37,10 @@ impl BooksGrid {
     id: ElementId, cx: &mut Context<Self>,
   ) -> Self {
     cx.observe(&state, |_, _, cx| cx.notify()).detach();
+
+    // LRU cache with ~2 screens worth of thumbnails (6 cols × ~15 visible rows × 2 = ~180)
+    let image_cache = LruImageCache::new(cx, 200);
+
     Self {
       state,
       target,
@@ -42,6 +49,7 @@ impl BooksGrid {
       scroll_handle: VirtualListScrollHandle::new(),
       id,
       title_cache: RefCell::new(HashMap::new()),
+      image_cache,
     }
   }
 
