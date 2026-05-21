@@ -113,6 +113,14 @@ impl SETTINGS {
       self.db.update(old_model, self.read().clone()).unwrap();
     }
   }
+  pub fn set_workers_num(&mut self, workers: u32) -> Result<()> {
+    let old_model = self.read().clone();
+    if old_model.workers_num != workers {
+      self.write().workers_num = workers;
+      self.db.update(old_model, self.read().clone())?;
+    }
+    Ok(())
+  }
   pub fn set_display_mode(&mut self, mode: CardDisplayMode) -> Result<()> {
     let old_model = self.read().clone();
     if old_model.card_display_mode != mode {

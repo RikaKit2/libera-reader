@@ -59,6 +59,11 @@ components:
     header: "Количество колонок"
     placeholder: "Выберите количество..."
 
+  workers_select:
+    header: "Потоков миниатюр"
+    max_label: "макс"
+    placeholder: "Количество потоков"
+
   path_select:
     target_path: "Директория для сканирования:"
     select_btn: "Выбрать директорию"

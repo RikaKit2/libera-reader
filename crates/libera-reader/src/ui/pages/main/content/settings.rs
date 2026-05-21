@@ -1,6 +1,7 @@
 use crate::ui::components::columns_select::ColumnsSelect;
 use crate::ui::components::{
   lang_select::LangSelect, path_select::PathSelect, theme_select::ThemeSelect,
+  workers_select::WorkersSelect,
 };
 
 use gpui::{
@@ -13,6 +14,7 @@ pub(crate) struct Settings {
   lang_select: Entity<LangSelect>,
   columns_select: Entity<ColumnsSelect>,
   path_select: Entity<PathSelect>,
+  workers_select: Entity<WorkersSelect>,
 }
 
 impl Settings {
@@ -22,6 +24,7 @@ impl Settings {
       lang_select: LangSelect::new(window, c),
       columns_select: ColumnsSelect::new(window, c),
       path_select: PathSelect::new(c),
+      workers_select: WorkersSelect::new(window, c),
     })
   }
 }
@@ -36,6 +39,8 @@ impl Render for Settings {
       div().child(self.path_select.clone()),
       div().child(t!("components.columns_select.header").to_string()),
       div().child(self.columns_select.clone()),
+      div().child(t!("components.workers_select.header").to_string()),
+      div().child(self.workers_select.clone()),
     ])
   }
 }

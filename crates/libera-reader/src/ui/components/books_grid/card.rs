@@ -5,6 +5,7 @@ use super::{
 };
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, button::*};
+use libera_reader_core::db::models::books::book::BookPath;
 use libera_reader_core::db::models::{CardDisplayMode, books::book::Book};
 use rust_i18n::t;
 use std::path::PathBuf;
@@ -20,9 +21,7 @@ impl super::BooksGrid {
     breakable_title.into()
   }
 
-  fn get_cached_title(
-    &self, book_path: &libera_reader_core::db::models::books::book::BookPath,
-  ) -> SharedString {
+  fn get_cached_title(&self, book_path: &BookPath) -> SharedString {
     let mut cache = self.title_cache.borrow_mut();
     if let Some(title) = cache.get(book_path) {
       return title.clone();
@@ -33,9 +32,7 @@ impl super::BooksGrid {
     new_title
   }
 
-  fn render_book_title(
-    &self, book_path: &libera_reader_core::db::models::books::book::BookPath, foreground: Hsla,
-  ) -> Div {
+  fn render_book_title(&self, book_path: &BookPath, foreground: Hsla) -> Div {
     let display_name = self.get_cached_title(book_path);
     div().flex_1().min_w_0().pt_1().child(
       div()
@@ -52,8 +49,8 @@ impl super::BooksGrid {
   }
 
   fn render_cover_click_area(
-    &self, book_path: libera_reader_core::db::models::books::book::BookPath, id: SharedString,
-    has_thumbnail: bool, thumbnail_path: PathBuf, cx: &Context<Self>,
+    &self, book_path: BookPath, id: SharedString, has_thumbnail: bool, thumbnail_path: PathBuf,
+    cx: &Context<Self>,
   ) -> Div {
     let theme = cx.theme();
     let state_hist = self.state.clone();
@@ -62,7 +59,13 @@ impl super::BooksGrid {
       div().w_full().h_full().relative().flex().items_center().justify_center().cursor_pointer();
 
     if has_thumbnail {
-      cover = cover.child(img(thumbnail_path).w_full().h_full().object_fit(ObjectFit::Fill));
+      cover = cover.child(
+        img(thumbnail_path)
+          .image_cache(&self.image_cache)
+          .w_full()
+          .h_full()
+          .object_fit(ObjectFit::Fill),
+      );
     } else {
       cover = cover.child(
         Icon::new(IconName::BookOpen).with_size(px(40.0)).text_color(theme.foreground.opacity(0.3)),

@@ -22,3 +22,4 @@ gpui-component-assets = { workspace = true }
 rust-embed = { workspace = true }
 rust-i18n = { workspace = true }
 tokio = { workspace = true }
+futures-util = { workspace = true }

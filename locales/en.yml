@@ -59,6 +59,11 @@ components:
     header: "Number of columns"
     placeholder: "Select amount..."
 
+  workers_select:
+    header: "Thumbnail workers"
+    max_label: "max"
+    placeholder: "Workers count"
+
   path_select:
     target_path: "Directory to scan:"
     select_btn: "Select directory"
