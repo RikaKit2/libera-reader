@@ -27,7 +27,7 @@ anyhow = "1.0.102"
 gpui = "0.2.2"
 gpui-component = "0.5.1"
 rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
-unicode-segmentation = "1.13.2"
+unicode-segmentation = "1.13.3"
 tracing-subscriber = { version = "0.3", features = ["ansi"] }
 reqwest = { version = "0.13", features = ["stream"] }
 zip = "8"
