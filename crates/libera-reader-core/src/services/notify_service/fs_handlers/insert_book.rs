@@ -3,7 +3,6 @@ use utils::debug;
 
 use crate::{
   db::models::books::{
-    Books,
     book::{Book, BookPath},
     book_sizes::BookSizes,
   },
@@ -18,7 +17,7 @@ pub(crate) fn insert_book(
     true => {
       let new_book = Book::new(book_path).unwrap();
       BookSizes::insert_book(&new_book, rw_t).unwrap();
-      Books::insert_book(new_book, rw_t).unwrap();
+      rw_t.insert::<Book>(new_book).unwrap();
     }
     false => {
       debug!("The book with path {:?} has unsupported extension", book_path);

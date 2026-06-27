@@ -1,8 +1,84 @@
 use gpui::{AnyElement, App, IntoElement, ParentElement, SharedString, Styled, Window, div};
 use gpui_component::{Icon, select::SelectItem};
 use libera_reader_core::db::models::CardDisplayMode;
+use libera_reader_core::db::models::books::book::{Book, BookSize};
 use rust_i18n::t;
 use std::fmt;
+
+/// Lightweight in-memory representation of a book.
+/// Instead of storing the heavy `Book` struct (which includes full path, user data, etc.),
+/// we store only what's needed for display and sorting in the UI.
+#[derive(Clone)]
+pub struct LightBook {
+  pub id: SharedString,
+  pub name: SharedString,
+  pub ext: SharedString,
+  pub size: u64,
+  pub last_opened: u64,
+  pub is_favorite: bool,
+  pub has_thumbnail: bool,
+  /// String with `\u{200B}` (zero-width space) inserted between every character
+  /// for pixel-perfect line wrapping in the UI.
+  pub formatted_title: SharedString,
+  pub parent_dir: SharedString,
+  pub deleted: bool,
+}
+
+impl LightBook {
+  /// Build a LightBook from a full Book, generating formatted title once.
+  pub fn from_book(book: &Book, has_thumbnail: bool) -> Self {
+    let BookSize::BYTES(size) = book.book_size;
+    let display_name = book.book_path.display_name();
+    let formatted_title = Self::format_title_pixel_perfect(display_name.as_ref());
+
+    Self {
+      id: book.id.clone().into(),
+      name: book.book_path.name.clone(),
+      ext: book.book_path.ext.to_string().into(),
+      size,
+      last_opened: book.user_data.last_opened,
+      is_favorite: book.user_data.favorite,
+      has_thumbnail,
+      formatted_title,
+      parent_dir: book.parent_dir.clone().into(),
+      deleted: book.book_path.deleted,
+    }
+  }
+
+  fn format_title_pixel_perfect(title: &str) -> SharedString {
+    let mut breakable_title = String::with_capacity(title.len() * 4);
+    for ch in title.chars() {
+      breakable_title.push(ch);
+      breakable_title.push('\u{200B}');
+    }
+    breakable_title.into()
+  }
+
+  #[allow(dead_code)]
+  pub fn get_thumbnail_data(
+    &self, db: &libera_reader_core::db::DB,
+  ) -> anyhow::Result<Option<Vec<u8>>> {
+    db.rt(|r| {
+      if let Some(book) = r.get().primary::<Book>(self.id.to_string())? {
+        book.get_thumbnail_data_in_txn(r)
+      } else {
+        Ok(None)
+      }
+    })
+  }
+
+  pub fn get_mutool_error(
+    &self, db: &libera_reader_core::db::DB,
+  ) -> anyhow::Result<Option<mutool::mutool_error::MuToolError>> {
+    if let Some(book) =
+      db.get_book(libera_reader_core::db::models::books::book::BookPath::from_id(&self.id))?
+    {
+      book.get_mutool_error(db)
+    } else {
+      Ok(None)
+    }
+  }
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TargetList {

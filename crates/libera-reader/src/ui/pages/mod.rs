@@ -3,12 +3,9 @@ use crate::{books_state::BooksState, ui::pages::main::MainPage};
 use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
+use libera_reader_core::ctx::GlobalCTX;
+use libera_reader_core::db::models::books::book::Book;
 use libera_reader_core::types::LibraryEvent;
-use libera_reader_core::{
-  ctx::GlobalCTX,
-  db::models::books::{Books, book::BookDir},
-  types::HashMap,
-};
 use tokio::sync::broadcast::Receiver;
 
 #[path = "book-viewer/mod.rs"]
@@ -23,8 +20,7 @@ pub(crate) struct Pages {
 
 impl Pages {
   pub fn new(
-    window: &mut Window, cx: &mut App, initial_books: HashMap<BookDir, Books>,
-    event_rx: Receiver<LibraryEvent>,
+    window: &mut Window, cx: &mut App, initial_books: Vec<Book>, event_rx: Receiver<LibraryEvent>,
   ) -> Entity<Self> {
     let books_state = cx.new(|cx| BooksState::new(initial_books, event_rx, cx));
     cx.new(|c| Self {

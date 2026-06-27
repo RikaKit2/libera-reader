@@ -9,10 +9,9 @@ use gpui::*;
 use gpui_component::{VirtualListScrollHandle, scroll::Scrollbar, v_virtual_list};
 use libera_reader_core::ctx::Ctx;
 use libera_reader_core::db::models::CardDisplayMode;
-use libera_reader_core::db::models::books::book::BookPath;
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-pub(crate) const TITLE_BREAKABLE_CAPACITY_MULTIPLIER: usize = 4;
 pub(crate) const TITLE_FONT_SIZE_REM: f32 = 0.9;
 pub(crate) const TITLE_LINE_HEIGHT_REM: f32 = 1.1;
 pub(crate) const FAVORITE_INACTIVE_OPACITY: f32 = 0.7;
@@ -27,8 +26,7 @@ pub struct BooksGrid {
   pub(crate) row_height: Pixels,
   pub(crate) scroll_handle: VirtualListScrollHandle,
   pub(crate) id: ElementId,
-  pub(crate) title_cache: RefCell<HashMap<BookPath, SharedString>>,
-  pub(crate) image_cache: Entity<LruImageCache>,
+  pub(crate) image_cache: RefCell<LruImageCache>,
 }
 
 impl BooksGrid {
@@ -38,8 +36,37 @@ impl BooksGrid {
   ) -> Self {
     cx.observe(&state, |_, _, cx| cx.notify()).detach();
 
-    // LRU cache with ~2 screens worth of thumbnails (6 cols × ~15 visible rows × 2 = ~180)
-    let image_cache = LruImageCache::new(cx, 200);
+    // LRU cache with ~80 images (reduced from 200 for memory efficiency)
+    let image_cache = RefCell::new(LruImageCache::new(80));
+
+    let mut event_rx = Ctx::global(cx).event_tx.subscribe();
+    cx.spawn(|this: gpui::WeakEntity<BooksGrid>, cx: &mut gpui::AsyncApp| {
+      let mut owned_cx = cx.clone();
+      async move {
+        loop {
+          match event_rx.recv().await {
+            Ok(event) => {
+              if let libera_reader_core::types::LibraryEvent::ThumbnailExtracted(path) = event {
+                let id = path.full_path_string();
+                let _ = this.update(&mut owned_cx, |grid, cx| {
+                  if let Ok(mut cache) = grid.image_cache.try_borrow_mut() {
+                    cache.remove(&id);
+                  }
+                  cx.notify();
+                });
+              }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+              continue;
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+              break;
+            }
+          }
+        }
+      }
+    })
+    .detach();
 
     Self {
       state,
@@ -48,7 +75,6 @@ impl BooksGrid {
       row_height,
       scroll_handle: VirtualListScrollHandle::new(),
       id,
-      title_cache: RefCell::new(HashMap::new()),
       image_cache,
     }
   }
@@ -88,6 +114,11 @@ impl BooksGrid {
   }
 
   fn render_row(&self, row_index: usize, total_books: usize, cx: &mut Context<Self>) -> Div {
+    // Evict old images from GPUI asset cache to keep RAM extremely low
+    if let Ok(mut cache) = self.image_cache.try_borrow_mut() {
+      cache.flush_evictions(cx);
+    }
+
     let card_height = self.row_height - px(C::GRID_ROW_GAP);
     let mut row = div()
       .flex()
@@ -104,9 +135,7 @@ impl BooksGrid {
       return row;
     }
 
-    let thumbnails_dir = Ctx::global(cx).app_dirs.read().thumbnails_dir.join("unhashed_books");
     let state = self.state.read(cx);
-    let cover_cache = state.cover_cache.clone();
 
     let keys = match self.target {
       TargetList::Library => &state.library_keys,
@@ -119,20 +148,9 @@ impl BooksGrid {
     let row_keys = &keys[start..end];
     let mut rendered_books = 0usize;
 
-    for path in row_keys {
-      if let Some(book) = state.get_book(path) {
-        let thumbnail_path = thumbnails_dir.join(path.file_name().as_ref()).with_extension("png");
-
-        // --- SIMPLE COVER CHECK: no disk I/O, just read from in-memory cache ---
-        // The data_extraction_service processes books sequentially and emits
-        // ThumbnailExtracted when a thumbnail is ready, which sets this to true.
-        let has_thumbnail = {
-          let cache = cover_cache.borrow();
-          *cache.get(path).unwrap_or(&false)
-        };
-
-        row =
-          row.child(self.render_book_card(book, has_thumbnail, thumbnail_path, card_height, cx));
+    for id in row_keys {
+      if let Some(light_book) = state.get_light_book(id) {
+        row = row.child(self.render_book_card(light_book, card_height, cx));
         rendered_books += 1;
       }
     }

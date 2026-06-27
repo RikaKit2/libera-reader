@@ -13,6 +13,7 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 unicode-segmentation = { workspace = true }
 libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
+mutool = { version = "0.1.0", path = "../mutool" }
 utils = { version = "0.1.0", path = "../utils" }
 mimalloc = { workspace = true }
 gpui-component = { workspace = true }

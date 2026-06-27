@@ -1,14 +1,10 @@
-use crate::mutool_status::MuToolError;
-use image::{GenericImageView, ImageFormat};
+use crate::mutool_error::MuToolError;
+use image::ImageFormat;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
-use zune_core::bit_depth::BitDepth;
-use zune_core::colorspace::ColorSpace;
-use zune_core::options::EncoderOptions;
-use zune_jpegxl::{JxlEncodeErrors, JxlSimpleEncoder};
 
 pub async fn extract_img(
   path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf,
@@ -42,19 +38,32 @@ async fn extract_img_inn(
   MuToolError::from_process_exit_status(status)
 }
 
+pub async fn extract_to_bytes(
+  path_to_book: &PathBuf, resolution: u32,
+) -> Result<Vec<u8>, MuToolError> {
+  // Use a temporary file for mutool output
+  let temp_file = tempfile::NamedTempFile::new().map_err(|_| MuToolError::IoError)?;
+  let temp_path = temp_file.path().to_path_buf();
+
+  extract_img_inn(path_to_book, resolution, &temp_path).await?;
+  let data = imp_to_jpeg(&temp_path).map_err(|_| MuToolError::OtherErr)?;
+  Ok(data)
+}
+
 pub async fn save_thumbnail(path_to_thumbnail: &PathBuf) {
   let data = imp_to_jpeg(path_to_thumbnail).unwrap();
   tokio::fs::remove_file(path_to_thumbnail).await.unwrap();
   tokio::fs::write(path_to_thumbnail.with_extension("jpeg"), data).await.unwrap();
 }
-fn imp_to_jpeg(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, JxlEncodeErrors> {
-  let reader = BufReader::new(File::open(path_to_thumbnail).unwrap());
-  let image = image::load(reader, ImageFormat::Png).unwrap();
-  let (w, h) = image.dimensions();
-  let img_pixels = image.as_rgb8().unwrap();
-  let opts = EncoderOptions::new(w as usize, h as usize, ColorSpace::RGB, BitDepth::Eight);
-  let jxl_encoder = JxlSimpleEncoder::new(img_pixels.as_raw(), opts);
-  let mut output: Vec<u8> = Vec::new();
-  jxl_encoder.encode(&mut output)?;
-  Ok(output)
+
+pub fn imp_to_jpeg_public(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, anyhow::Error> {
+  imp_to_jpeg(path_to_thumbnail)
+}
+
+fn imp_to_jpeg(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, anyhow::Error> {
+  let reader = BufReader::new(File::open(path_to_thumbnail)?);
+  let image = image::load(reader, ImageFormat::Png)?;
+  let mut output = std::io::Cursor::new(Vec::new());
+  image.write_to(&mut output, ImageFormat::Jpeg)?;
+  Ok(output.into_inner())
 }

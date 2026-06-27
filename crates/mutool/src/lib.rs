@@ -2,7 +2,7 @@
 pub mod create_book;
 pub mod download_mutool;
 pub mod extract_img;
-pub mod mutool_status;
+pub mod mutool_error;
 
 pub use create_book::create_empty_book;
 pub use download_mutool::{download_mutool, download_mutool_if_missing_blocking};

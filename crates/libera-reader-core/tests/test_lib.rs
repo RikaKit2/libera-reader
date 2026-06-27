@@ -1,6 +1,5 @@
 use anyhow::Result;
 use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::models::books::Books;
 use libera_reader_core::db::models::books::book::{Book, BookDir, BookPath};
 use mutool::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
 use std::path::PathBuf;
@@ -150,11 +149,9 @@ impl TestLib {
 
     let parent_dir = self.first_book.parent().unwrap().to_path_buf();
     let book_dir = BookDir::new(parent_dir);
-    let target_book = self.ctx.db.rt(|r| Books::get_by_parent_dir(book_dir, r))?;
+    let target_books = self.ctx.db.scan_books_by_parent_dir(book_dir.full_path().as_ref())?;
 
-    if let Some(books) = target_book {
-      assert!(books.storage.is_empty(), "Directory exists in DB but should be empty");
-    }
+    assert!(target_books.is_empty(), "Directory exists in DB but should be empty");
 
     Ok(())
   }
@@ -175,18 +172,19 @@ impl TestLib {
     let book_path = BookPath::new(book_path_in_db)
       .expect("Failed to create BookPath from file path (check if extension is valid)");
 
-    let book_result = self.ctx.db.rt(|r| Books::get_by_path(book_path.clone(), r));
+    let book_result = self.ctx.db.get_book(book_path.clone());
 
     match book_result {
       Ok(Some(book)) => {
         assert_fn(&book);
       }
       Ok(None) => {
-        let Ok((books_from_db, book_count)) = self.ctx.db.rt(|r| Ok(Books::all(r))) else {
+        let Ok(books_from_db) = self.ctx.db.scan_all_books() else {
           panic!("Failed to get all books from db for debug dump");
         };
-        for (_book_dir, books) in books_from_db {
-          debug!("{:?}", books);
+        let book_count = books_from_db.len();
+        for book in books_from_db {
+          debug!("{:?}", book);
         }
         panic!("Book not found in DB: {:?} (Total books in DB: {})", book_path_in_db, book_count);
       }
