@@ -31,8 +31,8 @@ pub async fn calc_file_hash<P: AsRef<Path>>(path_to_file: P) -> Result<String> {
   use tokio::io::AsyncReadExt;
   let mut hasher = gxhash::GxBuildHasher::with_seed(0).build_hasher();
   let mut file = tokio::fs::File::open(path_to_file).await?;
+  let mut buffer = vec![0; 64 * 1024]; // Heap-allocated 64KB buffer prevents stack overflows
   loop {
-    let mut buffer = [0; 1024 * 1024];
     let bytes_read = file.read(&mut buffer).await?;
     if bytes_read == 0 {
       break;

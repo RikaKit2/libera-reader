@@ -4,7 +4,10 @@ use std::path::PathBuf;
 use anyhow::Ok;
 use utils::debug;
 
-use crate::db::models::books::{Books, book::BookPath, book_sizes::BookSizes};
+use crate::db::models::books::{
+  book::{Book, BookPath},
+  book_sizes::BookSizes,
+};
 
 pub(crate) fn update_book_path(
   old_path: PathBuf, new_path: PathBuf, rw_t: &RwTransaction<'_>,
@@ -16,24 +19,23 @@ pub(crate) fn update_book_path(
   match old_book_path {
     Some(old_book_path) => match new_book_path {
       Some(new_book_path) => {
-        if let Some(old_books) =
-          Books::get_by_parent_dir_rw(old_book_path.parent_dir.clone(), rw_t)?
-        {
-          let mut updated_books = old_books.clone();
+        let old_id = old_book_path.full_path_string().to_string();
 
-          let old_key = old_book_path.file_name();
-          if let Some(mut book) = updated_books.storage.swap_remove(&old_key) {
-            book.book_path = new_book_path.clone();
-            BookSizes::update_book_path(book.book_size, &old_book_path, new_book_path, rw_t)?;
-            updated_books.parent_dir = book.book_path.parent_dir.clone();
-            let new_key = book.book_path.file_name();
-            updated_books.storage.insert(new_key, book);
+        if let Some(book) = rw_t.get().primary::<Book>(old_id)? {
+          let mut updated_book = book.clone();
+          updated_book.book_path = new_book_path.clone();
+          updated_book.id = new_book_path.full_path_string().to_string();
+          updated_book.parent_dir = new_book_path.parent_dir.full_path().to_string();
 
-            rw_t.update(old_books, updated_books)?;
-            let total_time = start_time.elapsed();
-            debug!("The total time to update the path of the book: {:?}", &total_time);
-          };
-        };
+          BookSizes::update_book_path(book.book_size, &old_book_path, new_book_path, rw_t)?;
+
+          // Remove old key and insert new since primary key changed
+          rw_t.remove::<Book>(book)?;
+          rw_t.insert::<Book>(updated_book)?;
+
+          let total_time = start_time.elapsed();
+          debug!("The total time to update the path of the book: {:?}", &total_time);
+        }
       }
       None => debug!("The new path is not a valid book path: {:?}", &new_path),
     },

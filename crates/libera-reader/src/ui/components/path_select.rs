@@ -42,7 +42,14 @@ impl Render for PathSelect {
             if let Some(folder) = AsyncFileDialog::new().pick_folder().await {
               let path = folder.path().to_path_buf();
               let _ = cx.update(|cx| {
+                // Stop the notify service for the old directory
+                let _ = cx.ctx_mut().services.notify_service.stop();
+
+                // Save the new directory to scan
                 cx.ctx_mut().settings.set_path_to_scan(path).unwrap();
+
+                // Restart scanning and watcher services for the new directory
+                crate::app_utils::start_services(cx);
               });
             }
             // Reset dialog state when done

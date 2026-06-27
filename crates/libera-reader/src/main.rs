@@ -19,7 +19,6 @@ use gpui::{
 };
 use gpui_component::Root;
 use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::models::books::Books;
 use mimalloc::MiMalloc;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -35,7 +34,8 @@ fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
   }
 
   let ctx = Ctx::global(cx);
-  let (initial_books, _) = ctx.db.rt(|r| Ok(Books::all(r))).unwrap();
+  let initial_books = ctx.db.scan_all_books().unwrap_or_default();
+
   let event_rx = ctx.event_tx.subscribe();
   let pages = Pages::new(window, cx, initial_books, event_rx);
   cx.new(|cx| Root::new(pages, window, cx))

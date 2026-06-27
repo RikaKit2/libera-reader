@@ -1,79 +1,80 @@
-use futures_util::FutureExt;
-use futures_util::future::Shared;
 use gpui::*;
-use libera_reader_core::types::HashMap;
-use std::collections::VecDeque;
+use libera_reader_core::db::DB;
+use libera_reader_core::db::models::books::book::Book;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
-/// An ImageCache that limits the number of cached images.
-/// When the limit is exceeded, the oldest (least recently used) image is evicted.
-/// This prevents memory bloat from thousands of decoded thumbnails.
+/// An ImageCache that limits the number of cached images in memory.
+/// It also caches the absence of thumbnails (None) to avoid redundant DB reads.
+/// Evicted images are queued and removed from GPUI's asset cache during rendering.
 pub struct LruImageCache {
-  inner: HashMap<u64, ImageCacheItem>,
-  order: VecDeque<u64>,
+  inner: HashMap<SharedString, Option<Arc<Image>>>,
+  order: VecDeque<SharedString>,
+  evicted_images: Vec<Arc<Image>>,
   max_images: usize,
 }
 
 impl LruImageCache {
-  pub fn new(cx: &mut App, max_images: usize) -> Entity<Self> {
-    let e =
-      cx.new(|_cx| LruImageCache { inner: HashMap::default(), order: VecDeque::new(), max_images });
-    cx.observe_release(&e, |cache, cx| {
-      for (_, mut item) in std::mem::take(&mut cache.inner) {
-        if let Some(Ok(image)) = item.get() {
-          cx.drop_image(image, None);
-        }
-      }
-    })
-    .detach();
-    e
-  }
-}
-
-impl ImageCache for LruImageCache {
-  fn load(
-    &mut self, source: &Resource, window: &mut Window, cx: &mut App,
-  ) -> Option<Result<Arc<RenderImage>, ImageCacheError>> {
-    let hash = gpui::hash(source);
-
-    // If already cached, move to back (most recently used)
-    if self.inner.contains_key(&hash) {
-      if let Some(pos) = self.order.iter().position(|&h| h == hash) {
-        self.order.remove(pos);
-        self.order.push_back(hash);
-      }
-      return self.inner.get_mut(&hash).and_then(|item: &mut ImageCacheItem| item.get());
+  pub fn new(max_images: usize) -> Self {
+    LruImageCache {
+      inner: HashMap::new(),
+      order: VecDeque::new(),
+      evicted_images: Vec::new(),
+      max_images,
     }
+  }
+
+  pub fn get(&mut self, id: &SharedString, db: &DB) -> Option<Arc<Image>> {
+    if let Some(cached) = self.inner.get(id) {
+      // Move to back of LRU order
+      if let Some(pos) = self.order.iter().position(|x| x == id) {
+        self.order.remove(pos);
+        self.order.push_back(id.clone());
+      }
+      return cached.clone();
+    }
+
+    // Query DB (only once per book until evicted)
+    let opt_image = if let Ok(Some(bytes)) = db.rt(|r| {
+      if let Some(book) = r.get().primary::<Book>(id.to_string())? {
+        book.get_thumbnail_data_in_txn(r)
+      } else {
+        Ok(None)
+      }
+    }) {
+      Some(Arc::new(Image::from_bytes(ImageFormat::Jpeg, bytes)))
+    } else {
+      None
+    };
 
     // Evict oldest if at capacity
     while self.inner.len() >= self.max_images {
       if let Some(oldest) = self.order.pop_front()
-        && let Some(mut item) = self.inner.swap_remove(&oldest)
-        && let Some(Ok(image)) = item.get()
+        && let Some(Some(img)) = self.inner.remove(&oldest)
       {
-        cx.drop_image(image, Some(window));
+        self.evicted_images.push(img);
       }
     }
 
-    // Load new image
-    let fut = AssetLogger::<ImageAssetLoader>::load(source.clone(), cx);
-    let task: Shared<Task<Result<Arc<RenderImage>, ImageCacheError>>> =
-      cx.background_executor().spawn(fut).shared();
-    self.inner.insert(hash, ImageCacheItem::Loading(task.clone()));
-    self.order.push_back(hash);
+    self.inner.insert(id.clone(), opt_image.clone());
+    self.order.push_back(id.clone());
+    opt_image
+  }
 
-    let entity = window.current_view();
-    window
-      .spawn(cx, {
-        async move |cx| {
-          _ = task.await;
-          cx.on_next_frame(move |_, cx| {
-            cx.notify(entity);
-          });
-        }
-      })
-      .detach();
+  /// Force clear/evict a specific book from the cache (e.g. when thumbnail was extracted)
+  pub fn remove(&mut self, id: &SharedString) {
+    if let Some(Some(img)) = self.inner.remove(id) {
+      self.evicted_images.push(img);
+    }
+    if let Some(pos) = self.order.iter().position(|x| x == id) {
+      self.order.remove(pos);
+    }
+  }
 
-    None
+  /// Explicitly evict images from GPUI asset cache to free RAM
+  pub fn flush_evictions(&mut self, cx: &mut App) {
+    for img in std::mem::take(&mut self.evicted_images) {
+      img.remove_asset(cx);
+    }
   }
 }

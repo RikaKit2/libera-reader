@@ -35,10 +35,6 @@ pub(crate) fn start_services(cx: &mut App) {
 
         let ctx = Ctx::global_mut(cx);
 
-        if let Err(e) = ctx.db.compact() {
-          eprintln!("DB Compact error: {:?}", e);
-        }
-
         if let Err(e) = ctx.services.notify_service.run() {
           eprintln!("NotifyService error: {:?}", e);
         }

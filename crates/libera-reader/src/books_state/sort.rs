@@ -1,6 +1,5 @@
 use super::{BooksState, SortField, TargetList};
 use gpui::Context;
-use libera_reader_core::db::models::books::book::BookSize;
 use std::cmp::Ordering;
 
 impl BooksState {
@@ -42,25 +41,16 @@ impl BooksState {
     let reversed = config.is_reversed;
     let map = &self.books_map;
 
-    keys.sort_by(|path_a, path_b| {
-      let book_a = map.get(&path_a.parent_dir).and_then(|d| d.storage.get(&path_a.file_name()));
-      let book_b = map.get(&path_b.parent_dir).and_then(|d| d.storage.get(&path_b.file_name()));
+    keys.sort_by(|id_a, id_b| {
+      let book_a = map.get(id_a);
+      let book_b = map.get(id_b);
 
       let cmp = match (book_a, book_b) {
         (Some(a), Some(b)) => match field {
-          SortField::Name => a.book_path.name.to_lowercase().cmp(&b.book_path.name.to_lowercase()),
-          SortField::Size => {
-            let BookSize::BYTES(size_a) = a.book_size;
-            let BookSize::BYTES(size_b) = b.book_size;
-            size_a.cmp(&size_b)
-          }
-          SortField::Type => a
-            .book_path
-            .ext
-            .to_string()
-            .to_lowercase()
-            .cmp(&b.book_path.ext.to_string().to_lowercase()),
-          SortField::LastOpened => a.user_data.last_opened.cmp(&b.user_data.last_opened),
+          SortField::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+          SortField::Size => a.size.cmp(&b.size),
+          SortField::Type => a.ext.to_lowercase().cmp(&b.ext.to_lowercase()),
+          SortField::LastOpened => a.last_opened.cmp(&b.last_opened),
         },
         (Some(_), None) => Ordering::Less,
         (None, Some(_)) => Ordering::Greater,

@@ -5,7 +5,7 @@ use crate::ui::components::{
 };
 
 use gpui::{
-  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
 };
 use rust_i18n::t;
 
@@ -40,7 +40,7 @@ impl Render for Settings {
       div().child(t!("components.columns_select.header").to_string()),
       div().child(self.columns_select.clone()),
       div().child(t!("components.workers_select.header").to_string()),
-      div().child(self.workers_select.clone()),
+      div().w(px(150.0)).child(self.workers_select.clone()),
     ])
   }
 }

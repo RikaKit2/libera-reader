@@ -1,5 +1,8 @@
 use crate::{
-  db::models::books::{Books, book::Book},
+  db::{
+    DB,
+    models::books::book::{Book, BookPath},
+  },
   not_cached_books::NotCachedBooks,
   settings::SETTINGS,
   types::{LibraryEvent, MUPDF_EXTENSIONS},
@@ -8,17 +11,10 @@ use std::{path::PathBuf, time::Instant};
 
 use jwalk::WalkDir;
 
-use crate::db::{
-  DB,
-  models::books::book::{BookDir, BookPath},
-};
-use crate::types::HashMap;
+use crate::types::HashSet;
 use tokio::sync::{broadcast, mpsc::UnboundedReceiver};
 use tokio::time::{self, Duration};
 use utils::debug;
-
-pub(crate) type DBBooksCount = usize;
-pub(crate) type BooksFromDB = HashMap<BookDir, Books>;
 
 #[derive(Clone)]
 pub struct ScanService {
@@ -70,11 +66,29 @@ impl ScanService {
         debug!("Path to scan is not set. Please set it in the settings.");
       }
       Some(path_to_scan) => {
-        let (db_books, _) = self.db.rt(|r| Ok(Books::all(r)))?;
+        // Collect all existing book IDs from DB into a HashSet for O(1) lookup
+        let db_books = self.db.scan_all_books()?;
+        let mut existing_ids: HashSet<String> = db_books.iter().map(|b| b.id.clone()).collect();
 
         let rx = Self::get_books_from_disk(path_to_scan);
 
-        self.run_event_loop(rx, db_books).await;
+        self.run_event_loop(rx, &mut existing_ids).await;
+
+        // After scanning, remaining IDs are books that no longer exist on disk
+        let removed_count = self.remove_outdated_books(existing_ids).await;
+
+        // Send only books without thumbnails to extraction queue in alphabetical order
+        let all_books = self.db.scan_all_books()?;
+        let mut books_to_extract: Vec<Book> =
+          all_books.into_iter().filter(|b| !b.has_thumbnail).collect();
+        books_to_extract.sort_by_key(|b| b.book_path.display_name().to_lowercase());
+
+        let tx = self.not_cached_books.tx();
+        for book in books_to_extract {
+          let _ = tx.send(book.book_path);
+        }
+
+        debug!("Full scanning process finished. Removed {} outdated books.", removed_count);
       }
     };
 
@@ -82,23 +96,21 @@ impl ScanService {
   }
 
   async fn run_event_loop(
-    &self, mut rx: UnboundedReceiver<BookPath>, mut db_books: HashMap<BookDir, Books>,
+    &self, mut rx: UnboundedReceiver<BookPath>, existing_ids: &mut HashSet<String>,
   ) {
     let mut total_new_books = 0;
     let total_insert_start = Instant::now();
 
     loop {
       // 1. Wait for the FIRST batch item.
-      // If the channel is empty and closed - exit the entire event loop.
       let first_item = match rx.recv().await {
         Some(item) => item,
-        None => break, // Scanning fully completed
+        None => break,
       };
 
       let mut buffer = Vec::with_capacity(500);
       buffer.push(first_item);
 
-      // 2. Once we got the first one, start a 300ms timer to collect the rest
       let sleep = time::sleep(Duration::from_millis(300));
       tokio::pin!(sleep);
 
@@ -108,26 +120,19 @@ impl ScanService {
               match book_path {
                   Some(item) => {
                       buffer.push(item);
-                      // Memory overflow protection if SSD is too fast
                       if buffer.len() >= 500 {
                           break;
                       }
                   }
-                  None => {
-                      // Channel closed during batch collection
-                      break;
-                  }
+                  None => break,
               }
           }
-          _ = &mut sleep => {
-              // 300ms timeout elapsed, time to process what we collected
-              break;
-          }
+          _ = &mut sleep => break,
         }
       }
 
       if !buffer.is_empty() {
-        let new_count = self.insert_books(buffer, &mut db_books);
+        let new_count = self.insert_books(buffer, existing_ids);
         total_new_books += new_count;
         eprint!(
           "\rAdding books: {} (elapsed: {:?})",
@@ -140,67 +145,39 @@ impl ScanService {
     let total_insert_elapsed = total_insert_start.elapsed();
     eprintln!();
 
-    let total_remove_start = Instant::now();
-    let removed_count = self.remove_outdated_books(db_books).await;
-    let total_remove_elapsed = total_remove_start.elapsed();
-
-    if total_new_books > 0 || removed_count > 0 {
-      debug!(
-        "Scan complete. Added {} new books in {:?}, removed {} outdated books in {:?}.",
-        total_new_books, total_insert_elapsed, removed_count, total_remove_elapsed
-      );
+    if total_new_books > 0 {
+      debug!("Scan complete. Added {} new books in {:?}.", total_new_books, total_insert_elapsed);
     }
-
-    // --- SEND ALL BOOKS TO EXTRACTION QUEUE IN ALPHABETICAL ORDER ---
-    // Sort by display name so thumbnails are extracted left-to-right.
-    let (all_books, _) = self.db.rt(|r| Ok(Books::all(r))).unwrap_or_default();
-    let mut all_paths: Vec<BookPath> = all_books
-      .iter()
-      .flat_map(|(_, books)| books.storage.values().map(|b| b.book_path.clone()))
-      .collect();
-    all_paths.sort_by_key(|a| a.display_name().to_lowercase());
-
-    let tx = self.not_cached_books.tx();
-    for path in all_paths {
-      let _ = tx.send(path);
-    }
-
-    debug!("Full scanning process finished.");
   }
 
-  fn insert_books(&self, buffer: Vec<BookPath>, db_books: &mut HashMap<BookDir, Books>) -> usize {
+  fn insert_books(&self, buffer: Vec<BookPath>, existing_ids: &mut HashSet<String>) -> usize {
     let mut new_books = 0;
     let mut batch_to_send = Vec::new();
     let event_tx = &self.event_tx;
 
     let _ = self.db.rw_t(|rw_t| {
       for book_path in buffer {
-        let key = book_path.file_name();
-        match db_books.get_mut(&book_path.parent_dir) {
-          Some(dir_books) => match dir_books.storage.swap_remove(&key) {
-            Some(_existing_book) => {}
-            None => {
-              new_books += 1;
-              if let Ok(new_book) = Book::new(book_path.clone()) {
-                let _ = Books::insert_book(new_book.clone(), rw_t);
-                batch_to_send.push(new_book);
-              }
-            }
-          },
+        let id = book_path.full_path_string().to_string();
 
-          None => {
-            new_books += 1;
-            if let Ok(new_book) = Book::new(book_path.clone()) {
-              let _ = Books::insert_book(new_book.clone(), rw_t);
-              batch_to_send.push(new_book);
-            }
-          }
+        // Mark as found on disk so it is not considered outdated and deleted!
+        existing_ids.swap_remove(&id);
+
+        // Check if already in DB
+        if rw_t.get().primary::<Book>(id.clone())?.is_some() {
+          continue;
+        }
+
+        new_books += 1;
+        if let Ok(new_book) = Book::new(book_path) {
+          // Insert into BookSizes first
+          let _ = crate::db::models::books::book_sizes::BookSizes::insert_book(&new_book, rw_t);
+          rw_t.insert::<Book>(new_book.clone())?;
+          batch_to_send.push(new_book);
         }
       }
       Ok(())
     });
 
-    // Send ONE batch event instead of thousands of individual events
     if !batch_to_send.is_empty() {
       let _ = event_tx.send(LibraryEvent::BooksBatchAdded(batch_to_send));
     }
@@ -208,38 +185,39 @@ impl ScanService {
     new_books
   }
 
-  async fn remove_outdated_books(&self, db_books: HashMap<BookDir, Books>) -> usize {
-    let mut outdated_books_count = 0;
+  async fn remove_outdated_books(&self, remaining_ids: HashSet<String>) -> usize {
+    let mut removed_count = 0;
     let event_tx = &self.event_tx;
 
     let _ = self.db.rw_t(|rw_t| {
-      for (books_dir, books) in db_books {
-        let paths_to_delete: Vec<BookPath> =
-          books.storage.values().map(|book| book.book_path.clone()).collect();
+      for id in remaining_ids {
+        if let Some(book) = rw_t.get().primary::<Book>(id.clone())? {
+          let can_delete = book.can_delete();
+          let book_path = book.book_path.clone();
 
-        for path in paths_to_delete {
-          if let Ok(Some(fresh_dir_books)) = Books::get_by_parent_dir_rw(books_dir.clone(), rw_t) {
-            let key = path.file_name();
-            if let Some(book_before_remove) = fresh_dir_books.storage.get(&key) {
-              let can_delete = book_before_remove.can_delete();
-              if fresh_dir_books.remove_book(path.clone(), rw_t).is_ok() {
-                if can_delete {
-                  let _ = event_tx.send(LibraryEvent::BookRemoved(path));
-                } else if let Ok(Some(updated_dir_books)) =
-                  Books::get_by_parent_dir_rw(books_dir.clone(), rw_t)
-                  && let Some(updated_book) = updated_dir_books.storage.get(&key)
-                {
-                  let _ = event_tx.send(LibraryEvent::BookUpdated(updated_book.clone()));
-                }
-                outdated_books_count += 1;
-              }
-            }
+          // Remove from BookSizes
+          let _ = crate::db::models::books::book_sizes::BookSizes::remove_book(
+            book.book_size,
+            &book.book_path,
+            rw_t,
+          );
+
+          if can_delete {
+            rw_t.remove::<Book>(book)?;
+            let _ = event_tx.send(LibraryEvent::BookRemoved(book_path));
+          } else {
+            let mut updated_book = book.clone();
+            updated_book.mark_as_deleted();
+            let updated_book_clone = updated_book.clone();
+            rw_t.update::<Book>(book, updated_book)?;
+            let _ = event_tx.send(LibraryEvent::BookUpdated(updated_book_clone));
           }
+          removed_count += 1;
         }
       }
       Ok(())
     });
 
-    outdated_books_count
+    removed_count
   }
 }

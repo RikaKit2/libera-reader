@@ -198,10 +198,14 @@ async fn process_batch(
         match event {
           FSEvent::CreateFile { file_path } => {
             if let Some(book_path) = BookPath::new(&file_path)
-              && let Ok(new_book) = Book::new(book_path.clone())
-              && let Ok(_) = fs_handlers::insert_book(book_path, rw_t, &not_cached_books)
+              && let Ok(_) = fs_handlers::insert_book(book_path.clone(), rw_t, &not_cached_books)
             {
-              let _ = event_tx.send(LibraryEvent::BookAdded(new_book));
+              // After insert, fetch the book back to send event
+              if let Ok(Some(book)) =
+                rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
+              {
+                let _ = event_tx.send(LibraryEvent::BookAdded(book));
+              }
             }
           }
 
@@ -214,14 +218,10 @@ async fn process_batch(
                 }
                 Ok(RemoveStatus::MarkedAsDeleted) => {
                   // Fetch updated book from DB and send BookUpdated
-                  if let Ok(Some(books)) = crate::db::models::books::Books::get_by_parent_dir_rw(
-                    book_path.parent_dir.clone(),
-                    rw_t,
-                  ) {
-                    let key = book_path.file_name();
-                    if let Some(book) = books.storage.get(&key) {
-                      let _ = event_tx.send(LibraryEvent::BookUpdated(book.clone()));
-                    }
+                  if let Ok(Some(updated_book)) =
+                    rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
+                  {
+                    let _ = event_tx.send(LibraryEvent::BookUpdated(updated_book));
                   }
                 }
 
@@ -251,12 +251,14 @@ async fn process_batch(
               debug!("Error updating book dir: {:?}", err);
             } else {
               // Send events for all books in the directory
-              if let Ok(Some(books)) = crate::db::models::books::Books::get_by_parent_dir_rw(
-                BookDir::new(new_path.clone()),
-                rw_t,
-              ) {
-                for (_, book) in books.storage {
-                  let _ = event_tx.send(LibraryEvent::BookUpdated(book));
+              let new_dir_path = BookDir::new(new_path.clone()).full_path().to_string();
+              if let Ok(all_books) = rw_t.scan().primary::<Book>() {
+                for item in all_books.all().unwrap() {
+                  if let Ok(book) = item
+                    && book.parent_dir == new_dir_path
+                  {
+                    let _ = event_tx.send(LibraryEvent::BookUpdated(book));
+                  }
                 }
               }
             }

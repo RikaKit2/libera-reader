@@ -1,5 +1,5 @@
 use gpui::SharedString;
-use mutool::mutool_status::MuToolError;
+use mutool::mutool_error::MuToolError;
 use serde::{Deserialize, Serialize};
 
 use crate::db::models::Thumbnail;

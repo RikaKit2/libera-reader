@@ -43,30 +43,33 @@ impl BooksState {
 
     let mut keys = Vec::new();
 
-    for (_, dir_books) in &self.books_map {
-      for (_, book) in &dir_books.storage {
-        if book.book_path.deleted {
-          continue;
+    for (id, light) in &self.books_map {
+      if light.deleted {
+        continue;
+      }
+
+      let matches_target = match target {
+        TargetList::Library => true,
+        TargetList::Favorites => light.is_favorite,
+        TargetList::History => light.last_opened > 0,
+        TargetList::Bookmarks => {
+          // Bookmarks list is built from the DB on request; we skip here
+          // since we don't store bookmarks in LightBook.
+          // For now, just skip bookmarks in memory.
+          false
         }
+      };
 
-        let matches_target = match target {
-          TargetList::Library => true,
-          TargetList::Favorites => book.user_data.favorite,
-          TargetList::History => book.user_data.last_opened > 0,
-          TargetList::Bookmarks => !book.bookmarks.is_empty(),
-        };
+      if !matches_target {
+        continue;
+      }
 
-        if !matches_target {
-          continue;
-        }
+      let matches_search = query.is_empty()
+        || light.name.to_lowercase().contains(&query)
+        || light.parent_dir.to_lowercase().contains(&query);
 
-        let matches_search = query.is_empty()
-          || book.book_path.name.to_lowercase().contains(&query)
-          || book.book_path.parent_dir.dir_name().to_lowercase().contains(&query);
-
-        if matches_search {
-          keys.push(book.book_path.clone());
-        }
+      if matches_search {
+        keys.push(id.clone());
       }
     }
 

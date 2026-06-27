@@ -1,8 +1,7 @@
 use super::{BooksState, TargetList};
 use gpui::Context;
 use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::models::books::Books;
-use libera_reader_core::types::{HashMap, LibraryEvent};
+use libera_reader_core::types::LibraryEvent;
 
 impl BooksState {
   pub(crate) fn apply_event(&mut self, event: LibraryEvent, cx: &mut Context<Self>) {
@@ -10,8 +9,11 @@ impl BooksState {
 
     match event {
       LibraryEvent::ThumbnailExtracted(path) => {
-        // Thumbnail is ready! Mark in cache so UI shows the cover image.
-        self.cover_cache.borrow_mut().insert(path, true);
+        let id: gpui::SharedString = path.full_path_string();
+        self.cover_cache.borrow_mut().insert(id.clone(), true);
+        if let Some(light) = self.books_map.get_mut(&id) {
+          light.has_thumbnail = true;
+        }
         needs_rebuild = false; // No sorting needed
       }
       LibraryEvent::BookAdded(book) => {
@@ -19,55 +21,41 @@ impl BooksState {
         let ctx = Ctx::global(cx);
         let _ = ctx.not_cached_books.tx().send(book.book_path.clone());
 
-        let path = book.book_path.clone();
-        let dir_books = self.books_map.entry(path.parent_dir.clone()).or_insert_with(|| Books {
-          parent_dir: path.parent_dir.clone(),
-          storage: HashMap::default(),
-        });
-        dir_books.storage.insert(path.file_name(), book);
+        self.upsert_book(&book);
       }
       LibraryEvent::BooksBatchAdded(books) => {
         for book in books {
-          let path = book.book_path.clone();
-          let dir_books = self.books_map.entry(path.parent_dir.clone()).or_insert_with(|| Books {
-            parent_dir: path.parent_dir.clone(),
-            storage: HashMap::default(),
-          });
-          dir_books.storage.insert(path.file_name(), book);
+          self.upsert_book(&book);
         }
       }
       LibraryEvent::BookUpdated(book) => {
-        let path = book.book_path.clone();
-        if let Some(dir_books) = self.books_map.get_mut(&path.parent_dir) {
-          dir_books.storage.insert(path.file_name(), book);
-        }
+        self.upsert_book(&book);
       }
       LibraryEvent::BookRemoved(path) => {
-        if let Some(dir_books) = self.books_map.get_mut(&path.parent_dir) {
-          dir_books.storage.swap_remove(&path.file_name());
-          if dir_books.storage.is_empty() {
-            self.books_map.swap_remove(&path.parent_dir);
-          }
-        }
+        let id: gpui::SharedString = path.full_path_string();
+        self.books_map.remove(&id);
+        self.cover_cache.borrow_mut().remove(&id);
       }
       LibraryEvent::BookPathUpdated { old_path, new_path } => {
-        if let Some(dir_books) = self.books_map.get_mut(&old_path.parent_dir)
-          && let Some(mut book) = dir_books.storage.swap_remove(&old_path.file_name())
-        {
-          book.book_path = new_path.clone();
-          let new_dir_books =
-            self.books_map.entry(new_path.parent_dir.clone()).or_insert_with(|| Books {
-              parent_dir: new_path.parent_dir.clone(),
-              storage: HashMap::default(),
-            });
-          new_dir_books.storage.insert(new_path.file_name(), book);
+        let old_id: gpui::SharedString = old_path.full_path_string();
+        if let Some(light) = self.books_map.remove(&old_id) {
+          // Update the id in the light book
+          let mut updated = light;
+          let new_id: gpui::SharedString = new_path.full_path_string();
+          updated.id = new_id.clone();
+          updated.parent_dir = new_path.parent_dir.full_path();
+          updated.name = new_path.name.clone();
+          self.upsert_light(new_id, updated);
         }
+        self.cover_cache.borrow_mut().remove(&old_id);
       }
       LibraryEvent::BookMarkAdded { .. }
       | LibraryEvent::BookMarkUpdated { .. }
       | LibraryEvent::BookMarkRemoved { .. } => {}
       LibraryEvent::DirRemoved(dir) => {
-        self.books_map.swap_remove(&dir);
+        let dir_path = dir.full_path().to_string();
+        // Remove all books with this parent_dir
+        self.books_map.retain(|_id, light| light.parent_dir.as_ref() != dir_path);
       }
     }
 

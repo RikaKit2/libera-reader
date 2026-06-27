@@ -76,6 +76,7 @@ impl BookHashes {
     };
     Ok(())
   }
+  #[allow(dead_code)]
   pub(crate) fn mark_book_as_deleted(
     book_hash: BookHash, book_path: &BookPath, rw_t: &RwTransaction<'_>,
   ) -> anyhow::Result<()> {

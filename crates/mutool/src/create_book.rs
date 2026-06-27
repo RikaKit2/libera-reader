@@ -1,4 +1,4 @@
-use crate::mutool_status::MuToolError;
+use crate::mutool_error::MuToolError;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;

@@ -1,7 +1,6 @@
 pub mod models;
 
 use crate::db::models::BookMark;
-use crate::db::models::books::Books;
 use crate::db::models::books::book::{Book, BookPath};
 
 use crate::db::models::books::book_hashes::BookHashes;
@@ -17,7 +16,7 @@ use std::sync::{Arc, RwLock};
 
 fn get_models() -> Result<Models> {
   let mut models = Models::new();
-  models.define::<Books>()?;
+  models.define::<Book>()?;
   models.define::<Settings>()?;
   models.define::<BookSizes>()?;
   models.define::<BookHashes>()?;
@@ -33,10 +32,12 @@ pub struct DB {
 
 impl DB {
   pub fn new(path_to_db: PathBuf) -> Result<Self> {
+    let mut builder = Builder::new();
+    builder.set_cache_size(16 * 1024 * 1024); // Limit cache size to 16 MB to prevent memory bloat
     let db = if path_to_db.exists() {
-      Builder::new().open(&MODELS, &path_to_db)?
+      builder.open(&MODELS, &path_to_db)?
     } else {
-      Builder::new().create(&MODELS, &path_to_db)?
+      builder.create(&MODELS, &path_to_db)?
     };
     Ok(Self { db: Arc::new(RwLock::new(db)) })
   }
@@ -47,94 +48,70 @@ impl DB {
   }
 
   pub fn get_book(&self, book_path: BookPath) -> Result<Option<Book>> {
-    self.rt(|r| Books::get_by_path(book_path, r))
+    self.get_primary::<Book>(book_path.full_path_string().to_string())
   }
 
   pub fn update_book(&self, updated_book: Book) -> Result<()> {
     self.rw_t(|rw_t| {
-      let parent_dir = updated_book.book_path.parent_dir.clone();
-      let key = updated_book.book_path.file_name();
-
-      match Books::get_by_parent_dir_rw(parent_dir, rw_t)? {
-        Some(old_books) => {
-          let mut new_books = old_books.clone();
-          new_books.storage.insert(key, updated_book);
-          rw_t.update(old_books, new_books)?;
-        }
-        None => {
-          Books::insert_book(updated_book, rw_t)?;
-        }
-      }
-
+      let old_book = rw_t
+        .get()
+        .primary::<Book>(updated_book.id.clone())?
+        .ok_or_else(|| anyhow::anyhow!("Book not found: {}", updated_book.id))?;
+      rw_t.update::<Book>(old_book, updated_book)?;
       Ok(())
     })
   }
 
+  /// Scan ALL books in the database (flat)
+  pub fn scan_all_books(&self) -> Result<Vec<Book>> {
+    self.rt(scan_primary::<Book>)
+  }
+
+  /// Scan books by parent_dir (filter in-memory)
+  pub fn scan_books_by_parent_dir(&self, parent_dir: &str) -> Result<Vec<Book>> {
+    let all = self.scan_all_books()?;
+    Ok(all.into_iter().filter(|b| b.parent_dir == parent_dir).collect())
+  }
+
   pub fn add_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> Result<Option<Book>> {
     self.rw_t(|rw_t| {
-      let parent_dir = book_path.parent_dir.clone();
-      let key = book_path.file_name();
-
-      let Some(old_books) = Books::get_by_parent_dir_rw(parent_dir, rw_t)? else {
+      let Some(mut book) = rw_t.get().primary::<Book>(book_path.full_path_string().to_string())?
+      else {
         return Ok(None);
       };
-      let mut new_books = old_books.clone();
-
-      let Some(book) = new_books.storage.get_mut(&key) else {
-        return Ok(None);
-      };
-
       book.add_bookmark(bookmark);
       let updated_book = book.clone();
-      rw_t.update(old_books, new_books)?;
+      rw_t.update::<Book>(book, updated_book.clone())?;
       Ok(Some(updated_book))
     })
   }
 
   pub fn update_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> Result<Option<Book>> {
     self.rw_t(|rw_t| {
-      let parent_dir = book_path.parent_dir.clone();
-      let key = book_path.file_name();
-
-      let Some(old_books) = Books::get_by_parent_dir_rw(parent_dir, rw_t)? else {
+      let Some(mut book) = rw_t.get().primary::<Book>(book_path.full_path_string().to_string())?
+      else {
         return Ok(None);
       };
-      let mut new_books = old_books.clone();
-
-      let Some(book) = new_books.storage.get_mut(&key) else {
-        return Ok(None);
-      };
-
       if !book.update_bookmark(bookmark) {
         return Ok(None);
       }
-
       let updated_book = book.clone();
-      rw_t.update(old_books, new_books)?;
+      rw_t.update::<Book>(book, updated_book.clone())?;
       Ok(Some(updated_book))
     })
   }
 
   pub fn remove_bookmark(&self, book_path: BookPath, time_created: &str) -> Result<Option<Book>> {
     self.rw_t(|rw_t| {
-      let parent_dir = book_path.parent_dir.clone();
-      let key = book_path.file_name();
-
-      let Some(old_books) = Books::get_by_parent_dir_rw(parent_dir, rw_t)? else {
+      let Some(mut book) = rw_t.get().primary::<Book>(book_path.full_path_string().to_string())?
+      else {
         return Ok(None);
       };
-      let mut new_books = old_books.clone();
-
-      let Some(book) = new_books.storage.get_mut(&key) else {
-        return Ok(None);
-      };
-
       if !book.remove_bookmark(time_created) {
         return Ok(None);
       }
-
       let updated_book = book.clone();
-      rw_t.update(old_books, new_books)?;
+      rw_t.update::<Book>(book, updated_book.clone())?;
       Ok(Some(updated_book))
     })
   }
@@ -156,6 +133,14 @@ impl DB {
     let lock = self.db.write().unwrap();
     let rw_conn = lock.rw_transaction().map_err(Box::new)?;
     rw_conn.update(old_data, new_data).map_err(Box::new)?;
+    rw_conn.commit().map_err(Box::new)
+  }
+
+  #[allow(dead_code)]
+  pub(crate) fn remove<T: ToInput>(&self, item: T) -> Result<(), Box<db_type::Error>> {
+    let lock = self.db.write().unwrap();
+    let rw_conn = lock.rw_transaction().map_err(Box::new)?;
+    rw_conn.remove(item).map_err(Box::new)?;
     rw_conn.commit().map_err(Box::new)
   }
 

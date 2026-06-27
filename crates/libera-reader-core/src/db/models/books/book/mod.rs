@@ -7,6 +7,9 @@ use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 
 use crate::db::models::{BookMark, UserData};
+use native_db::*;
+#[allow(unused_imports)]
+use native_model::{Model, native_model};
 
 pub(crate) type BookName = SharedString;
 mod book_dir;
@@ -19,27 +22,46 @@ pub use book_ext::BookExt;
 pub use book_path::BookPath;
 pub use book_size::BookSize;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
+#[native_model(id = 1, version = 2)]
+#[native_db]
 pub struct Book {
+  #[primary_key]
+  pub id: String, // book_path.full_path_string()
+  #[secondary_key]
+  pub parent_dir: String, // book_path.parent_dir.full_path()
+
   pub book_path: BookPath,
   pub book_size: BookSize,
   pub user_data: UserData,
   #[serde(default)]
   pub bookmarks: Vec<BookMark>,
+  #[serde(default)]
+  pub has_thumbnail: bool,
 }
 
 impl Book {
   pub(crate) fn new(book_path: BookPath) -> anyhow::Result<Self> {
     let book_size = book_path.get_book_size().unwrap();
-    Ok(Self { book_path, book_size, user_data: UserData::default(), bookmarks: Vec::new() })
+    Ok(Self {
+      id: book_path.full_path_string().to_string(),
+      parent_dir: book_path.parent_dir.full_path().to_string(),
+      book_path,
+      book_size,
+      user_data: UserData::default(),
+      bookmarks: Vec::new(),
+      has_thumbnail: false,
+    })
   }
 
   pub fn exists_on_disk(&self) -> bool {
     self.book_path.exists_on_disk()
   }
+  #[allow(dead_code)]
   pub(crate) fn pathbuf(&self) -> PathBuf {
     self.book_path.as_pathbuf()
   }
+  #[allow(dead_code)]
   pub(crate) fn full_path_str(&self) -> SharedString {
     self.pathbuf().to_str().unwrap().to_string().into()
   }
@@ -71,14 +93,83 @@ impl Book {
   pub(crate) fn mark_as_deleted(&mut self) {
     self.book_path.mark_as_deleted();
   }
-}
-impl PartialEq for Book {
-  fn eq(&self, other: &Self) -> bool {
-    self.full_path_str() == other.full_path_str()
+
+  /// Retrieve thumbnail data (compressed image bytes) from the database
+  pub fn get_thumbnail_data(&self, db: &crate::db::DB) -> anyhow::Result<Option<Vec<u8>>> {
+    db.rt(|r| self.get_thumbnail_data_in_txn(r))
+  }
+
+  /// Retrieve mutool error from the database if extraction failed
+  pub fn get_mutool_error(
+    &self, db: &crate::db::DB,
+  ) -> anyhow::Result<Option<mutool::mutool_error::MuToolError>> {
+    db.rt(|r| {
+      if let Some(book_sizes) =
+        r.get().primary::<crate::db::models::books::book_sizes::BookSizes>(self.book_size)?
+      {
+        match &book_sizes.book_type {
+          crate::db::models::books::BookType::UniqueSize { mutool_data, .. } => {
+            return Ok(mutool_data.as_ref().and_then(|m| m.mutool_err.clone()));
+          }
+          crate::db::models::books::BookType::DuplicateSize(map) => {
+            if let Some(dup_data) = map.get(&self.book_path) {
+              match dup_data {
+                crate::db::models::books::DuplicateBookData::MutoolData(m) => {
+                  return Ok(m.as_ref().and_then(|m| m.mutool_err.clone()));
+                }
+                crate::db::models::books::DuplicateBookData::BookHash(hash) => {
+                  if let Some(book_hashes) =
+                    r.get()
+                      .primary::<crate::db::models::books::book_hashes::BookHashes>(hash.clone())?
+                  {
+                    return Ok(book_hashes.mutool_data.mutool_err.clone());
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      Ok(None)
+    })
+  }
+
+  /// Retrieve thumbnail data using an existing read transaction
+  pub fn get_thumbnail_data_in_txn(
+    &self, r: &native_db::transaction::RTransaction,
+  ) -> anyhow::Result<Option<Vec<u8>>> {
+    if let Some(book_sizes) =
+      r.get().primary::<crate::db::models::books::book_sizes::BookSizes>(self.book_size)?
+    {
+      match book_sizes.book_type {
+        crate::db::models::books::BookType::UniqueSize { mutool_data, .. } => {
+          return Ok(mutool_data.and_then(|m| m.thumbnail).map(|t| t.data));
+        }
+        crate::db::models::books::BookType::DuplicateSize(map) => {
+          if let Some(dup_data) = map.get(&self.book_path) {
+            match dup_data {
+              crate::db::models::books::DuplicateBookData::MutoolData(m) => {
+                return Ok(m.as_ref().and_then(|m| m.thumbnail.clone()).map(|t| t.data));
+              }
+              crate::db::models::books::DuplicateBookData::BookHash(hash) => {
+                if let Some(book_hashes) =
+                  r.get()
+                    .primary::<crate::db::models::books::book_hashes::BookHashes>(hash.clone())?
+                {
+                  return Ok(book_hashes.mutool_data.thumbnail.map(|t| t.data));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    Ok(None)
   }
 }
+
 impl Hash for Book {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    self.full_path_str().hash(state);
+    self.id.hash(state);
   }
 }

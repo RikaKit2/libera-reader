@@ -1,39 +1,18 @@
 use super::actions::{push_at_history, toggle_favorite};
 use super::{
-  FAVORITE_ID_PREFIX, FAVORITE_INACTIVE_OPACITY, FOOTER_HEIGHT_PX,
-  TITLE_BREAKABLE_CAPACITY_MULTIPLIER, TITLE_FONT_SIZE_REM, TITLE_LINE_HEIGHT_REM,
+  FAVORITE_ID_PREFIX, FAVORITE_INACTIVE_OPACITY, FOOTER_HEIGHT_PX, TITLE_FONT_SIZE_REM,
+  TITLE_LINE_HEIGHT_REM,
 };
+use crate::books_state::LightBook;
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, button::*};
+use libera_reader_core::ctx::Ctx;
+use libera_reader_core::db::models::CardDisplayMode;
 use libera_reader_core::db::models::books::book::BookPath;
-use libera_reader_core::db::models::{CardDisplayMode, books::book::Book};
 use rust_i18n::t;
-use std::path::PathBuf;
 
 impl super::BooksGrid {
-  fn format_title_pixel_perfect(title: &str) -> SharedString {
-    let mut breakable_title =
-      String::with_capacity(title.len() * TITLE_BREAKABLE_CAPACITY_MULTIPLIER);
-    for ch in title.chars() {
-      breakable_title.push(ch);
-      breakable_title.push('\u{200B}');
-    }
-    breakable_title.into()
-  }
-
-  fn get_cached_title(&self, book_path: &BookPath) -> SharedString {
-    let mut cache = self.title_cache.borrow_mut();
-    if let Some(title) = cache.get(book_path) {
-      return title.clone();
-    }
-    let display_name = book_path.display_name();
-    let new_title = Self::format_title_pixel_perfect(display_name.as_ref());
-    cache.insert(book_path.clone(), new_title.clone());
-    new_title
-  }
-
-  fn render_book_title(&self, book_path: &BookPath, foreground: Hsla) -> Div {
-    let display_name = self.get_cached_title(book_path);
+  fn render_book_title(&self, book: &LightBook, foreground: Hsla) -> Div {
     div().flex_1().min_w_0().pt_1().child(
       div()
         .w_full()
@@ -44,32 +23,84 @@ impl super::BooksGrid {
         .text_size(rems(TITLE_FONT_SIZE_REM))
         .line_height(rems(TITLE_LINE_HEIGHT_REM))
         .text_color(foreground)
-        .child(display_name),
+        .child(book.formatted_title.clone()),
     )
   }
 
-  fn render_cover_click_area(
-    &self, book_path: BookPath, id: SharedString, has_thumbnail: bool, thumbnail_path: PathBuf,
-    cx: &Context<Self>,
-  ) -> Div {
+  fn render_cover_click_area(&self, book: &LightBook, id: SharedString, cx: &Context<Self>) -> Div {
     let theme = cx.theme();
     let state_hist = self.state.clone();
+    let id_for_click: SharedString = book.id.clone();
 
     let mut cover =
       div().w_full().h_full().relative().flex().items_center().justify_center().cursor_pointer();
 
-    if has_thumbnail {
+    let db = Ctx::global(cx).db.clone();
+    let mut img_data = None;
+    if book.has_thumbnail
+      && let Ok(mut cache) = self.image_cache.try_borrow_mut()
+    {
+      img_data = cache.get(&book.id, &db);
+    }
+
+    let has_thumbnail = book.has_thumbnail;
+    let failed_to_load = has_thumbnail && img_data.is_none();
+
+    if book.size == 0 {
+      // Render a clear 0-byte warning instead of a blank card or book open icon
       cover = cover.child(
-        img(thumbnail_path)
-          .image_cache(&self.image_cache)
-          .w_full()
-          .h_full()
-          .object_fit(ObjectFit::Fill),
+        div()
+          .flex()
+          .flex_col()
+          .items_center()
+          .justify_center()
+          .gap_1()
+          .child(Icon::new(IconName::TriangleAlert).with_size(px(32.0)).text_color(gpui::red()))
+          .child(
+            div().text_xs().font_weight(FontWeight::BOLD).text_color(gpui::red()).child("0 BYTES"),
+          ),
       );
     } else {
-      cover = cover.child(
-        Icon::new(IconName::BookOpen).with_size(px(40.0)).text_color(theme.foreground.opacity(0.3)),
-      );
+      let mut mutool_err = None;
+      if let Ok(Some(err)) = book.get_mutool_error(&db) {
+        mutool_err = Some(err);
+      }
+
+      if let Some(err) = mutool_err {
+        // Render a clear mutool extraction error on the card
+        cover = cover.child(
+          div()
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .gap_1()
+            .child(Icon::new(IconName::TriangleAlert).with_size(px(32.0)).text_color(gpui::red()))
+            .child(
+              div()
+                .text_xs()
+                .font_weight(FontWeight::BOLD)
+                .text_color(gpui::red())
+                .child(format!("{:?}", err).to_uppercase()),
+            ),
+        );
+      } else if has_thumbnail {
+        if let Some(img_data) = img_data {
+          cover = cover.child(img(img_data).w_full().h_full().object_fit(ObjectFit::Fill));
+        } else {
+          cover = cover.child(
+            Icon::new(IconName::BookOpen)
+              .with_size(px(40.0))
+              .text_color(theme.foreground.opacity(0.3)),
+          );
+        }
+      } else {
+        cover = cover.child(
+          Icon::new(IconName::BookOpen)
+            .with_size(px(40.0))
+            .text_color(theme.foreground.opacity(0.3)),
+        );
+      }
     }
 
     let subtle_hover = ButtonCustomVariant::new(cx)
@@ -84,17 +115,23 @@ impl super::BooksGrid {
         .w_full()
         .h_full()
         .on_click(move |_ev, _window, cx| {
-          push_at_history(book_path.clone(), state_hist.clone(), cx);
+          // If the book should have a thumbnail but it failed to load, re-queue it for extraction on click
+          if failed_to_load {
+            // Re-queue for extraction
+            let not_cached = Ctx::global(cx).not_cached_books.clone();
+            let _ = not_cached.tx().send(BookPath::from_id(&id_for_click));
+          }
+          push_at_history(BookPath::from_id(&id_for_click), state_hist.clone(), cx);
         }),
     )
   }
 
   fn render_favorite_button(
-    &self, book: &Book, id: SharedString, foreground: Hsla, primary: Hsla,
+    &self, book: &LightBook, id: SharedString, foreground: Hsla, primary: Hsla,
   ) -> Div {
-    let favorite_path = book.book_path.clone();
+    let id_for_fav: SharedString = book.id.clone();
     let state_fav = self.state.clone();
-    let is_favorite = book.user_data.favorite;
+    let is_favorite = book.is_favorite;
     let fav_icon_source =
       if is_favorite { "heroicons--star-solid.svg" } else { "heroicons--star.svg" };
 
@@ -111,7 +148,8 @@ impl super::BooksGrid {
           .ghost()
           .xsmall()
           .on_click(move |_ev, _window, cx| {
-            toggle_favorite(favorite_path.clone(), state_fav.clone(), cx);
+            let path = BookPath::from_id(&id_for_fav);
+            toggle_favorite(path, state_fav.clone(), cx);
           })
           .text()
           .icon(Icon::new(Icon::empty()).path(fav_icon_source).text_color(primary))
@@ -119,10 +157,9 @@ impl super::BooksGrid {
       )
   }
 
-  fn render_book_footer(&self, book: &Book, foreground: Hsla, primary: Hsla) -> Div {
-    let title = self.render_book_title(&book.book_path, foreground);
-    let fav_id: SharedString =
-      format!("{}{}", FAVORITE_ID_PREFIX, book.book_path.full_path_string()).into();
+  fn render_book_footer(&self, book: &LightBook, foreground: Hsla, primary: Hsla) -> Div {
+    let title = self.render_book_title(book, foreground);
+    let fav_id: SharedString = format!("{}{}", FAVORITE_ID_PREFIX, book.id).into();
     div()
       .w_full()
       .h(px(FOOTER_HEIGHT_PX))
@@ -138,10 +175,9 @@ impl super::BooksGrid {
       .child(self.render_favorite_button(book, fav_id, foreground, primary))
   }
 
-  fn render_book_card_info(&self, book: &Book, cx: &Context<Self>) -> Div {
+  fn render_book_card_info(&self, book: &LightBook, cx: &Context<Self>) -> Div {
     let theme = cx.theme();
-    let fav_id: SharedString =
-      format!("{}{}", FAVORITE_ID_PREFIX, book.book_path.full_path_string()).into();
+    let fav_id: SharedString = format!("{}{}", FAVORITE_ID_PREFIX, book.id).into();
 
     div()
       .flex_1()
@@ -167,19 +203,19 @@ impl super::BooksGrid {
               .overflow_hidden()
               .text_ellipsis()
               .line_clamp(3)
-              .child(self.get_cached_title(&book.book_path)),
+              .child(book.formatted_title.clone()),
           )
           .child(
             div().flex().flex_col().text_sm().text_color(theme.foreground.opacity(0.7)).children([
               div().text_sm().text_color(theme.foreground.opacity(0.7)).child(format!(
                 "{}: {}",
                 t!("components.card.format_label"),
-                book.book_path.ext.to_string().to_uppercase()
+                book.ext.to_uppercase()
               )),
               div()
                 .text_sm()
                 .text_color(theme.foreground.opacity(0.7))
-                .child(format!("File size: {} MB", book.book_size.as_mb())),
+                .child(format!("File size: {} MB", book.size / (1024 * 1024))),
             ]),
           ),
       )
@@ -192,12 +228,10 @@ impl super::BooksGrid {
   }
 
   pub(crate) fn render_list_card(
-    &self, book: &Book, has_thumbnail: bool, thumbnail_path: PathBuf, card_height: Pixels,
-    cx: &Context<Self>,
+    &self, book: &LightBook, card_height: Pixels, cx: &Context<Self>,
   ) -> Div {
     let theme = cx.theme();
-    let cover_id: SharedString =
-      format!("{}{}", super::COVER_ID_PREFIX, book.book_path.full_path_string()).into();
+    let cover_id: SharedString = format!("{}{}", super::COVER_ID_PREFIX, book.id).into();
 
     div()
       .w_0()
@@ -219,30 +253,22 @@ impl super::BooksGrid {
           .border_r_1()
           .border_color(theme.border)
           .overflow_hidden()
-          .child(self.render_cover_click_area(
-            book.book_path.clone(),
-            cover_id,
-            has_thumbnail,
-            thumbnail_path,
-            cx,
-          )),
+          .child(self.render_cover_click_area(book, cover_id, cx)),
       )
       .child(self.render_book_card_info(book, cx))
   }
 
   pub(crate) fn render_book_card(
-    &self, book: &Book, has_thumbnail: bool, thumbnail_path: PathBuf, card_height: Pixels,
-    cx: &Context<Self>,
+    &self, book: &LightBook, card_height: Pixels, cx: &Context<Self>,
   ) -> Div {
     let mode = libera_reader_core::ctx::Ctx::global(cx).settings.read().card_display_mode;
 
     if mode == CardDisplayMode::List {
-      return self.render_list_card(book, has_thumbnail, thumbnail_path, card_height, cx);
+      return self.render_list_card(book, card_height, cx);
     }
 
     let theme = cx.theme();
-    let cover_id: SharedString =
-      format!("{}{}", super::COVER_ID_PREFIX, book.book_path.full_path_string()).into();
+    let cover_id: SharedString = format!("{}{}", super::COVER_ID_PREFIX, book.id).into();
 
     let footer_height =
       if mode == CardDisplayMode::Detailed { px(FOOTER_HEIGHT_PX) } else { px(0.0) };
@@ -267,13 +293,7 @@ impl super::BooksGrid {
           .flex_shrink_0()
           .border_b_1()
           .border_color(theme.border)
-          .child(self.render_cover_click_area(
-            book.book_path.clone(),
-            cover_id,
-            has_thumbnail,
-            thumbnail_path,
-            cx,
-          )),
+          .child(self.render_cover_click_area(book, cover_id, cx)),
       );
 
     if mode == CardDisplayMode::Detailed {
