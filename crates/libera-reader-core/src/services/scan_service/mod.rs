@@ -4,6 +4,7 @@ use crate::{
     models::books::book::{Book, BookPath},
   },
   not_cached_books::NotCachedBooks,
+  send_event,
   settings::SETTINGS,
   types::{LibraryEvent, MUPDF_EXTENSIONS},
 };
@@ -179,7 +180,7 @@ impl ScanService {
     });
 
     if !batch_to_send.is_empty() {
-      let _ = event_tx.send(LibraryEvent::BooksBatchAdded(batch_to_send));
+      send_event!(event_tx, LibraryEvent::BooksBatchAdded(batch_to_send));
     }
 
     new_books
@@ -204,13 +205,13 @@ impl ScanService {
 
           if can_delete {
             rw_t.remove::<Book>(book)?;
-            let _ = event_tx.send(LibraryEvent::BookRemoved(book_path));
+            send_event!(event_tx, LibraryEvent::BookRemoved(book_path));
           } else {
             let mut updated_book = book.clone();
             updated_book.mark_as_deleted();
             let updated_book_clone = updated_book.clone();
             rw_t.update::<Book>(book, updated_book)?;
-            let _ = event_tx.send(LibraryEvent::BookUpdated(updated_book_clone));
+            send_event!(event_tx, LibraryEvent::BookUpdated(updated_book_clone));
           }
           removed_count += 1;
         }

@@ -5,6 +5,7 @@ use crate::books_state::models::DisplayModeOption;
 use crate::books_state::{BooksState, SortField, TargetList};
 use libera_reader_core::ctx::Ctx;
 
+#[allow(dead_code)]
 pub struct SortControls {
   books_state: Entity<BooksState>,
   target: TargetList,
@@ -13,6 +14,7 @@ pub struct SortControls {
 }
 
 impl SortControls {
+  #[allow(dead_code)]
   pub fn new(
     window: &mut Window, cx: &mut App, books_state: Entity<BooksState>, target: TargetList,
   ) -> Entity<Self> {
@@ -89,7 +91,6 @@ impl Render for SortControls {
       div().child({
         let subtle_hover = ButtonCustomVariant::new(cx)
           .color(cx.theme().background)
-          .border(cx.theme().background)
           .hover(cx.theme().background.opacity(0.5));
 
         Button::new("reverse_btn")

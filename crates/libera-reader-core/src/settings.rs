@@ -121,6 +121,14 @@ impl SETTINGS {
     }
     Ok(())
   }
+  pub fn set_image_cache_size(&mut self, size: u32) -> Result<()> {
+    let old_model = self.read().clone();
+    if old_model.image_cache_size != size {
+      self.write().image_cache_size = size;
+      self.db.update(old_model, self.read().clone())?;
+    }
+    Ok(())
+  }
   pub fn set_display_mode(&mut self, mode: CardDisplayMode) -> Result<()> {
     let old_model = self.read().clone();
     if old_model.card_display_mode != mode {

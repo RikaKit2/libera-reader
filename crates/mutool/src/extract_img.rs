@@ -11,23 +11,26 @@ pub async fn extract_img(
 ) -> Result<(), MuToolError> {
   match path_to_thumbnail.exists() {
     true => Ok(()),
-    false => match extract_img_inn(path_to_book, resolution, path_to_thumbnail).await {
-      Ok(_) => Ok(()),
-      Err(err) => Err(err),
-    },
+    false => {
+      match extract_img_with_format(path_to_book, resolution, path_to_thumbnail, "png").await {
+        Ok(_) => Ok(()),
+        Err(err) => Err(err),
+      }
+    }
   }
 }
-async fn extract_img_inn(
-  path_to_book: &PathBuf, resolution: u32, path_to_thumbnail: &PathBuf,
+
+async fn extract_img_with_format(
+  path_to_book: &PathBuf, resolution: u32, path_to_output: &PathBuf, format: &str,
 ) -> Result<(), MuToolError> {
   let mut child = Command::new("mutool")
     .arg("draw")
     .arg("-r")
     .arg(resolution.to_string())
     .arg("-F")
-    .arg("png")
+    .arg(format)
     .arg("-o")
-    .arg(path_to_thumbnail)
+    .arg(path_to_output)
     .arg(path_to_book)
     .arg("1")
     .stdout(Stdio::null())
@@ -41,16 +44,17 @@ async fn extract_img_inn(
 pub async fn extract_to_bytes(
   path_to_book: &PathBuf, resolution: u32,
 ) -> Result<Vec<u8>, MuToolError> {
-  // Use a temporary file for mutool output
+  // Mutool doesn't support JPEG output — extract as PNG then convert in memory
   let temp_file = tempfile::NamedTempFile::new().map_err(|_| MuToolError::IoError)?;
   let temp_path = temp_file.path().to_path_buf();
 
-  extract_img_inn(path_to_book, resolution, &temp_path).await?;
+  extract_img_with_format(path_to_book, resolution, &temp_path, "png").await?;
   let data = imp_to_jpeg(&temp_path).map_err(|_| MuToolError::OtherErr)?;
   Ok(data)
 }
 
 pub async fn save_thumbnail(path_to_thumbnail: &PathBuf) {
+  // PNG → JPEG conversion on disk (kept for compatibility; callers expect this)
   let data = imp_to_jpeg(path_to_thumbnail).unwrap();
   tokio::fs::remove_file(path_to_thumbnail).await.unwrap();
   tokio::fs::write(path_to_thumbnail.with_extension("jpeg"), data).await.unwrap();

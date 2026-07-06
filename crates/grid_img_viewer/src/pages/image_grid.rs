@@ -1,7 +1,7 @@
 use crate::TOKIO;
-use crate::ui::components::books_grid::cache::{BoundedCache, CoverState};
-use crate::ui::components::books_grid::image_utils::ROW_H;
-use crate::ui::components::books_grid::loader::spawn_background_loader;
+use crate::cache::{BoundedCache, CoverState};
+use crate::image_utils::{ROW_H, is_image};
+use crate::loader::spawn_background_loader;
 use gpui::prelude::*;
 use gpui::{
   AsyncApp, Context, Div, ImageSource, IntoElement, ObjectFit, ParentElement, Pixels, Render,
@@ -14,24 +14,31 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-pub(crate) mod cache;
-pub(crate) mod image_utils;
-pub(crate) mod loader;
-
 const COLS: usize = 6;
 
-pub struct BooksGrid {
-  pub(crate) images: Vec<PathBuf>,
-  pub(crate) item_sizes: Rc<Vec<gpui::Size<Pixels>>>,
-  pub(crate) scroll_handle: VirtualListScrollHandle,
-  pub(crate) image_cache: Arc<Mutex<BoundedCache>>,
-  pub(crate) visible_start: Arc<AtomicUsize>,
-  pub(crate) visible_end: Arc<AtomicUsize>,
-  pub(crate) load_tx: tokio::sync::mpsc::UnboundedSender<(usize, PathBuf)>,
+pub struct ImageGridPage {
+  images: Vec<PathBuf>,
+  item_sizes: Rc<Vec<gpui::Size<Pixels>>>,
+  scroll_handle: VirtualListScrollHandle,
+  image_cache: Arc<Mutex<BoundedCache>>,
+  visible_start: Arc<AtomicUsize>,
+  visible_end: Arc<AtomicUsize>,
+  load_tx: tokio::sync::mpsc::UnboundedSender<(usize, PathBuf)>,
 }
 
-impl BooksGrid {
-  pub fn new(images: Vec<PathBuf>, cache_size: usize, cx: &mut Context<Self>) -> Self {
+impl ImageGridPage {
+  pub fn new(folder: &PathBuf, cache_size: usize, cx: &mut Context<Self>) -> Self {
+    let mut images = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(folder) {
+      for entry in entries.flatten() {
+        let p = entry.path();
+        if is_image(&p) {
+          images.push(p);
+        }
+      }
+    }
+    images.sort();
+
     let rows = images.len().div_ceil(COLS);
     let sizes = Rc::new(std::iter::repeat_n(size(px(800.0), px(ROW_H)), rows.max(1)).collect());
 
@@ -81,6 +88,7 @@ impl BooksGrid {
       path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string().into();
 
     let content: Div = match state {
+      // ⚡️ MIGRATION: Draw texture directly via ImageSource::Render
       Some(CoverState::Loaded(loaded_img)) => div().w_full().h_full().child(
         gpui::img(ImageSource::Render(loaded_img)).w_full().h_full().object_fit(ObjectFit::Cover),
       ),
@@ -113,8 +121,9 @@ impl BooksGrid {
   }
 }
 
-impl Render for BooksGrid {
+impl Render for ImageGridPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    // On each frame render, flush accumulated evicted images from VRAM
     self.image_cache.lock().unwrap().flush_evictions(cx);
 
     let total = self.images.len();
@@ -125,9 +134,9 @@ impl Render for BooksGrid {
 
     let list = v_virtual_list(
       cx.entity().clone(),
-      "books-grid",
+      "img-grid",
       self.item_sizes.clone(),
-      move |view: &mut BooksGrid, visible_range, _window, _cx| {
+      move |view: &mut ImageGridPage, visible_range, _window, _cx| {
         let start_idx = visible_range.start * COLS;
         let end_idx = (visible_range.end * COLS).min(total);
         view.visible_start.store(start_idx, Ordering::Relaxed);

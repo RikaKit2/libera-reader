@@ -7,6 +7,7 @@ use crate::{
     models::books::{book::Book, book::BookDir, book::BookPath},
   },
   not_cached_books::NotCachedBooks,
+  send_event,
   settings::SETTINGS,
   types::LibraryEvent,
 };
@@ -187,7 +188,7 @@ async fn process_batch(
   batch: Vec<FSEvent>, not_cached_books: NotCachedBooks, db: DB,
   event_tx: broadcast::Sender<LibraryEvent>,
 ) {
-  std::thread::spawn(move || {
+  tokio::task::spawn_blocking(move || {
     let start_time = std::time::Instant::now();
     let events_count = batch.len();
 
@@ -204,7 +205,7 @@ async fn process_batch(
               if let Ok(Some(book)) =
                 rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
               {
-                let _ = event_tx.send(LibraryEvent::BookAdded(book));
+                send_event!(event_tx, LibraryEvent::BookAdded(book));
               }
             }
           }
@@ -214,14 +215,14 @@ async fn process_batch(
             if let Some(book_path) = BookPath::new(&file_path) {
               match fs_handlers::remove_book_by_path(&file_path, rw_t) {
                 Ok(RemoveStatus::FullyDeleted) => {
-                  let _ = event_tx.send(LibraryEvent::BookRemoved(book_path));
+                  send_event!(event_tx, LibraryEvent::BookRemoved(book_path));
                 }
                 Ok(RemoveStatus::MarkedAsDeleted) => {
                   // Fetch updated book from DB and send BookUpdated
                   if let Ok(Some(updated_book)) =
                     rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
                   {
-                    let _ = event_tx.send(LibraryEvent::BookUpdated(updated_book));
+                    send_event!(event_tx, LibraryEvent::BookUpdated(updated_book));
                   }
                 }
 
@@ -238,10 +239,13 @@ async fn process_batch(
             {
               debug!("Error updating book path: {:?}", err);
             } else {
-              let _ = event_tx.send(LibraryEvent::BookPathUpdated {
-                old_path: BookPath::new(&old_path).unwrap(),
-                new_path: BookPath::new(&new_path).unwrap(),
-              });
+              send_event!(
+                event_tx,
+                LibraryEvent::BookPathUpdated {
+                  old_path: BookPath::new(&old_path).unwrap(),
+                  new_path: BookPath::new(&new_path).unwrap(),
+                }
+              );
             }
           }
 
@@ -257,7 +261,7 @@ async fn process_batch(
                   if let Ok(book) = item
                     && book.parent_dir == new_dir_path
                   {
-                    let _ = event_tx.send(LibraryEvent::BookUpdated(book));
+                    send_event!(event_tx, LibraryEvent::BookUpdated(book));
                   }
                 }
               }
@@ -269,7 +273,7 @@ async fn process_batch(
             if let Err(err) = fs_handlers::remove_books_in_dir(dir.clone(), rw_t) {
               debug!("Error removing books in dir: {:?}", err);
             } else {
-              let _ = event_tx.send(LibraryEvent::DirRemoved(dir));
+              send_event!(event_tx, LibraryEvent::DirRemoved(dir));
             }
           }
         }

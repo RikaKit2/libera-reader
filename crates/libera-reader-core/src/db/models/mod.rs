@@ -2,9 +2,7 @@ pub mod books;
 pub mod settings;
 
 use anyhow::Result;
-pub use books::{
-  bookmark::BookMark, mutool_data::MutoolData, thumbnail::Thumbnail, user_data::UserData,
-};
+pub use books::{bookmark::BookMark, mutool_data::MutoolData, user_data::UserData};
 use native_db::ToInput;
 use native_db::ToKey;
 pub use settings::Settings;

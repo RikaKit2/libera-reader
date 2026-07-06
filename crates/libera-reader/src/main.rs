@@ -1,5 +1,3 @@
-#![forbid(unsafe_code)]
-
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 rust_i18n::i18n!("../../locales");
@@ -14,9 +12,7 @@ use crate::theme::init_theme;
 use crate::ui::{assets::Assets, pages::Pages};
 use anyhow::Result;
 use gpui::AppContext;
-use gpui::{
-  App, Application, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size,
-};
+use gpui::{App, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
 use gpui_component::Root;
 use libera_reader_core::ctx::Ctx;
 use mimalloc::MiMalloc;
@@ -50,7 +46,7 @@ fn main() -> Result<()> {
   let project_root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
   let themes_dir = project_root_dir.join("themes");
 
-  let app = Application::new().with_assets(Assets);
+  let app = gpui_platform::application().with_assets(Assets);
   app.run(move |cx| {
     Ctx::init(cx);
     gpui_component::init(cx);

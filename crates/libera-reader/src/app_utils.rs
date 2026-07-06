@@ -30,7 +30,7 @@ pub(crate) fn start_services(cx: &mut App) {
         }
       });
 
-      let _ = owned_app.update(|cx| {
+      owned_app.update(|cx| {
         let _guard = tokio_rt.enter();
 
         let ctx = Ctx::global_mut(cx);

@@ -41,7 +41,7 @@ impl Render for PathSelect {
           cx.spawn(async move |cx| {
             if let Some(folder) = AsyncFileDialog::new().pick_folder().await {
               let path = folder.path().to_path_buf();
-              let _ = cx.update(|cx| {
+              cx.update(|cx| {
                 // Stop the notify service for the old directory
                 let _ = cx.ctx_mut().services.notify_service.stop();
 

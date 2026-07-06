@@ -1,6 +1,6 @@
 use std::{
   hash::{Hash, Hasher},
-  path::PathBuf,
+  path::{Path, PathBuf},
 };
 
 use gpui::SharedString;
@@ -94,9 +94,56 @@ impl Book {
     self.book_path.mark_as_deleted();
   }
 
-  /// Retrieve thumbnail data (compressed image bytes) from the database
-  pub fn get_thumbnail_data(&self, db: &crate::db::DB) -> anyhow::Result<Option<Vec<u8>>> {
-    db.rt(|r| self.get_thumbnail_data_in_txn(r))
+  /// Compute the path to the thumbnail PNG on disk by traversing BookSizes/BookHashes metadata.
+  /// Returns None if no PNG file exists at the predicted path.
+  pub fn get_thumbnail_png_path(
+    &self, db: &crate::db::DB, thumbnails_dir: &Path,
+  ) -> anyhow::Result<Option<PathBuf>> {
+    let crate::db::models::books::book::BookSize::BYTES(size_bytes) = self.book_size;
+    let unhashed_path = thumbnails_dir.join("unhashed_books").join(format!("{}.png", size_bytes));
+
+    if let Some(book_sizes) =
+      db.get_primary::<crate::db::models::books::book_sizes::BookSizes>(self.book_size)?
+    {
+      match &book_sizes.book_type {
+        crate::db::models::books::BookType::UniqueSize { .. } => {
+          if unhashed_path.exists() {
+            return Ok(Some(unhashed_path));
+          }
+        }
+        crate::db::models::books::BookType::DuplicateSize(map) => {
+          if let Some(dup_data) = map.get(&self.book_path) {
+            match dup_data {
+              crate::db::models::books::DuplicateBookData::BookHash(hash) => {
+                let hashed_path =
+                  thumbnails_dir.join("hashed_books").join(format!("{}.png", hash.0));
+                if hashed_path.exists() {
+                  return Ok(Some(hashed_path));
+                }
+              }
+              crate::db::models::books::DuplicateBookData::MutoolData(_) => {
+                // No hash computed yet — might still have the unhashed PNG
+                if unhashed_path.exists() {
+                  return Ok(Some(unhashed_path));
+                }
+              }
+            }
+          } else {
+            // Book path not found in map — unusual, try unhashed
+            if unhashed_path.exists() {
+              return Ok(Some(unhashed_path));
+            }
+          }
+        }
+      }
+    } else {
+      // Fallback: try unhashed path
+      if unhashed_path.exists() {
+        return Ok(Some(unhashed_path));
+      }
+    }
+
+    Ok(None)
   }
 
   /// Retrieve mutool error from the database if extraction failed
@@ -132,39 +179,6 @@ impl Book {
       }
       Ok(None)
     })
-  }
-
-  /// Retrieve thumbnail data using an existing read transaction
-  pub fn get_thumbnail_data_in_txn(
-    &self, r: &native_db::transaction::RTransaction,
-  ) -> anyhow::Result<Option<Vec<u8>>> {
-    if let Some(book_sizes) =
-      r.get().primary::<crate::db::models::books::book_sizes::BookSizes>(self.book_size)?
-    {
-      match book_sizes.book_type {
-        crate::db::models::books::BookType::UniqueSize { mutool_data, .. } => {
-          return Ok(mutool_data.and_then(|m| m.thumbnail).map(|t| t.data));
-        }
-        crate::db::models::books::BookType::DuplicateSize(map) => {
-          if let Some(dup_data) = map.get(&self.book_path) {
-            match dup_data {
-              crate::db::models::books::DuplicateBookData::MutoolData(m) => {
-                return Ok(m.as_ref().and_then(|m| m.thumbnail.clone()).map(|t| t.data));
-              }
-              crate::db::models::books::DuplicateBookData::BookHash(hash) => {
-                if let Some(book_hashes) =
-                  r.get()
-                    .primary::<crate::db::models::books::book_hashes::BookHashes>(hash.clone())?
-                {
-                  return Ok(book_hashes.mutool_data.thumbnail.map(|t| t.data));
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    Ok(None)
   }
 }
 

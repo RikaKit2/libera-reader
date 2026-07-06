@@ -12,16 +12,21 @@ use std::fmt;
 pub struct LightBook {
   pub id: SharedString,
   pub name: SharedString,
+  pub name_lower: SharedString,
+  #[allow(dead_code)]
   pub ext: SharedString,
+  pub ext_lower: SharedString,
   pub size: u64,
   pub last_opened: u64,
   pub is_favorite: bool,
   pub has_thumbnail: bool,
   /// String with `\u{200B}` (zero-width space) inserted between every character
   /// for pixel-perfect line wrapping in the UI.
+  #[allow(dead_code)]
   pub formatted_title: SharedString,
   pub parent_dir: SharedString,
   pub deleted: bool,
+  pub bookmark_count: usize,
 }
 
 impl LightBook {
@@ -30,11 +35,15 @@ impl LightBook {
     let BookSize::BYTES(size) = book.book_size;
     let display_name = book.book_path.display_name();
     let formatted_title = Self::format_title_pixel_perfect(display_name.as_ref());
+    let name = book.book_path.name.clone();
+    let ext = book.book_path.ext.to_string();
 
     Self {
       id: book.id.clone().into(),
-      name: book.book_path.name.clone(),
-      ext: book.book_path.ext.to_string().into(),
+      name: name.clone(),
+      name_lower: name.to_lowercase().into(),
+      ext: ext.clone().into(),
+      ext_lower: ext.to_lowercase().into(),
       size,
       last_opened: book.user_data.last_opened,
       is_favorite: book.user_data.favorite,
@@ -42,6 +51,7 @@ impl LightBook {
       formatted_title,
       parent_dir: book.parent_dir.clone().into(),
       deleted: book.book_path.deleted,
+      bookmark_count: book.bookmarks.len(),
     }
   }
 
@@ -55,18 +65,6 @@ impl LightBook {
   }
 
   #[allow(dead_code)]
-  pub fn get_thumbnail_data(
-    &self, db: &libera_reader_core::db::DB,
-  ) -> anyhow::Result<Option<Vec<u8>>> {
-    db.rt(|r| {
-      if let Some(book) = r.get().primary::<Book>(self.id.to_string())? {
-        book.get_thumbnail_data_in_txn(r)
-      } else {
-        Ok(None)
-      }
-    })
-  }
-
   pub fn get_mutool_error(
     &self, db: &libera_reader_core::db::DB,
   ) -> anyhow::Result<Option<mutool::mutool_error::MuToolError>> {
@@ -91,12 +89,15 @@ pub enum TargetList {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SortField {
   Name,
+  #[allow(dead_code)]
   Size,
+  #[allow(dead_code)]
   Type,
   LastOpened,
 }
 
 impl SortField {
+  #[allow(dead_code)]
   pub fn available_for(target: TargetList) -> Vec<Self> {
     match target {
       TargetList::History => vec![Self::Name, Self::Size, Self::Type, Self::LastOpened],
@@ -144,9 +145,11 @@ impl Default for SortConfig {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[allow(dead_code)]
 pub struct DisplayModeOption(pub CardDisplayMode);
 
 impl DisplayModeOption {
+  #[allow(dead_code)]
   pub fn all() -> Vec<Self> {
     vec![
       Self(CardDisplayMode::Compact),

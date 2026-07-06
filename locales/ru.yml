@@ -64,6 +64,11 @@ components:
     max_label: "макс"
     placeholder: "Количество потоков"
 
+  cache_size_select:
+    header: "Размер кэша обложек"
+    max_label: "макс"
+    placeholder: "Размер кэша"
+
   path_select:
     target_path: "Директория для сканирования:"
     select_btn: "Выбрать директорию"

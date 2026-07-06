@@ -8,6 +8,8 @@ edition = "2024"
 
 [dependencies]
 gpui = { workspace = true }
+gpui_platform = { workspace = true }
+gpui-component = { workspace = true }
 rfd = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
@@ -16,7 +18,6 @@ libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
 mutool = { version = "0.1.0", path = "../mutool" }
 utils = { version = "0.1.0", path = "../utils" }
 mimalloc = { workspace = true }
-gpui-component = { workspace = true }
 better-panic = { workspace = true }
 tracing = { workspace = true }
 gpui-component-assets = { workspace = true }
@@ -24,3 +25,7 @@ rust-embed = { workspace = true }
 rust-i18n = { workspace = true }
 tokio = { workspace = true }
 futures-util = { workspace = true }
+lru = { workspace = true }
+libc = { workspace = true }
+image = { workspace = true }
+smallvec = { workspace = true }

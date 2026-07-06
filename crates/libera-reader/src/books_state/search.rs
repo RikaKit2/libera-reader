@@ -2,9 +2,11 @@ use super::{BooksState, TargetList};
 use gpui::{AsyncApp, Context, WeakEntity};
 use std::time::Duration;
 
+#[allow(dead_code)]
 const DEBOUNCE_DELAY_MS: u64 = 600;
 
 impl BooksState {
+  #[allow(dead_code)]
   pub fn set_search_query(&mut self, query: String, target: TargetList, cx: &mut Context<Self>) {
     let current_query = match target {
       TargetList::Library => &mut self.library_search,
@@ -18,11 +20,20 @@ impl BooksState {
     }
     *current_query = query.into();
 
+    // Increment generation counter to invalidate previous pending tasks
+    let generation = self.search_generation.entry(target).or_insert(0);
+    *generation += 1;
+    let my_gen = *generation;
+
     let task = cx.spawn(move |this: WeakEntity<BooksState>, cx: &mut AsyncApp| {
       let mut owned_cx = cx.clone();
       async move {
         owned_cx.background_executor().timer(Duration::from_millis(DEBOUNCE_DELAY_MS)).await;
         let _ = this.update(&mut owned_cx, |state, context| {
+          // Skip if a newer search was already issued
+          if state.search_generation.get(&target) != Some(&my_gen) {
+            return;
+          }
           state.rebuild_and_sort(target);
           context.notify();
         });
@@ -52,12 +63,7 @@ impl BooksState {
         TargetList::Library => true,
         TargetList::Favorites => light.is_favorite,
         TargetList::History => light.last_opened > 0,
-        TargetList::Bookmarks => {
-          // Bookmarks list is built from the DB on request; we skip here
-          // since we don't store bookmarks in LightBook.
-          // For now, just skip bookmarks in memory.
-          false
-        }
+        TargetList::Bookmarks => light.bookmark_count > 0,
       };
 
       if !matches_target {
@@ -65,7 +71,7 @@ impl BooksState {
       }
 
       let matches_search = query.is_empty()
-        || light.name.to_lowercase().contains(&query)
+        || light.name_lower.contains(&query)
         || light.parent_dir.to_lowercase().contains(&query);
 
       if matches_search {
