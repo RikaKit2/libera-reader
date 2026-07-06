@@ -3,7 +3,6 @@ pub(crate) mod book_hashes;
 pub(crate) mod book_sizes;
 pub mod bookmark;
 pub(crate) mod mutool_data;
-pub(crate) mod thumbnail;
 pub(crate) mod user_data;
 use gpui::SharedString;
 use std::hash::Hash;

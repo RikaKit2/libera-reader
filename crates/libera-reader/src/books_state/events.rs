@@ -10,7 +10,6 @@ impl BooksState {
     match event {
       LibraryEvent::ThumbnailExtracted(path) => {
         let id: gpui::SharedString = path.full_path_string();
-        self.cover_cache.borrow_mut().insert(id.clone(), true);
         if let Some(light) = self.books_map.get_mut(&id) {
           light.has_thumbnail = true;
         }
@@ -34,7 +33,6 @@ impl BooksState {
       LibraryEvent::BookRemoved(path) => {
         let id: gpui::SharedString = path.full_path_string();
         self.books_map.remove(&id);
-        self.cover_cache.borrow_mut().remove(&id);
       }
       LibraryEvent::BookPathUpdated { old_path, new_path } => {
         let old_id: gpui::SharedString = old_path.full_path_string();
@@ -47,11 +45,24 @@ impl BooksState {
           updated.name = new_path.name.clone();
           self.upsert_light(new_id, updated);
         }
-        self.cover_cache.borrow_mut().remove(&old_id);
       }
-      LibraryEvent::BookMarkAdded { .. }
-      | LibraryEvent::BookMarkUpdated { .. }
-      | LibraryEvent::BookMarkRemoved { .. } => {}
+      LibraryEvent::BookMarkAdded { book_path } => {
+        let id: gpui::SharedString = book_path.full_path_string();
+        if let Some(light) = self.books_map.get_mut(&id) {
+          light.bookmark_count += 1;
+        }
+        needs_rebuild = true;
+      }
+      LibraryEvent::BookMarkRemoved { book_path } => {
+        let id: gpui::SharedString = book_path.full_path_string();
+        if let Some(light) = self.books_map.get_mut(&id) {
+          light.bookmark_count = light.bookmark_count.saturating_sub(1);
+        }
+        needs_rebuild = true;
+      }
+      LibraryEvent::BookMarkUpdated { .. } => {
+        needs_rebuild = true;
+      }
       LibraryEvent::DirRemoved(dir) => {
         let dir_path = dir.full_path().to_string();
         // Remove all books with this parent_dir

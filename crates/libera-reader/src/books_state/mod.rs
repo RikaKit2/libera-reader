@@ -6,9 +6,7 @@ pub mod sort;
 use gpui::{Context, SharedString, Task};
 use libera_reader_core::db::models::books::book::Book;
 use libera_reader_core::types::LibraryEvent;
-use std::cell::RefCell;
 use std::collections::HashMap as StdHashMap;
-use std::rc::Rc;
 use tokio::sync::broadcast::{
   Receiver,
   error::RecvError::{Closed, Lagged},
@@ -37,10 +35,14 @@ pub struct BooksState {
   pub history_search: SharedString,
   pub bookmarks_search: SharedString,
 
+  #[allow(dead_code)]
   pub search_tasks: StdHashMap<TargetList, Task<()>>,
 
-  /// Cache to track which books have thumbnails
-  pub cover_cache: Rc<RefCell<StdHashMap<SharedString, bool>>>,
+  /// Generation counter for search debounce: each new search increments the generation
+  /// for its target. When the debounced task fires, it checks if its generation is still
+  /// current; if not, it skips the rebuild. This effectively cancels stale search tasks.
+  #[allow(dead_code)]
+  pub search_generation: StdHashMap<TargetList, u64>,
 }
 
 impl BooksState {
@@ -62,17 +64,13 @@ impl BooksState {
       history_search: "".into(),
       bookmarks_search: "".into(),
       search_tasks: StdHashMap::new(),
-      cover_cache: Rc::new(RefCell::new(StdHashMap::new())),
+      search_generation: StdHashMap::new(),
     };
 
     // Insert initial books
     for book in initial_books {
       let id: SharedString = book.id.clone().into();
-      let has_thumbnail = book.has_thumbnail;
-      if has_thumbnail {
-        state.cover_cache.borrow_mut().insert(id.clone(), true);
-      }
-      state.books_map.insert(id, LightBook::from_book(&book, has_thumbnail));
+      state.books_map.insert(id, LightBook::from_book(&book, book.has_thumbnail));
     }
 
     state.rebuild_and_sort(TargetList::Library);
@@ -106,6 +104,7 @@ impl BooksState {
     state
   }
 
+  #[allow(dead_code)]
   pub fn get_light_book(&self, id: &SharedString) -> Option<&LightBook> {
     self.books_map.get(id)
   }

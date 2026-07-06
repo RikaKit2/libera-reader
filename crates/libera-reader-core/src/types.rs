@@ -1,3 +1,12 @@
+#[macro_export]
+macro_rules! send_event {
+  ($tx:expr, $event:expr) => {{
+    if let Err(e) = $tx.send($event) {
+      tracing::debug!(target: "event_tx", "Failed to send LibraryEvent: {e:?}");
+    }
+  }};
+}
+
 use gxhash::GxBuildHasher;
 use indexmap::{IndexMap, IndexSet};
 

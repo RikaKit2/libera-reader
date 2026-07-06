@@ -5,6 +5,10 @@ pub mod theme;
 use std::path::PathBuf;
 
 use crate::db::models::{GetOrCreate, settings::route::SetupRoute::Welcome};
+
+fn default_cache_size() -> u32 {
+  80
+}
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
@@ -40,6 +44,9 @@ pub struct Settings {
   pub thumbnails_scaling_factor: f64,
   pub ui_zoom: f64,
   pub workers_num: u32,
+  /// Number of thumbnail images to keep in the LRU cache
+  #[serde(default = "default_cache_size")]
+  pub image_cache_size: u32,
   pub route: RootRoute,
   pub setup_is_done: bool,
   pub card_display_mode: CardDisplayMode,
@@ -59,6 +66,7 @@ impl Default for Settings {
       thumbnails_scaling_factor: 4.0,
       ui_zoom: 1.0,
       workers_num: 2,
+      image_cache_size: 80,
       route: RootRoute::Setup(Welcome),
       setup_is_done: false,
       card_display_mode: CardDisplayMode::Compact,

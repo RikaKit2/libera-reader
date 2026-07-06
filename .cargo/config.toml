@@ -1,3 +1,6 @@
+[env]
+RUSTC_BOOTSTRAP = "1"
+
 [build]
 rustflags = ["-C", "target-cpu=native"]
 

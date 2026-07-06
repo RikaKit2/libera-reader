@@ -1,94 +1,69 @@
-use crate::books_state::{BooksState, TargetList};
-use crate::ui::components::{BooksGrid, SortControls};
+use crate::books_state::BooksState;
+use crate::ui::components::BooksGrid;
 use crate::ui::constants as C;
 use gpui::{
   AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window,
-  div, px,
+  div, px, size,
 };
-use gpui_component::{
-  ActiveTheme,
-  input::{Input, InputEvent, InputState},
-};
+use gpui_component::ActiveTheme;
 use libera_reader_core::ctx::Ctx;
-use rust_i18n::t;
+use libera_reader_core::db::models::books::book::BookPath;
+use std::rc::Rc;
 
 pub(crate) struct History {
-  input_state: Entity<InputState>,
-  sort_controls: Entity<SortControls>,
   book_grid: Entity<BooksGrid>,
   _subscriptions: Vec<Subscription>,
 }
 
+fn resolve_thumbnails(
+  keys: &[gpui::SharedString], db: &libera_reader_core::db::DB, thumbnails_dir: &std::path::Path,
+) -> Vec<std::path::PathBuf> {
+  keys
+    .iter()
+    .filter_map(|id| {
+      let book_path = BookPath::from_id(id);
+      let book = db.get_book(book_path).ok()??;
+      let png_path = book.get_thumbnail_png_path(db, thumbnails_dir).ok()??;
+      if png_path.exists() { Some(png_path) } else { None }
+    })
+    .collect()
+}
+
 impl History {
-  pub fn new(window: &mut Window, cx: &mut Context<Self>, books_state: Entity<BooksState>) -> Self {
-    let input_state: Entity<InputState> =
-      cx.new(|cx| InputState::new(window, cx).placeholder(t!("components.search_placeholder")));
-    let sort_controls = SortControls::new(window, cx, books_state.clone(), TargetList::History);
-    let (columns, ui_zoom) = {
-      let settings = Ctx::global(cx).settings.read();
-      (settings.number_of_columns as usize, settings.ui_zoom)
-    };
-    let available_width =
-      window.viewport_size().width - px(C::SIDEBAR_W + C::GRID_PL + C::GRID_PR + C::SCROLLBAR_W);
-    let col_width = available_width / columns as f32;
-    let row_height = col_width * C::COVER_RATIO * ui_zoom as f32 + px(C::GRID_ROW_HEIGHT_EXTRA);
-    let book_grid = cx.new(|cx| {
-      BooksGrid::new(
-        books_state.clone(),
-        TargetList::History,
-        columns,
-        row_height,
-        "history-virtual-grid".into(),
-        cx,
-      )
-    });
-    let _subscriptions = vec![cx.subscribe_in(&input_state, window, {
-      let books_state = books_state.clone();
-      move |_this, input_state: &Entity<InputState>, ev: &InputEvent, _window, cx| {
-        if let InputEvent::Change = ev {
-          let query = input_state.read(cx).text().to_string();
-          books_state.update(cx, |state, cx| {
-            state.set_search_query(query, TargetList::History, cx);
-          });
-        }
-      }
+  pub fn new(
+    _window: &mut Window, cx: &mut Context<Self>, books_state: Entity<BooksState>,
+  ) -> Self {
+    let thumbnails_dir = Ctx::global(cx).app_dirs.read().thumbnails_dir.clone();
+    let db = Ctx::global(cx).db.clone();
+    let cache_size = Ctx::global(cx).settings.read().image_cache_size as usize;
+
+    let images = resolve_thumbnails(&books_state.read(cx).history_keys, &db, &thumbnails_dir);
+    let book_grid = cx.new(|cx| BooksGrid::new(images, cache_size, cx));
+
+    let _subscriptions = vec![cx.observe(&books_state, |this, _state, cx| {
+      let thumbnails_dir = Ctx::global(cx).app_dirs.read().thumbnails_dir.clone();
+      let db = Ctx::global(cx).db.clone();
+      let images = resolve_thumbnails(&_state.read(cx).history_keys, &db, &thumbnails_dir);
+      let rows = images.len().div_ceil(6);
+      let sizes = Rc::new(std::iter::repeat_n(size(px(800.0), px(160.0)), rows.max(1)).collect());
+      this.book_grid.update(cx, |grid, _cx| {
+        grid.images = images;
+        grid.item_sizes = sizes;
+      });
+      cx.notify();
     })];
-    Self { input_state, sort_controls, book_grid, _subscriptions }
+
+    Self { book_grid, _subscriptions }
   }
 }
 
 impl Render for History {
-  fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let (columns, ui_zoom) = {
-      let settings = Ctx::global(cx).settings.read();
-      (settings.number_of_columns as usize, settings.ui_zoom)
-    };
-    let available_width =
-      window.viewport_size().width - px(C::SIDEBAR_W + C::GRID_PL + C::GRID_PR + C::SCROLLBAR_W);
-    let col_width = available_width / columns as f32;
-    let row_height = col_width * C::COVER_RATIO * ui_zoom as f32 + px(C::GRID_ROW_HEIGHT_EXTRA);
-    let mode = Ctx::global(cx).settings.read().card_display_mode;
-    self.book_grid.update(cx, |grid, _cx| {
-      grid.set_layout(columns, row_height, mode);
-    });
-    div().w_full().h_full().flex().flex_col().text_color(cx.theme().foreground).children([
-      div()
-        .bg(cx.theme().border)
-        .w_full()
-        .h_12()
-        .flex()
-        .items_center()
-        .gap(px(C::TOP_BAR_GAP))
-        .children([
-          div().flex_1().child(Input::new(&self.input_state)),
-          div().child(self.sort_controls.clone()),
-        ]),
-      div()
-        .bg(cx.theme().background)
-        .w_full()
-        .h_full()
-        .pt(px(C::GRID_PT))
-        .child(self.book_grid.clone()),
-    ])
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    div().w_full().h_full().flex().flex_col().text_color(cx.theme().foreground).children([div()
+      .bg(cx.theme().background)
+      .w_full()
+      .h_full()
+      .pt(px(C::GRID_PT))
+      .child(self.book_grid.clone())])
   }
 }

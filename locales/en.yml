@@ -64,6 +64,11 @@ components:
     max_label: "max"
     placeholder: "Workers count"
 
+  cache_size_select:
+    header: "Cover cache size"
+    max_label: "max"
+    placeholder: "Cache size"
+
   path_select:
     target_path: "Directory to scan:"
     select_btn: "Select directory"

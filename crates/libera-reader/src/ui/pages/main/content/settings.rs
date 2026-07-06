@@ -1,3 +1,4 @@
+use crate::ui::components::cache_size_select::CacheSizeSelect;
 use crate::ui::components::columns_select::ColumnsSelect;
 use crate::ui::components::{
   lang_select::LangSelect, path_select::PathSelect, theme_select::ThemeSelect,
@@ -15,6 +16,7 @@ pub(crate) struct Settings {
   columns_select: Entity<ColumnsSelect>,
   path_select: Entity<PathSelect>,
   workers_select: Entity<WorkersSelect>,
+  cache_size_select: Entity<CacheSizeSelect>,
 }
 
 impl Settings {
@@ -25,6 +27,7 @@ impl Settings {
       columns_select: ColumnsSelect::new(window, c),
       path_select: PathSelect::new(c),
       workers_select: WorkersSelect::new(window, c),
+      cache_size_select: CacheSizeSelect::new(window, c),
     })
   }
 }
@@ -41,6 +44,8 @@ impl Render for Settings {
       div().child(self.columns_select.clone()),
       div().child(t!("components.workers_select.header").to_string()),
       div().w(px(150.0)).child(self.workers_select.clone()),
+      div().child(t!("components.cache_size_select.header").to_string()),
+      div().w(px(150.0)).child(self.cache_size_select.clone()),
     ])
   }
 }

@@ -5,10 +5,9 @@ use crate::db::models::books::DuplicateBookData::{BookHash, MutoolData};
 use crate::db::models::books::book::{Book, BookPath, BookSize};
 use crate::db::models::books::book_hashes::BookHashes;
 use crate::db::models::books::book_sizes::BookSizes;
-use crate::db::models::books::thumbnail::Thumbnail;
+use crate::send_event;
 use crate::settings::SETTINGS;
 use crate::types::{HashSet, LibraryEvent};
-use std::fs::remove_file;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -50,29 +49,43 @@ pub async fn run_data_extraction_service(
           return;
         }
 
-        // 2. Check if thumbnail is already in DB before extracting!
-        if let Ok(Some(_)) = book.get_thumbnail_data(&db) {
-          // Already extracted, just send the event to let UI know and skip extraction
-          let _ = event_tx.send(LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
+        // 2. Compute fallback thumbnail path and check if PNG already exists on disk
+        // This handles the case where DB was deleted but PNG files are still on disk.
+        let fallback_path = app_dirs
+          .read()
+          .thumbnails_dir
+          .join("unhashed_books")
+          .join(format!("{}.png", book_size_bytes));
+        if fallback_path.exists() {
+          // PNG already on disk — update DB and skip
+          let _ = db.rw_t(|rw_t| {
+            if let Some(mut b) = rw_t.get().primary::<Book>(book.id.clone())? {
+              let old_b = b.clone();
+              b.has_thumbnail = true;
+              rw_t.update::<Book>(old_b, b)?;
+            }
+            Ok(())
+          });
+          send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
           drop(permit);
           return;
         }
 
-        // Determine correct thumbnail path based on book_sizes and book_hashes (hashing on demand if needed)
+        // 3. Check if thumbnail is already known to be extracted (DB flag)
+        if book.has_thumbnail {
+          send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
+          drop(permit);
+          return;
+        }
+
+        // Determine correct thumbnail path based on book_sizes and book_hashes
         let mut path_to_thumbnail = None;
         let mut computed_hash = None;
 
         if let Ok(Some(book_sizes)) = db.get_primary::<BookSizes>(book.book_size) {
           match book_sizes.book_type {
             BookType::UniqueSize { .. } => {
-              let BookSize::BYTES(book_size_bytes) = book.book_size;
-              path_to_thumbnail = Some(
-                app_dirs
-                  .read()
-                  .thumbnails_dir
-                  .join("unhashed_books")
-                  .join(format!("{}.png", book_size_bytes)),
-              );
+              path_to_thumbnail = Some(fallback_path.clone());
             }
             DuplicateSize(map) => {
               if let Some(dup_data) = map.get(&book.book_path) {
@@ -88,18 +101,27 @@ pub async fn run_data_extraction_service(
                     computed_hash = Some(hash.clone());
                   }
                   MutoolData(_) => {
-                    // This is duplicate size but has NO hash computed yet!
-                    // Compute file hash on demand (in background thread)
-                    if let Ok(hash_str) = utils::calc_file_hash(book.book_path.as_pathbuf()).await {
-                      let hash = crate::db::models::books::BookHash(hash_str.into());
-                      path_to_thumbnail = Some(
-                        app_dirs
+                    // First check if fallback exists before computing hash
+                    if fallback_path.exists() {
+                      path_to_thumbnail = Some(fallback_path.clone());
+                    } else {
+                      // Compute file hash on demand
+                      if let Ok(hash_str) = utils::calc_file_hash(book.book_path.as_pathbuf()).await
+                      {
+                        let hash = crate::db::models::books::BookHash(hash_str.into());
+                        let hashed_path = app_dirs
                           .read()
                           .thumbnails_dir
                           .join("hashed_books")
-                          .join(format!("{}.png", hash.0)),
-                      );
-                      computed_hash = Some(hash);
+                          .join(format!("{}.png", hash.0));
+                        if hashed_path.exists() {
+                          path_to_thumbnail = Some(hashed_path);
+                        } else {
+                          // Need to create the thumbnail — store path and hash
+                          path_to_thumbnail = Some(hashed_path);
+                          computed_hash = Some(hash);
+                        }
+                      }
                     }
                   }
                 }
@@ -109,85 +131,66 @@ pub async fn run_data_extraction_service(
         }
 
         // Fallback if BookSizes is not yet initialized or found
-        let path_to_thumbnail = path_to_thumbnail.unwrap_or_else(|| {
-          let BookSize::BYTES(book_size_bytes) = book.book_size;
-          app_dirs
-            .read()
-            .thumbnails_dir
-            .join("unhashed_books")
-            .join(format!("{}.png", book_size_bytes))
-        });
+        let path_to_thumbnail = path_to_thumbnail.unwrap_or(fallback_path);
 
         // Ensure parent directory exists
         if let Some(parent) = path_to_thumbnail.parent() {
           let _ = std::fs::create_dir_all(parent);
         }
 
-        // 2. Fetch thumbnail bytes (checking if the hashed/unhashed .png already exists on disk first)
-        let bytes_opt = if path_to_thumbnail.exists() {
-          // If PNG already exists, read it and convert to JPEG bytes without mutool
-          match mutool::extract_img::imp_to_jpeg_public(&path_to_thumbnail) {
-            Ok(bytes) => Some(bytes),
-            Err(_) => {
-              // Failsafe: if reading/converting existing PNG fails, delete it so it can be re-extracted
-              let _ = remove_file(&path_to_thumbnail);
-              None
-            }
-          }
+        // 4. Extract PNG to disk if it doesn't exist yet
+        let extraction_ok = if path_to_thumbnail.exists() {
+          true
         } else {
-          // Extract PNG using mutool to path_to_thumbnail (and keep it on disk for testing)
           let res =
             mutool::extract_img::extract_img(&book.book_path.as_pathbuf(), 20, &path_to_thumbnail)
               .await;
 
-          if res.is_ok() {
-            mutool::extract_img::imp_to_jpeg_public(&path_to_thumbnail).ok()
-          } else {
-            // Save the mutool error to BookSizes/BookHashes so we know extraction failed
-            let err = res.err();
-            let _ = db.rw_t(|rw_t| {
-              if let Some(old_book_sizes) = rw_t.get().primary::<BookSizes>(book.book_size)? {
-                let mut updated_book_sizes = old_book_sizes.clone();
-                match &mut updated_book_sizes.book_type {
-                  BookType::UniqueSize { mutool_data, .. } => {
-                    let mut md = mutool_data.take().unwrap_or_default();
-                    md.mutool_err = err.clone();
-                    *mutool_data = Some(md);
-                    rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
-                  }
-                  DuplicateSize(map) => {
-                    if let Some(dup_data) = map.get_mut(&book.book_path) {
-                      match dup_data {
-                        MutoolData(m) => {
-                          let mut md = m.take().unwrap_or_default();
-                          md.mutool_err = err.clone();
-                          *m = Some(md);
-                          rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
-                        }
-                        BookHash(hash) => {
-                          if let Some(old_book_hashes) =
-                            rw_t.get().primary::<BookHashes>(hash.clone())?
-                          {
-                            let mut updated_book_hashes = old_book_hashes.clone();
-                            updated_book_hashes.mutool_data.mutool_err = err.clone();
-                            rw_t.update::<BookHashes>(old_book_hashes, updated_book_hashes)?;
+          match res {
+            Ok(()) => true,
+            Err(err) => {
+              let _ = db.rw_t(|rw_t| {
+                if let Some(old_book_sizes) = rw_t.get().primary::<BookSizes>(book.book_size)? {
+                  let mut updated_book_sizes = old_book_sizes.clone();
+                  match &mut updated_book_sizes.book_type {
+                    BookType::UniqueSize { mutool_data, .. } => {
+                      let mut md = mutool_data.take().unwrap_or_default();
+                      md.mutool_err = Some(err.clone());
+                      *mutool_data = Some(md);
+                      rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
+                    }
+                    DuplicateSize(map) => {
+                      if let Some(dup_data) = map.get_mut(&book.book_path) {
+                        match dup_data {
+                          MutoolData(m) => {
+                            let mut md = m.take().unwrap_or_default();
+                            md.mutool_err = Some(err.clone());
+                            *m = Some(md);
+                            rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
+                          }
+                          BookHash(hash) => {
+                            if let Some(old_book_hashes) =
+                              rw_t.get().primary::<BookHashes>(hash.clone())?
+                            {
+                              let mut updated_book_hashes = old_book_hashes.clone();
+                              updated_book_hashes.mutool_data.mutool_err = Some(err.clone());
+                              rw_t.update::<BookHashes>(old_book_hashes, updated_book_hashes)?;
+                            }
                           }
                         }
                       }
                     }
                   }
                 }
-              }
-              Ok(())
-            });
-            None
+                Ok(())
+              });
+              false
+            }
           }
         };
 
-        if let Some(bytes) = bytes_opt {
-          let thumbnail = Thumbnail { data: bytes };
-
-          // 3. Save thumbnail directly into DB models (BookSizes or BookHashes) and update Book
+        // 4. If extraction succeeded, update Book.has_thumbnail and send event
+        if extraction_ok {
           let db_save_res = db.rw_t(|rw_t| {
             // Update Book record to have has_thumbnail = true
             if let Some(mut b) = rw_t.get().primary::<Book>(book.id.clone())? {
@@ -196,59 +199,27 @@ pub async fn run_data_extraction_service(
               rw_t.update::<Book>(old_b, b)?;
             }
 
-            if let Some(old_book_sizes) = rw_t.get().primary::<BookSizes>(book.book_size)? {
+            // If we computed a hash, migrate MutoolData → BookHash in DuplicateSize
+            if let Some(hash) = &computed_hash
+              && let Some(old_book_sizes) = rw_t.get().primary::<BookSizes>(book.book_size)?
+            {
               let mut updated_book_sizes = old_book_sizes.clone();
-              match &mut updated_book_sizes.book_type {
-                BookType::UniqueSize { mutool_data, .. } => {
-                  let mut md = mutool_data.take().unwrap_or_default();
-                  md.thumbnail = Some(thumbnail.clone());
-                  *mutool_data = Some(md);
-                  rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
-                }
-                DuplicateSize(map) => {
-                  if let Some(dup_data) = map.get_mut(&book.book_path) {
-                    match dup_data {
-                      MutoolData(m) => {
-                        // If we computed a hash on demand, migrate the DuplicateBookData to BookHash(hash)
-                        if let Some(hash) = &computed_hash {
-                          *dup_data = BookHash(hash.clone());
-                          rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
+              if let BookType::DuplicateSize(map) = &mut updated_book_sizes.book_type
+                && let Some(MutoolData(_)) = map.get(&book.book_path)
+              {
+                *map.get_mut(&book.book_path).unwrap() = BookHash(hash.clone());
+                rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
 
-                          // Now insert or update the BookHashes record with the thumbnail
-                          let mut books_set = HashSet::default();
-                          books_set.insert(book.book_path.clone());
-                          let mut book_hashes = BookHashes::new(hash.clone(), books_set);
-                          book_hashes.mutool_data.thumbnail = Some(thumbnail.clone());
-
-                          if let Some(old_hashes) =
-                            rw_t.get().primary::<BookHashes>(hash.clone())?
-                          {
-                            let mut updated_hashes = old_hashes.clone();
-                            updated_hashes.books.insert(book.book_path.clone());
-                            updated_hashes.mutool_data.thumbnail = Some(thumbnail.clone());
-                            rw_t.update::<BookHashes>(old_hashes, updated_hashes)?;
-                          } else {
-                            rw_t.insert::<BookHashes>(book_hashes)?;
-                          }
-                        } else {
-                          // Fallback if no hash computed
-                          let mut md = m.take().unwrap_or_default();
-                          md.thumbnail = Some(thumbnail.clone());
-                          *m = Some(md);
-                          rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
-                        }
-                      }
-                      BookHash(hash) => {
-                        if let Some(old_book_hashes) =
-                          rw_t.get().primary::<BookHashes>(hash.clone())?
-                        {
-                          let mut updated_book_hashes = old_book_hashes.clone();
-                          updated_book_hashes.mutool_data.thumbnail = Some(thumbnail.clone());
-                          rw_t.update::<BookHashes>(old_book_hashes, updated_book_hashes)?;
-                        }
-                      }
-                    }
-                  }
+                // Insert or update BookHashes record
+                let mut books_set = HashSet::default();
+                books_set.insert(book.book_path.clone());
+                let book_hashes = BookHashes::new(hash.clone(), books_set);
+                if let Some(old_hashes) = rw_t.get().primary::<BookHashes>(hash.clone())? {
+                  let mut updated_hashes = old_hashes.clone();
+                  updated_hashes.books.insert(book.book_path.clone());
+                  rw_t.update::<BookHashes>(old_hashes, updated_hashes)?;
+                } else {
+                  rw_t.insert::<BookHashes>(book_hashes)?;
                 }
               }
             }
@@ -256,7 +227,7 @@ pub async fn run_data_extraction_service(
           });
 
           if db_save_res.is_ok() {
-            let _ = event_tx.send(LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
+            send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
           }
         }
       }

@@ -159,7 +159,7 @@ impl DB {
   where
     F: FnOnce(&RTransaction) -> Result<T>,
   {
-    let lock = self.db.write().unwrap();
+    let lock = self.db.read().unwrap();
     let r_txn = lock.r_transaction()?;
     let result = func(&r_txn)?;
     Ok(result)

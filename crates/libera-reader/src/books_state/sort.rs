@@ -3,6 +3,7 @@ use gpui::Context;
 use std::cmp::Ordering;
 
 impl BooksState {
+  #[allow(dead_code)]
   pub fn set_sort_field(&mut self, field: SortField, target: TargetList, cx: &mut Context<Self>) {
     let config = match target {
       TargetList::Library => &mut self.library_sort,
@@ -17,6 +18,7 @@ impl BooksState {
     }
   }
 
+  #[allow(dead_code)]
   pub fn toggle_reverse(&mut self, target: TargetList, cx: &mut Context<Self>) {
     let config = match target {
       TargetList::Library => &mut self.library_sort,
@@ -47,9 +49,9 @@ impl BooksState {
 
       let cmp = match (book_a, book_b) {
         (Some(a), Some(b)) => match field {
-          SortField::Name => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+          SortField::Name => a.name_lower.cmp(&b.name_lower),
           SortField::Size => a.size.cmp(&b.size),
-          SortField::Type => a.ext.to_lowercase().cmp(&b.ext.to_lowercase()),
+          SortField::Type => a.ext_lower.cmp(&b.ext_lower),
           SortField::LastOpened => a.last_opened.cmp(&b.last_opened),
         },
         (Some(_), None) => Ordering::Less,
