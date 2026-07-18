@@ -93,7 +93,8 @@ impl Ctx {
 
   pub fn add_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> anyhow::Result<()> {
     if let Some(updated_book) = self.db.add_bookmark(book_path.clone(), bookmark)? {
-      send_event!(self.event_tx, LibraryEvent::BookUpdated(updated_book));
+      let snapshot = self.snapshot_for(&updated_book);
+      send_event!(self.event_tx, LibraryEvent::BookUpdated(snapshot));
       send_event!(self.event_tx, LibraryEvent::BookMarkAdded { book_path });
     }
     Ok(())
@@ -101,7 +102,8 @@ impl Ctx {
 
   pub fn update_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> anyhow::Result<()> {
     if let Some(updated_book) = self.db.update_bookmark(book_path.clone(), bookmark)? {
-      send_event!(self.event_tx, LibraryEvent::BookUpdated(updated_book));
+      let snapshot = self.snapshot_for(&updated_book);
+      send_event!(self.event_tx, LibraryEvent::BookUpdated(snapshot));
       send_event!(self.event_tx, LibraryEvent::BookMarkUpdated { book_path });
     }
     Ok(())
@@ -109,10 +111,24 @@ impl Ctx {
 
   pub fn remove_bookmark(&self, book_path: BookPath, time_created: &str) -> anyhow::Result<()> {
     if let Some(updated_book) = self.db.remove_bookmark(book_path.clone(), time_created)? {
-      send_event!(self.event_tx, LibraryEvent::BookUpdated(updated_book));
+      let snapshot = self.snapshot_for(&updated_book);
+      send_event!(self.event_tx, LibraryEvent::BookUpdated(snapshot));
       send_event!(self.event_tx, LibraryEvent::BookMarkRemoved { book_path });
     }
     Ok(())
+  }
+
+  /// Build a UI-ready snapshot, consulting the filesystem for `has_thumbnail`.
+  /// This replaces the old cached `Book.has_thumbnail` field and is the same
+  /// source of truth used by the UI's `ThumbnailCache`.
+  fn snapshot_for(
+    &self, book: &crate::db::models::books::book::Book,
+  ) -> crate::db::models::books::book::BookSnapshot {
+    let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
+    crate::db::models::books::book::BookSnapshot::from_book(
+      book,
+      book.has_thumbnail_on_disk(&self.db, &thumbnails_dir),
+    )
   }
 }
 

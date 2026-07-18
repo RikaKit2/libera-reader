@@ -1,13 +1,16 @@
 use gpui::{AnyElement, App, IntoElement, ParentElement, SharedString, Styled, Window, div};
 use gpui_component::{Icon, select::SelectItem};
 use libera_reader_core::db::models::CardDisplayMode;
-use libera_reader_core::db::models::books::book::{Book, BookSize};
+use libera_reader_core::db::models::books::book::{Book, BookSize, BookSnapshot};
 use rust_i18n::t;
 use std::fmt;
 
 /// Lightweight in-memory representation of a book.
 /// Instead of storing the heavy `Book` struct (which includes full path, user data, etc.),
 /// we store only what's needed for display and sorting in the UI.
+///
+/// All UI-facing strings are pre-computed once in `from_book` to avoid per-frame
+/// allocations in `render()` closures (see documentation/ram.md §6).
 #[derive(Clone)]
 pub struct LightBook {
   pub id: SharedString,
@@ -16,7 +19,17 @@ pub struct LightBook {
   #[allow(dead_code)]
   pub ext: SharedString,
   pub ext_lower: SharedString,
+  /// Upper-cased extension, pre-computed for display in card footer.
+  #[allow(dead_code)]
+  pub ext_upper: SharedString,
   pub size: u64,
+  /// Pre-formatted "File size: N MB" label for the card footer.
+  pub size_label: SharedString,
+  /// Pre-computed "<format_label>: <EXT>" label for the card footer.
+  pub format_label: SharedString,
+  /// Stable GPUI ElementId prefixes, pre-built to avoid `format!()` in render closures.
+  pub cover_btn_id: SharedString,
+  pub fav_btn_id: SharedString,
   pub last_opened: u64,
   pub is_favorite: bool,
   pub has_thumbnail: bool,
@@ -37,6 +50,13 @@ impl LightBook {
     let formatted_title = Self::format_title_pixel_perfect(display_name.as_ref());
     let name = book.book_path.name.clone();
     let ext = book.book_path.ext.to_string();
+    let ext_upper = ext.to_uppercase();
+
+    // Pre-compute UI labels once. These are zero-allocation clones in render().
+    let format_label = format!("{}: {}", t!("components.card.format_label"), ext_upper).into();
+    let size_label = format!("File size: {} MB", size / 1_048_576).into();
+    let cover_btn_id = format!("cover_{}", book.id).into();
+    let fav_btn_id = format!("fav_{}", book.id).into();
 
     Self {
       id: book.id.clone().into(),
@@ -44,7 +64,12 @@ impl LightBook {
       name_lower: name.to_lowercase().into(),
       ext: ext.clone().into(),
       ext_lower: ext.to_lowercase().into(),
+      ext_upper: ext_upper.into(),
       size,
+      size_label,
+      format_label,
+      cover_btn_id,
+      fav_btn_id,
       last_opened: book.user_data.last_opened,
       is_favorite: book.user_data.favorite,
       has_thumbnail,
@@ -62,6 +87,43 @@ impl LightBook {
       breakable_title.push('\u{200B}');
     }
     breakable_title.into()
+  }
+
+  /// Build a `LightBook` from a UI-ready `BookSnapshot`.
+  ///
+  /// This is the post-channel path: services construct snapshots from `Book`s
+  /// at the boundary, and the UI side never sees the heavy `Book` form. All
+  /// UI-facing strings (labels, stable element ids) are pre-computed here so
+  /// the `render()` closures stay allocation-free (see documentation/ram.md §6).
+  pub fn from_snapshot(snapshot: &BookSnapshot, has_thumbnail: bool) -> Self {
+    let formatted_title = Self::format_title_pixel_perfect(&snapshot.name);
+    let ext_upper = snapshot.ext.to_uppercase();
+
+    let format_label = format!("{}: {}", t!("components.card.format_label"), ext_upper).into();
+    let size_label = format!("File size: {} MB", snapshot.size / 1_048_576).into();
+    let cover_btn_id = format!("cover_{}", snapshot.id).into();
+    let fav_btn_id = format!("fav_{}", snapshot.id).into();
+
+    Self {
+      id: snapshot.id.clone().into(),
+      name: snapshot.name.clone().into(),
+      name_lower: snapshot.name.to_lowercase().into(),
+      ext: snapshot.ext.clone().into(),
+      ext_lower: snapshot.ext.to_lowercase().into(),
+      ext_upper: ext_upper.into(),
+      size: snapshot.size,
+      size_label,
+      format_label,
+      cover_btn_id,
+      fav_btn_id,
+      last_opened: snapshot.last_opened,
+      is_favorite: snapshot.is_favorite,
+      has_thumbnail,
+      formatted_title,
+      parent_dir: snapshot.parent_dir.clone().into(),
+      deleted: snapshot.deleted,
+      bookmark_count: snapshot.bookmark_count,
+    }
   }
 
   #[allow(dead_code)]

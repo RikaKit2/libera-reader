@@ -2,11 +2,14 @@ pub mod events;
 pub mod models;
 pub mod search;
 pub mod sort;
+pub mod thumbnails;
 
 use gpui::{Context, SharedString, Task};
-use libera_reader_core::db::models::books::book::Book;
+use libera_reader_core::db::models::books::book::{Book, BookPath, BookSnapshot};
 use libera_reader_core::types::LibraryEvent;
 use std::collections::HashMap as StdHashMap;
+use std::path::PathBuf;
+use thumbnails::ThumbnailCache;
 use tokio::sync::broadcast::{
   Receiver,
   error::RecvError::{Closed, Lagged},
@@ -14,11 +17,24 @@ use tokio::sync::broadcast::{
 
 pub use models::{LightBook, SortConfig, SortField, TargetList};
 
+/// Reconstruct a `BookPath` from a snapshot's `id` for the extraction queue.
+///
+/// This avoids round-tripping the heavy `Book` through the extraction channel
+/// when the only thing the extractor needs is the path.
+pub(crate) fn snapshot_to_book_path(snapshot: &BookSnapshot) -> BookPath {
+  BookPath::from_id(&snapshot.id)
+}
+
 /// In-memory state for all books.
 /// No heavy `Book` structs — only lightweight `LightBook`s.
 pub struct BooksState {
   /// Map from book id (full path string) to LightBook
   pub books_map: StdHashMap<SharedString, LightBook>,
+
+  /// Single source of truth for which book currently has a usable PNG on disk.
+  /// Incrementally updated from `apply_event`; queried by every content page
+  /// instead of doing per-frame `db.get_book()` calls.
+  pub thumbnails: ThumbnailCache,
 
   pub library_keys: Vec<SharedString>,
   pub favorites_keys: Vec<SharedString>,
@@ -47,10 +63,14 @@ pub struct BooksState {
 
 impl BooksState {
   pub fn new(
-    initial_books: Vec<Book>, mut event_rx: Receiver<LibraryEvent>, cx: &mut Context<Self>,
+    thumbnails_dir: PathBuf, db: &libera_reader_core::db::DB, mut event_rx: Receiver<LibraryEvent>,
+    cx: &mut Context<Self>,
   ) -> Self {
+    let thumbnails = ThumbnailCache::new(thumbnails_dir);
+
     let mut state = Self {
       books_map: StdHashMap::new(),
+      thumbnails,
       library_keys: Vec::new(),
       favorites_keys: Vec::new(),
       history_keys: Vec::new(),
@@ -67,11 +87,18 @@ impl BooksState {
       search_generation: StdHashMap::new(),
     };
 
-    // Insert initial books
-    for book in initial_books {
+    // Stream books one-by-one so we never hold the full `Vec<Book>` in memory.
+    // Each book is converted to a LightBook immediately and the heavy `Book`
+    // is dropped before the next one is read.
+    let thumbnails_dir = state.thumbnails.thumbnails_dir().to_path_buf();
+    let _ = db.for_each_book(|book| {
       let id: SharedString = book.id.clone().into();
-      state.books_map.insert(id, LightBook::from_book(&book, book.has_thumbnail));
-    }
+      let path = ThumbnailCache::resolve_for(db, &thumbnails_dir, &book.id);
+      let has_thumbnail = path.is_some();
+      state.thumbnails.insert_resolved(id.clone(), path);
+      state.books_map.insert(id, LightBook::from_book(&book, has_thumbnail));
+      Ok(())
+    });
 
     state.rebuild_and_sort(TargetList::Library);
     state.rebuild_and_sort(TargetList::Favorites);
@@ -109,11 +136,31 @@ impl BooksState {
     self.books_map.get(id)
   }
 
-  /// Insert or update a LightBook from a full Book
+  /// Insert or update a LightBook from a full Book.
+  ///
+  /// Used by the initial-load path in `BooksState::new`. Event-driven updates
+  /// go through `upsert_snapshot` after services convert `Book` to `BookSnapshot`.
+  #[allow(dead_code)]
   pub(crate) fn upsert_book(&mut self, book: &Book) {
     let id: SharedString = book.id.clone().into();
     let has_thumbnail = self.books_map.get(&id).is_some_and(|lb| lb.has_thumbnail);
     let light = LightBook::from_book(book, has_thumbnail);
+    self.books_map.insert(id, light);
+  }
+
+  /// Insert or update a LightBook from a UI-ready snapshot.
+  ///
+  /// This is the post-`BookSnapshot` path used by `apply_event` for the
+  /// `BookAdded` / `BooksBatchAdded` / `BookUpdated` variants. The snapshot
+  /// already carries the resolved `has_thumbnail` flag from the service side,
+  /// so we preserve the existing value only when the snapshot's flag is stale
+  /// (e.g. the UI already saw a `ThumbnailExtracted` event ahead of the
+  /// snapshot arriving).
+  pub(crate) fn upsert_snapshot(&mut self, snapshot: &BookSnapshot) {
+    let id: SharedString = snapshot.id.clone().into();
+    let has_thumbnail =
+      snapshot.has_thumbnail || self.books_map.get(&id).is_some_and(|lb| lb.has_thumbnail);
+    let light = LightBook::from_snapshot(snapshot, has_thumbnail);
     self.books_map.insert(id, light);
   }
 

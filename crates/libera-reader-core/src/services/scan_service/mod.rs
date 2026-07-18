@@ -1,7 +1,8 @@
 use crate::{
+  app_dirs::AppDirs,
   db::{
     DB,
-    models::books::book::{Book, BookPath},
+    models::books::book::{Book, BookPath, BookSnapshot},
   },
   not_cached_books::NotCachedBooks,
   send_event,
@@ -23,14 +24,15 @@ pub struct ScanService {
   db: DB,
   event_tx: broadcast::Sender<LibraryEvent>,
   not_cached_books: NotCachedBooks,
+  app_dirs: AppDirs,
 }
 
 impl ScanService {
   pub(crate) fn new(
     settings: SETTINGS, db: DB, event_tx: broadcast::Sender<LibraryEvent>,
-    not_cached_books: NotCachedBooks,
+    not_cached_books: NotCachedBooks, app_dirs: AppDirs,
   ) -> Self {
-    Self { settings, db, event_tx, not_cached_books }
+    Self { settings, db, event_tx, not_cached_books, app_dirs }
   }
 
   pub fn settings(&self) -> &SETTINGS {
@@ -78,10 +80,15 @@ impl ScanService {
         // After scanning, remaining IDs are books that no longer exist on disk
         let removed_count = self.remove_outdated_books(existing_ids).await;
 
-        // Send only books without thumbnails to extraction queue in alphabetical order
+        // Send only books without thumbnails to extraction queue in alphabetical order.
+        // We re-check the filesystem for each book because `Book` no longer
+        // carries a `has_thumbnail` cache field (it could desync from reality).
         let all_books = self.db.scan_all_books()?;
-        let mut books_to_extract: Vec<Book> =
-          all_books.into_iter().filter(|b| !b.has_thumbnail).collect();
+        let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
+        let mut books_to_extract: Vec<Book> = all_books
+          .into_iter()
+          .filter(|b| !b.has_thumbnail_on_disk(&self.db, &thumbnails_dir))
+          .collect();
         books_to_extract.sort_by_key(|b| b.book_path.display_name().to_lowercase());
 
         let tx = self.not_cached_books.tx();
@@ -153,7 +160,7 @@ impl ScanService {
 
   fn insert_books(&self, buffer: Vec<BookPath>, existing_ids: &mut HashSet<String>) -> usize {
     let mut new_books = 0;
-    let mut batch_to_send = Vec::new();
+    let mut inserted_books: Vec<Book> = Vec::new();
     let event_tx = &self.event_tx;
 
     let _ = self.db.rw_t(|rw_t| {
@@ -172,15 +179,22 @@ impl ScanService {
         if let Ok(new_book) = Book::new(book_path) {
           // Insert into BookSizes first
           let _ = crate::db::models::books::book_sizes::BookSizes::insert_book(&new_book, rw_t);
-          rw_t.insert::<Book>(new_book.clone())?;
-          batch_to_send.push(new_book);
+          inserted_books.push(new_book.clone());
+          rw_t.insert::<Book>(new_book)?;
         }
       }
       Ok(())
     });
 
-    if !batch_to_send.is_empty() {
-      send_event!(event_tx, LibraryEvent::BooksBatchAdded(batch_to_send));
+    // Build snapshots outside the transaction so we can consult the filesystem
+    // through `has_thumbnail_on_disk` (which needs an `&DB`, not an `RwTransaction`).
+    if !inserted_books.is_empty() {
+      let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
+      let snapshots: Vec<BookSnapshot> = inserted_books
+        .iter()
+        .map(|b| BookSnapshot::from_book(b, b.has_thumbnail_on_disk(&self.db, &thumbnails_dir)))
+        .collect();
+      send_event!(event_tx, LibraryEvent::BooksBatchAdded(snapshots));
     }
 
     new_books
@@ -189,6 +203,11 @@ impl ScanService {
   async fn remove_outdated_books(&self, remaining_ids: HashSet<String>) -> usize {
     let mut removed_count = 0;
     let event_tx = &self.event_tx;
+
+    // Collect updated books inside the transaction; build snapshots afterwards so
+    // we can call `has_thumbnail_on_disk` with an `&DB` reference.
+    let mut updated_books: Vec<Book> = Vec::new();
+    let mut removed_paths: Vec<BookPath> = Vec::new();
 
     let _ = self.db.rw_t(|rw_t| {
       for id in remaining_ids {
@@ -205,19 +224,30 @@ impl ScanService {
 
           if can_delete {
             rw_t.remove::<Book>(book)?;
-            send_event!(event_tx, LibraryEvent::BookRemoved(book_path));
+            removed_paths.push(book_path);
           } else {
             let mut updated_book = book.clone();
             updated_book.mark_as_deleted();
-            let updated_book_clone = updated_book.clone();
+            updated_books.push(updated_book.clone());
             rw_t.update::<Book>(book, updated_book)?;
-            send_event!(event_tx, LibraryEvent::BookUpdated(updated_book_clone));
           }
           removed_count += 1;
         }
       }
       Ok(())
     });
+
+    let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
+    for path in removed_paths {
+      send_event!(event_tx, LibraryEvent::BookRemoved(path));
+    }
+    for updated_book in updated_books {
+      let snapshot = BookSnapshot::from_book(
+        &updated_book,
+        updated_book.has_thumbnail_on_disk(&self.db, &thumbnails_dir),
+      );
+      send_event!(event_tx, LibraryEvent::BookUpdated(snapshot));
+    }
 
     removed_count
   }

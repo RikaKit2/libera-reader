@@ -32,10 +32,20 @@ impl Services {
     settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks,
     event_tx: broadcast::Sender<LibraryEvent>, app_dirs: crate::app_dirs::AppDirs,
   ) -> Result<Self> {
-    let notify_service =
-      NotifyService::new(not_cached_books.clone(), settings.clone(), db.clone(), event_tx.clone())?;
-    let scan_service =
-      ScanService::new(settings, db.clone(), event_tx.clone(), not_cached_books.clone());
+    let notify_service = NotifyService::new(
+      not_cached_books.clone(),
+      settings.clone(),
+      db.clone(),
+      app_dirs.clone(),
+      event_tx.clone(),
+    )?;
+    let scan_service = ScanService::new(
+      settings,
+      db.clone(),
+      event_tx.clone(),
+      not_cached_books.clone(),
+      app_dirs.clone(),
+    );
 
     Ok(Self {
       notify_service,

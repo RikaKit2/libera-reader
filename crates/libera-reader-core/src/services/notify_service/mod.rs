@@ -4,7 +4,7 @@ use std::time::Duration;
 use crate::{
   db::{
     DB,
-    models::books::{book::Book, book::BookDir, book::BookPath},
+    models::books::{book::Book, book::BookDir, book::BookPath, book::BookSnapshot},
   },
   not_cached_books::NotCachedBooks,
   send_event,
@@ -84,13 +84,14 @@ pub struct NotifyService {
   not_cached_books: NotCachedBooks,
   settings: SETTINGS,
   db: DB,
+  app_dirs: crate::app_dirs::AppDirs,
   event_tx: broadcast::Sender<LibraryEvent>,
 }
 
 impl NotifyService {
   pub(crate) fn new(
     not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB,
-    event_tx: broadcast::Sender<LibraryEvent>,
+    app_dirs: crate::app_dirs::AppDirs, event_tx: broadcast::Sender<LibraryEvent>,
   ) -> Result<Self> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let watcher = notify::recommended_watcher(move |res| match res {
@@ -108,6 +109,7 @@ impl NotifyService {
       not_cached_books,
       settings,
       db,
+      app_dirs,
       event_tx,
     })
   }
@@ -122,12 +124,13 @@ impl NotifyService {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
           let event_tx = self.event_tx.clone();
+          let app_dirs = self.app_dirs.clone();
 
           self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
           self.status = WorkStatus::Working;
 
           tokio::spawn(async move {
-            run_event_loop(rx, not_cached_books, db, event_tx).await;
+            run_event_loop(rx, not_cached_books, db, app_dirs, event_tx).await;
           });
         }
       }
@@ -149,7 +152,7 @@ impl NotifyService {
 /// Main event processing loop with batching using tokio::select!
 async fn run_event_loop(
   mut rx: UnboundedReceiver<notify::Event>, not_cached_books: NotCachedBooks, db: DB,
-  event_tx: broadcast::Sender<LibraryEvent>,
+  app_dirs: crate::app_dirs::AppDirs, event_tx: broadcast::Sender<LibraryEvent>,
 ) {
   loop {
     let mut buffer: Vec<FSEvent> = Vec::new();
@@ -178,7 +181,14 @@ async fn run_event_loop(
 
     // Process buffer after timer expiration
     if !buffer.is_empty() {
-      process_batch(buffer, not_cached_books.clone(), db.clone(), event_tx.clone()).await;
+      process_batch(
+        buffer,
+        not_cached_books.clone(),
+        db.clone(),
+        app_dirs.clone(),
+        event_tx.clone(),
+      )
+      .await;
     }
   }
 }
@@ -186,11 +196,20 @@ async fn run_event_loop(
 /// Process the entire batch of events in a SINGLE thread and a SINGLE DB transaction
 async fn process_batch(
   batch: Vec<FSEvent>, not_cached_books: NotCachedBooks, db: DB,
-  event_tx: broadcast::Sender<LibraryEvent>,
+  app_dirs: crate::app_dirs::AppDirs, event_tx: broadcast::Sender<LibraryEvent>,
 ) {
   tokio::task::spawn_blocking(move || {
     let start_time = std::time::Instant::now();
     let events_count = batch.len();
+
+    // Books that should generate events after the transaction commits. We split
+    // the DB-transactional side from the event-emission side so that snapshot
+    // construction can call `has_thumbnail_on_disk` (which needs an `&DB`).
+    let mut added_books: Vec<Book> = Vec::new();
+    let mut updated_books: Vec<Book> = Vec::new();
+    let mut removed_paths: Vec<BookPath> = Vec::new();
+    let mut renamed_paths: Vec<(BookPath, BookPath)> = Vec::new();
+    let mut removed_dirs: Vec<BookDir> = Vec::new();
 
     // Open transaction ONCE for the entire batch of events
     let result = db.rw_t(|rw_t| {
@@ -205,7 +224,7 @@ async fn process_batch(
               if let Ok(Some(book)) =
                 rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
               {
-                send_event!(event_tx, LibraryEvent::BookAdded(book));
+                added_books.push(book);
               }
             }
           }
@@ -215,14 +234,14 @@ async fn process_batch(
             if let Some(book_path) = BookPath::new(&file_path) {
               match fs_handlers::remove_book_by_path(&file_path, rw_t) {
                 Ok(RemoveStatus::FullyDeleted) => {
-                  send_event!(event_tx, LibraryEvent::BookRemoved(book_path));
+                  removed_paths.push(book_path);
                 }
                 Ok(RemoveStatus::MarkedAsDeleted) => {
                   // Fetch updated book from DB and send BookUpdated
                   if let Ok(Some(updated_book)) =
                     rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
                   {
-                    send_event!(event_tx, LibraryEvent::BookUpdated(updated_book));
+                    updated_books.push(updated_book);
                   }
                 }
 
@@ -238,14 +257,10 @@ async fn process_batch(
               fs_handlers::update_book_path(old_path.clone(), new_path.clone(), rw_t)
             {
               debug!("Error updating book path: {:?}", err);
-            } else {
-              send_event!(
-                event_tx,
-                LibraryEvent::BookPathUpdated {
-                  old_path: BookPath::new(&old_path).unwrap(),
-                  new_path: BookPath::new(&new_path).unwrap(),
-                }
-              );
+            } else if let (Some(old_bp), Some(new_bp)) =
+              (BookPath::new(&old_path), BookPath::new(&new_path))
+            {
+              renamed_paths.push((old_bp, new_bp));
             }
           }
 
@@ -254,14 +269,14 @@ async fn process_batch(
             {
               debug!("Error updating book dir: {:?}", err);
             } else {
-              // Send events for all books in the directory
+              // Queue BookUpdated for every book in the renamed directory.
               let new_dir_path = BookDir::new(new_path.clone()).full_path().to_string();
               if let Ok(all_books) = rw_t.scan().primary::<Book>() {
                 for item in all_books.all().unwrap() {
                   if let Ok(book) = item
                     && book.parent_dir == new_dir_path
                   {
-                    send_event!(event_tx, LibraryEvent::BookUpdated(book));
+                    updated_books.push(book);
                   }
                 }
               }
@@ -273,13 +288,35 @@ async fn process_batch(
             if let Err(err) = fs_handlers::remove_books_in_dir(dir.clone(), rw_t) {
               debug!("Error removing books in dir: {:?}", err);
             } else {
-              send_event!(event_tx, LibraryEvent::DirRemoved(dir));
+              removed_dirs.push(dir);
             }
           }
         }
       }
       Ok(())
     });
+
+    // Now emit events with snapshot construction that needs `&DB`.
+    let thumbnails_dir = app_dirs.read().thumbnails_dir.clone();
+    for book in added_books {
+      let snapshot =
+        BookSnapshot::from_book(&book, book.has_thumbnail_on_disk(&db, &thumbnails_dir));
+      send_event!(event_tx, LibraryEvent::BookAdded(snapshot));
+    }
+    for book in updated_books {
+      let snapshot =
+        BookSnapshot::from_book(&book, book.has_thumbnail_on_disk(&db, &thumbnails_dir));
+      send_event!(event_tx, LibraryEvent::BookUpdated(snapshot));
+    }
+    for path in removed_paths {
+      send_event!(event_tx, LibraryEvent::BookRemoved(path));
+    }
+    for (old_path, new_path) in renamed_paths {
+      send_event!(event_tx, LibraryEvent::BookPathUpdated { old_path, new_path });
+    }
+    for dir in removed_dirs {
+      send_event!(event_tx, LibraryEvent::DirRemoved(dir));
+    }
 
     if let Err(err) = result {
       debug!("Batch processing error: {:?}", err);

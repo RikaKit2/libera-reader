@@ -67,6 +67,27 @@ impl DB {
     self.rt(scan_primary::<Book>)
   }
 
+  /// Stream every book in the database to a callback without materializing
+  /// the full `Vec<Book>` in memory at once. Used by the UI's initial load so
+  /// a library of 10 000 books doesn't allocate 10 000 heavy `Book` structs
+  /// simultaneously before they can be converted to `LightBook`s.
+  ///
+  /// The callback may return `Err` to abort iteration early.
+  pub fn for_each_book<F>(&self, mut f: F) -> Result<()>
+  where
+    F: FnMut(Book) -> Result<()>,
+  {
+    self.rt(|r_txn| {
+      let scan = r_txn.scan().primary()?;
+      let iter = scan.all()?;
+      for item in iter {
+        let book: Book = item?;
+        f(book)?;
+      }
+      Ok(())
+    })
+  }
+
   /// Scan books by parent_dir (filter in-memory)
   pub fn scan_books_by_parent_dir(&self, parent_dir: &str) -> Result<Vec<Book>> {
     let all = self.scan_all_books()?;
