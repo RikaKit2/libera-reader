@@ -2,100 +2,54 @@ mod btn;
 
 use crate::ui::pages::main::side_bar::btn::Btn;
 use gpui::prelude::*;
-use gpui::{App, Entity, IntoElement, ParentElement, Styled, Window, div};
+use gpui::{App, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use gpui_component::ActiveTheme;
 use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::models::Route::{
-  BookMarks, Favorite, FileManager, History, Library, Stats,
-};
 use libera_reader_core::db::models::{RootRoute, Route};
 
+/// Primary navigation entries shown at the top of the sidebar.
+const TOP_ENTRIES: &[(Route, &str)] = &[
+  (Route::Library, "heroicons--book-open.svg"),
+  (Route::FileManager, "heroicons--folder.svg"),
+  (Route::History, "heroicons--clock.svg"),
+  (Route::Favorite, "heroicons--star.svg"),
+  (Route::BookMarks, "heroicons--bookmark.svg"),
+];
+
+/// Secondary entries pinned to the bottom of the sidebar.
+const BOTTOM_ENTRIES: &[(Route, &str)] =
+  &[(Route::Stats, "heroicons--chart-bar.svg"), (Route::Settings, "heroicons--cog-8-tooth.svg")];
+
 pub(crate) struct SideBar {}
+
 impl SideBar {
   pub(crate) fn new(cx: &mut App) -> Entity<Self> {
     cx.new(|_| Self {})
   }
+
   fn mark_btn_as_active(&mut self, route: Route, cx: &mut App) {
     cx.ctx_mut().settings.set_route(RootRoute::Main(route)).unwrap();
   }
+
+  /// Build a sidebar button that activates the given route on click.
+  /// One shared click handler for every entry — no per-button duplication.
+  fn entry(&self, route: Route, icon: &'static str, cx: &mut Context<Self>) -> Btn {
+    Btn::new(
+      route,
+      icon,
+      Some(Box::new(cx.listener(move |this, _event, _window, cx| {
+        this.mark_btn_as_active(route, cx);
+        cx.notify();
+      }))),
+    )
+  }
 }
+
 impl Render for SideBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     div().bg(cx.theme().border).w_12().h_full().flex().flex_col().justify_between().children([
-      div().children([
-        Btn::new(
-          Library,
-          "heroicons--book-open.svg",
-          Some(Box::new({
-            cx.listener(move |pages, _event, _window, cx| {
-              pages.mark_btn_as_active(Library, cx);
-              cx.notify();
-            })
-          })),
-        ),
-        Btn::new(
-          FileManager,
-          "heroicons--folder.svg",
-          Some(Box::new({
-            cx.listener(move |pages, _event, _window, cx| {
-              pages.mark_btn_as_active(FileManager, cx);
-              cx.notify();
-            })
-          })),
-        ),
-        Btn::new(
-          History,
-          "heroicons--clock.svg",
-          Some(Box::new({
-            cx.listener(move |pages, _event, _window, cx| {
-              pages.mark_btn_as_active(History, cx);
-              cx.notify();
-            })
-          })),
-        ),
-        Btn::new(
-          Favorite,
-          "heroicons--star.svg",
-          Some(Box::new({
-            cx.listener(move |pages, _event, _window, cx| {
-              pages.mark_btn_as_active(Favorite, cx);
-              cx.notify();
-            })
-          })),
-        ),
-        Btn::new(
-          BookMarks,
-          "heroicons--bookmark.svg",
-          Some(Box::new({
-            cx.listener(move |pages, _event, _window, cx| {
-              pages.mark_btn_as_active(BookMarks, cx);
-              cx.notify();
-            })
-          })),
-        ),
-      ]),
-      div().children([
-        Btn::new(
-          Stats,
-          "heroicons--chart-bar.svg",
-          Some(Box::new({
-            cx.listener(move |pages, _event, _window, cx| {
-              pages.mark_btn_as_active(Stats, cx);
-              cx.notify();
-            })
-          })),
-        ),
-        Btn::new(
-          Route::Settings,
-          "heroicons--cog-8-tooth.svg",
-          Some(Box::new({
-            cx.listener(move |pages, _event, _window, cx| {
-              pages.mark_btn_as_active(Route::Settings, cx);
-              cx.notify();
-            })
-          })),
-        ),
-      ]),
+      div().children(TOP_ENTRIES.iter().map(|&(route, icon)| self.entry(route, icon, cx))),
+      div().children(BOTTOM_ENTRIES.iter().map(|&(route, icon)| self.entry(route, icon, cx))),
     ])
   }
 }

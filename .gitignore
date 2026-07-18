@@ -18,3 +18,5 @@ crates/libera-reader-core/test_files/mutool.exe
 .qwen/
 *.txt
 combined_project.txt.rs
+crates/libera-reader-core-old/
+crates/libera-reader-old/

@@ -19,4 +19,15 @@ ignore = [
     # RUSTSEC-2026-0192: ttf-parser is unmaintained.
     # Comes via rustybuzz / fontdb -> gpui. Cannot fix ourselves.
     "RUSTSEC-2026-0192",
+    # RUSTSEC-2026-0206: rustybuzz is unmaintained.
+    # Comes via usvg / resvg -> gpui. Cannot fix ourselves.
+    "RUSTSEC-2026-0206",
 ]
+
+[yanked]
+# The `spin` crate is yanked on crates.io. It is pulled in by gpui (0.10.0)
+# and by flume -> scheduler -> gpui (0.9.8). We cannot upgrade it ourselves
+# because it is a transitive dependency of gpui; the fix must happen upstream
+# in gpui. We disable the yanked-crate check rather than ignore a specific
+# crate, since cargo-audit does not support per-crate yanked ignores.
+enabled = false

@@ -1,20 +1,20 @@
 use gpui::*;
-use gpui_component::{button::*, select::*, *};
+use gpui_component::{ActiveTheme, select::*, *};
 
 use crate::books_state::models::DisplayModeOption;
 use crate::books_state::{BooksState, SortField, TargetList};
+use crate::ui::components::top_bar::reverse_btn::ReverseBtn;
 use libera_reader_core::ctx::Ctx;
 
-#[allow(dead_code)]
+/// Sort controls for the top bar: sort-field select, reverse-direction button
+/// (its own component), and display-mode select.
 pub struct SortControls {
-  books_state: Entity<BooksState>,
-  target: TargetList,
   sort_select: Entity<SelectState<SearchableVec<SortField>>>,
   mode_select: Entity<SelectState<SearchableVec<DisplayModeOption>>>,
+  reverse_btn: Entity<ReverseBtn>,
 }
 
 impl SortControls {
-  #[allow(dead_code)]
   pub fn new(
     window: &mut Window, cx: &mut App, books_state: Entity<BooksState>, target: TargetList,
   ) -> Entity<Self> {
@@ -40,6 +40,8 @@ impl SortControls {
       modes.iter().position(|m| m.value() == &current_mode).map(|i| IndexPath::default().row(i));
     let mode_select =
       cx.new(|cx| SelectState::new(modes_vec, mode_idx, window, cx).searchable(false));
+
+    let reverse_btn = ReverseBtn::new(books_state.clone(), target, cx);
 
     cx.new(|cx| {
       cx.subscribe_in(&sort_select, window, {
@@ -70,41 +72,19 @@ impl SortControls {
       })
       .detach();
 
-      Self { books_state, target, sort_select, mode_select }
+      Self { sort_select, mode_select, reverse_btn }
     })
   }
 }
 
 impl Render for SortControls {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let is_reversed = match self.target {
-      TargetList::Library => self.books_state.read(cx).library_sort.is_reversed,
-      TargetList::Favorites => self.books_state.read(cx).favorites_sort.is_reversed,
-      TargetList::History => self.books_state.read(cx).history_sort.is_reversed,
-      TargetList::Bookmarks => self.books_state.read(cx).bookmarks_sort.is_reversed,
-    };
-
-    let dir_icon = if is_reversed { "a-arrow-down.svg" } else { "a-arrow-up.svg" };
+    let bg = cx.theme().background;
 
     div().flex().gap_x_2().mr_2().items_center().children([
-      div().child(Select::new(&self.sort_select).w(px(140.0))),
-      div().child({
-        let subtle_hover = ButtonCustomVariant::new(cx)
-          .color(cx.theme().background)
-          .hover(cx.theme().background.opacity(0.5));
-
-        Button::new("reverse_btn")
-          .icon(Icon::new(Icon::empty()).path(dir_icon))
-          .custom(subtle_hover)
-          .on_click({
-            let books_state = self.books_state.clone();
-            let target = self.target;
-            move |_ev, _window, cx| {
-              books_state.update(cx, |state, cx| state.toggle_reverse(target, cx));
-            }
-          })
-      }),
-      div().child(Select::new(&self.mode_select).w(px(64.0)).menu_width(px(64.0))),
+      div().child(Select::new(&self.sort_select).bg(bg).w(px(140.0))),
+      div().child(self.reverse_btn.clone()),
+      div().child(Select::new(&self.mode_select).bg(bg).w(px(64.0)).menu_width(px(64.0))),
     ])
   }
 }

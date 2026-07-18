@@ -8,7 +8,6 @@ use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::sync::Arc;
 
-pub const ROW_H: f32 = 160.0;
 pub const THUMB_MAX_PX: u32 = 200;
 
 pub fn load_thumbnail(path: &Path) -> Option<Arc<RenderImage>> {
