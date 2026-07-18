@@ -4,8 +4,9 @@ use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
 use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::models::books::book::Book;
+use libera_reader_core::db::DB;
 use libera_reader_core::types::LibraryEvent;
+use std::path::PathBuf;
 use tokio::sync::broadcast::Receiver;
 
 #[path = "book-viewer/mod.rs"]
@@ -20,9 +21,10 @@ pub(crate) struct Pages {
 
 impl Pages {
   pub fn new(
-    window: &mut Window, cx: &mut App, initial_books: Vec<Book>, event_rx: Receiver<LibraryEvent>,
+    window: &mut Window, cx: &mut App, thumbnails_dir: PathBuf, db: &DB,
+    event_rx: Receiver<LibraryEvent>,
   ) -> Entity<Self> {
-    let books_state = cx.new(|cx| BooksState::new(initial_books, event_rx, cx));
+    let books_state = cx.new(|cx| BooksState::new(thumbnails_dir, db, event_rx, cx));
     cx.new(|c| Self {
       main_page: MainPage::new(window, c, books_state.clone()),
       setup_page: SetupPage::new(window, c),

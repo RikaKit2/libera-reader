@@ -54,7 +54,11 @@ impl BooksGrid {
     cx.spawn(|this: gpui::WeakEntity<Self>, cx: &mut AsyncApp| {
       let mut owned_cx = cx.clone();
       async move {
+        // Coalesce notify signals: drain all pending messages, then trigger a single
+        // re-render. Without this, loading 50 covers in a burst would cause 50 separate
+        // notify() calls and 50 frame rebuilds (see documentation/ram.md §10).
         while notify_rx.recv().await.is_some() {
+          while notify_rx.try_recv().is_ok() {}
           let _ = this.update(&mut owned_cx, |_, cx| cx.notify());
         }
       }

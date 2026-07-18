@@ -10,7 +10,7 @@ macro_rules! send_event {
 use gxhash::GxBuildHasher;
 use indexmap::{IndexMap, IndexSet};
 
-use crate::db::models::books::book::{Book, BookDir, BookPath};
+use crate::db::models::books::book::{BookDir, BookPath, BookSnapshot};
 
 pub type HashMap<K, V> = IndexMap<K, V, GxBuildHasher>;
 pub type HashSet<T> = IndexSet<T, GxBuildHasher>;
@@ -19,10 +19,10 @@ pub const MUPDF_EXTENSIONS: [&str; 6] = ["pdf", "epub", "xps", "cbz", "mobi", "f
 
 #[derive(Debug, Clone)]
 pub enum LibraryEvent {
-  BookAdded(Book),
-  BooksBatchAdded(Vec<Book>),
+  BookAdded(BookSnapshot),
+  BooksBatchAdded(Vec<BookSnapshot>),
   BookRemoved(BookPath),
-  BookUpdated(Book),
+  BookUpdated(BookSnapshot),
   BookPathUpdated {
     old_path: BookPath,
     new_path: BookPath,
@@ -41,3 +41,8 @@ pub enum LibraryEvent {
   /// UI should update the card to show the cover image.
   ThumbnailExtracted(BookPath),
 }
+
+// `LibraryEvent` carries UI-ready `BookSnapshot`s instead of full `Book`
+// structs, so services never push more than the UI needs. Full `Book` is only
+// used internally by the database and services that need `bookmarks`,
+// `book_path`, or `book_size`.

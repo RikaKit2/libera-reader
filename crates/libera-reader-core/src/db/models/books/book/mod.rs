@@ -16,11 +16,13 @@ mod book_dir;
 mod book_ext;
 mod book_path;
 mod book_size;
+mod snapshot;
 
 pub use book_dir::BookDir;
 pub use book_ext::BookExt;
 pub use book_path::BookPath;
 pub use book_size::BookSize;
+pub use snapshot::BookSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[native_model(id = 1, version = 2)]
@@ -36,8 +38,6 @@ pub struct Book {
   pub user_data: UserData,
   #[serde(default)]
   pub bookmarks: Vec<BookMark>,
-  #[serde(default)]
-  pub has_thumbnail: bool,
 }
 
 impl Book {
@@ -50,7 +50,6 @@ impl Book {
       book_size,
       user_data: UserData::default(),
       bookmarks: Vec::new(),
-      has_thumbnail: false,
     })
   }
 
@@ -67,6 +66,22 @@ impl Book {
   }
   pub fn can_delete(&self) -> bool {
     !self.user_data.favorite && self.user_data.last_opened == 0 && self.bookmarks.is_empty()
+  }
+
+  /// Whether a usable thumbnail PNG currently exists on disk for this book.
+  ///
+  /// This is the **source of truth** for the UI's "does this book have a cover?"
+  /// question. The previous `Book::has_thumbnail: bool` field was a cache that
+  /// could desync from reality after manual cache wipes, external extraction,
+  /// or failed extractions that left the flag set. We now consult the actual
+  /// filesystem state through `BookSizes` / `BookHashes` metadata, which is
+  /// exactly what the UI's `ThumbnailCache` does.
+  ///
+  /// See `documentation/ram.md` and the plan's step 5 for the rationale.
+  pub fn has_thumbnail_on_disk(
+    &self, db: &crate::db::DB, thumbnails_dir: &std::path::Path,
+  ) -> bool {
+    self.get_thumbnail_png_path(db, thumbnails_dir).ok().flatten().is_some()
   }
 
   pub fn add_bookmark(&mut self, bookmark: BookMark) {

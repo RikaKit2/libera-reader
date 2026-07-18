@@ -6,7 +6,6 @@ use gpui::*;
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, button::*};
 use libera_reader_core::ctx::Ctx;
 use libera_reader_core::db::models::books::book::BookPath;
-use rust_i18n::t;
 use std::path::PathBuf;
 
 pub(crate) const FAVORITE_INACTIVE_OPACITY: f32 = 0.7;
@@ -109,7 +108,6 @@ impl super::BooksGrid {
     &self, light: &LightBook, foreground: Hsla, primary: Hsla,
   ) -> Div {
     let title = self.render_book_title(light, foreground);
-    let fav_id: SharedString = format!("fav_{}", light.id).into();
     div()
       .w_full()
       .h(px(FOOTER_HEIGHT_PX))
@@ -122,12 +120,11 @@ impl super::BooksGrid {
       .px_2()
       .py_1()
       .child(title)
-      .child(self.render_favorite_button(light, fav_id, foreground, primary))
+      .child(self.render_favorite_button(light, light.fav_btn_id.clone(), foreground, primary))
   }
 
   pub(crate) fn render_book_card_info(&self, light: &LightBook, cx: &Context<Self>) -> Div {
     let theme = cx.theme();
-    let fav_id: SharedString = format!("fav_{}", light.id).into();
 
     div()
       .flex_1()
@@ -157,21 +154,20 @@ impl super::BooksGrid {
           )
           .child(
             div().flex().flex_col().text_sm().text_color(theme.foreground.opacity(0.7)).children([
-              div().text_sm().text_color(theme.foreground.opacity(0.7)).child(format!(
-                "{}: {}",
-                t!("components.card.format_label"),
-                light.ext.to_uppercase()
-              )),
               div()
                 .text_sm()
                 .text_color(theme.foreground.opacity(0.7))
-                .child(format!("File size: {} MB", light.size / 1_048_576)),
+                .child(light.format_label.clone()),
+              div()
+                .text_sm()
+                .text_color(theme.foreground.opacity(0.7))
+                .child(light.size_label.clone()),
             ]),
           ),
       )
       .child(div().flex().justify_end().items_center().child(self.render_favorite_button(
         light,
-        fav_id,
+        light.fav_btn_id.clone(),
         theme.foreground,
         theme.primary,
       )))
@@ -182,7 +178,6 @@ impl super::BooksGrid {
     card_height: Pixels, cx: &Context<Self>,
   ) -> Div {
     let theme = cx.theme();
-    let cover_id: SharedString = format!("cover_{}", light.id).into();
     let book_path = BookPath::from_id(&light.id);
 
     div()
@@ -205,7 +200,13 @@ impl super::BooksGrid {
           .border_r_1()
           .border_color(theme.border)
           .overflow_hidden()
-          .child(self.render_cover_click_area(book_path, cover_id, thumb, cover_state, cx)),
+          .child(self.render_cover_click_area(
+            book_path,
+            light.cover_btn_id.clone(),
+            thumb,
+            cover_state,
+            cx,
+          )),
       )
       .child(self.render_book_card_info(light, cx))
   }
@@ -216,7 +217,6 @@ impl super::BooksGrid {
   ) -> Div {
     let mode = Ctx::global(cx).settings.read().card_display_mode;
     let theme = cx.theme();
-    let cover_id: SharedString = format!("cover_{}", light.id).into();
     let book_path = BookPath::from_id(&light.id);
 
     let footer_height = if mode == libera_reader_core::db::models::CardDisplayMode::Detailed {
@@ -245,7 +245,13 @@ impl super::BooksGrid {
           .flex_shrink_0()
           .border_b_1()
           .border_color(theme.border)
-          .child(self.render_cover_click_area(book_path, cover_id, thumb, cover_state, cx)),
+          .child(self.render_cover_click_area(
+            book_path,
+            light.cover_btn_id.clone(),
+            thumb,
+            cover_state,
+            cx,
+          )),
       );
 
     if mode == libera_reader_core::db::models::CardDisplayMode::Detailed {

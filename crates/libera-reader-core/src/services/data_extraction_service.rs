@@ -2,7 +2,7 @@ use crate::app_dirs::AppDirs;
 use crate::db::DB;
 use crate::db::models::books::BookType::{self, DuplicateSize};
 use crate::db::models::books::DuplicateBookData::{BookHash, MutoolData};
-use crate::db::models::books::book::{Book, BookPath, BookSize};
+use crate::db::models::books::book::{BookPath, BookSize};
 use crate::db::models::books::book_hashes::BookHashes;
 use crate::db::models::books::book_sizes::BookSizes;
 use crate::send_event;
@@ -57,22 +57,18 @@ pub async fn run_data_extraction_service(
           .join("unhashed_books")
           .join(format!("{}.png", book_size_bytes));
         if fallback_path.exists() {
-          // PNG already on disk — update DB and skip
-          let _ = db.rw_t(|rw_t| {
-            if let Some(mut b) = rw_t.get().primary::<Book>(book.id.clone())? {
-              let old_b = b.clone();
-              b.has_thumbnail = true;
-              rw_t.update::<Book>(old_b, b)?;
-            }
-            Ok(())
-          });
+          // PNG already on disk — the next `has_thumbnail_on_disk` check
+          // (here or in the UI's `ThumbnailCache`) will pick it up via
+          // `BookSizes` / `BookHashes`. No more DB flag to keep in sync.
           send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
           drop(permit);
           return;
         }
 
-        // 3. Check if thumbnail is already known to be extracted (DB flag)
-        if book.has_thumbnail {
+        // 3. Skip if a usable thumbnail already exists on disk. This used to
+        //    consult a `Book.has_thumbnail: bool` cache field, which could
+        //    desync from reality; we now check the filesystem directly.
+        if book.has_thumbnail_on_disk(&db, &app_dirs.read().thumbnails_dir) {
           send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
           drop(permit);
           return;
@@ -189,16 +185,11 @@ pub async fn run_data_extraction_service(
           }
         };
 
-        // 4. If extraction succeeded, update Book.has_thumbnail and send event
+        // 4. If extraction succeeded, persist any computed hash migration and
+        //    notify subscribers. There is no `has_thumbnail` flag to flip —
+        //    the UI re-checks disk state through `ThumbnailCache`.
         if extraction_ok {
           let db_save_res = db.rw_t(|rw_t| {
-            // Update Book record to have has_thumbnail = true
-            if let Some(mut b) = rw_t.get().primary::<Book>(book.id.clone())? {
-              let old_b = b.clone();
-              b.has_thumbnail = true;
-              rw_t.update::<Book>(old_b, b)?;
-            }
-
             // If we computed a hash, migrate MutoolData → BookHash in DuplicateSize
             if let Some(hash) = &computed_hash
               && let Some(old_book_sizes) = rw_t.get().primary::<BookSizes>(book.book_size)?

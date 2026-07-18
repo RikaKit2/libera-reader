@@ -30,10 +30,11 @@ fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
   }
 
   let ctx = Ctx::global(cx);
-  let initial_books = ctx.db.scan_all_books().unwrap_or_default();
+  let thumbnails_dir = ctx.app_dirs.read().thumbnails_dir.clone();
+  let db = ctx.db.clone();
 
   let event_rx = ctx.event_tx.subscribe();
-  let pages = Pages::new(window, cx, initial_books, event_rx);
+  let pages = Pages::new(window, cx, thumbnails_dir, &db, event_rx);
   cx.new(|cx| Root::new(pages, window, cx))
 }
 
