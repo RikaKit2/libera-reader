@@ -1,45 +1,54 @@
+mod actions;
+pub(crate) mod cache;
+mod card;
+pub(crate) mod image_utils;
+pub(crate) mod loader;
+
 use crate::TOKIO;
+use crate::books_state::models::LightBook;
+use crate::books_state::{BooksState, TargetList};
 use crate::ui::components::books_grid::cache::{BoundedCache, CoverState};
-use crate::ui::components::books_grid::image_utils::ROW_H;
 use crate::ui::components::books_grid::loader::spawn_background_loader;
-use gpui::prelude::*;
+use crate::ui::constants as C;
 use gpui::{
-  AsyncApp, Context, Div, ImageSource, IntoElement, ObjectFit, ParentElement, Pixels, Render,
-  SharedString, Styled, Window, div, px, size,
+  AsyncApp, Context, Div, IntoElement, ParentElement, Pixels, Render, Styled, Window, div, px, size,
 };
 use gpui_component::scroll::Scrollbar;
-use gpui_component::{ActiveTheme, VirtualListScrollHandle, v_virtual_list};
+use gpui_component::{VirtualListScrollHandle, v_virtual_list};
+use libera_reader_core::db::models::CardDisplayMode;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
-pub(crate) mod cache;
-pub(crate) mod image_utils;
-pub(crate) mod loader;
-
-const COLS: usize = 6;
-
 pub struct BooksGrid {
-  pub(crate) images: Vec<PathBuf>,
-  pub(crate) item_sizes: Rc<Vec<gpui::Size<Pixels>>>,
+  pub(crate) state: gpui::Entity<BooksState>,
+  pub(crate) target: TargetList,
+  pub(crate) columns: usize,
+  pub(crate) row_height: Pixels,
+  pub(crate) mode: CardDisplayMode,
   pub(crate) scroll_handle: VirtualListScrollHandle,
+  pub(crate) id: gpui::ElementId,
+  pub(crate) thumbnail_paths: Vec<Option<PathBuf>>,
   pub(crate) image_cache: Arc<Mutex<BoundedCache>>,
   pub(crate) visible_start: Arc<AtomicUsize>,
   pub(crate) visible_end: Arc<AtomicUsize>,
-  pub(crate) load_tx: tokio::sync::mpsc::UnboundedSender<(usize, PathBuf)>,
+  pub(crate) load_tx: tokio::sync::mpsc::UnboundedSender<(usize, gpui::SharedString, PathBuf)>,
 }
 
 impl BooksGrid {
-  pub fn new(images: Vec<PathBuf>, cache_size: usize, cx: &mut Context<Self>) -> Self {
-    let rows = images.len().div_ceil(COLS);
-    let sizes = Rc::new(std::iter::repeat_n(size(px(800.0), px(ROW_H)), rows.max(1)).collect());
+  pub fn new(
+    state: gpui::Entity<BooksState>, target: TargetList, cache_size: usize, id: gpui::ElementId,
+    cx: &mut Context<Self>,
+  ) -> Self {
+    cx.observe(&state, |_, _, cx| cx.notify()).detach();
 
     let cache = Arc::new(Mutex::new(BoundedCache::new(cache_size.max(1))));
     let visible_start = Arc::new(AtomicUsize::new(0));
     let visible_end = Arc::new(AtomicUsize::new(0));
 
-    let (load_tx, load_rx) = tokio::sync::mpsc::unbounded_channel::<(usize, PathBuf)>();
+    let (load_tx, load_rx) =
+      tokio::sync::mpsc::unbounded_channel::<(usize, gpui::SharedString, PathBuf)>();
     let (notify_tx, mut notify_rx) = tokio::sync::mpsc::unbounded_channel::<()>();
 
     cx.spawn(|this: gpui::WeakEntity<Self>, cx: &mut AsyncApp| {
@@ -63,9 +72,14 @@ impl BooksGrid {
     );
 
     Self {
-      images,
-      item_sizes: sizes,
+      state,
+      target,
+      columns: 6,
+      row_height: px(200.0),
+      mode: CardDisplayMode::Compact,
       scroll_handle: VirtualListScrollHandle::new(),
+      id,
+      thumbnail_paths: Vec::new(),
       image_cache: cache,
       visible_start,
       visible_end,
@@ -73,103 +87,154 @@ impl BooksGrid {
     }
   }
 
-  fn render_cell(
-    &self, idx: usize, state: Option<CoverState>, bg_color: gpui::Hsla, muted: gpui::Hsla,
-  ) -> Div {
-    let path = &self.images[idx];
-    let name: SharedString =
-      path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string().into();
-
-    let content: Div = match state {
-      Some(CoverState::Loaded(loaded_img)) => div().w_full().h_full().child(
-        gpui::img(ImageSource::Render(loaded_img)).w_full().h_full().object_fit(ObjectFit::Cover),
-      ),
-      Some(CoverState::Failed) => div()
-        .w_full()
-        .h_full()
-        .flex()
-        .items_center()
-        .justify_center()
-        .text_color(gpui::red())
-        .child(SharedString::from("Error")),
-      Some(CoverState::Loading) | None => div()
-        .w_full()
-        .h_full()
-        .flex()
-        .items_center()
-        .justify_center()
-        .text_color(muted)
-        .child(SharedString::from("...")),
+  /// Apply the dynamically computed layout (called from the page `render`).
+  /// Mirrors the old `set_layout`: List mode halves the column count, Detailed
+  /// mode reserves space for the footer.
+  pub fn set_layout(&mut self, columns: usize, row_height: Pixels, mode: CardDisplayMode) {
+    self.mode = mode;
+    self.columns =
+      if mode == CardDisplayMode::List { (columns / 2).max(1) } else { columns.max(1) };
+    self.row_height = if mode == CardDisplayMode::Detailed {
+      row_height + px(crate::ui::components::books_grid::FOOTER_HEIGHT_PX)
+    } else {
+      row_height
     };
+  }
 
-    div()
-      .flex()
-      .flex_col()
-      .flex_1()
-      .h(px(150.0))
-      .gap_1()
-      .child(div().w_full().flex_1().rounded_md().overflow_hidden().bg(bg_color).child(content))
-      .child(div().text_xs().text_color(muted).truncate().child(name))
+  /// Replace the resolved thumbnail paths (one entry per book in the current
+  /// target list, in order; `None` means no thumbnail on disk yet).
+  pub fn set_thumbnail_paths(&mut self, paths: Vec<Option<PathBuf>>, cx: &mut Context<Self>) {
+    self.thumbnail_paths = paths;
+    cx.notify();
+  }
+
+  fn total_books(&self, cx: &mut Context<Self>) -> usize {
+    let state = self.state.read(cx);
+    match self.target {
+      TargetList::Library => state.library_keys.len(),
+      TargetList::Favorites => state.favorites_keys.len(),
+      TargetList::History => state.history_keys.len(),
+      TargetList::Bookmarks => state.bookmarks_keys.len(),
+    }
+  }
+
+  fn render_placeholder() -> Div {
+    div().w_0().flex_grow_1().h_full().flex().flex_col().opacity(0.0)
   }
 }
+
+/// Footer height reserved in `Detailed` card mode.
+pub(crate) const FOOTER_HEIGHT_PX: f32 = 52.0;
+
+/// Per-cell data collected in pass 1 (with borrows held) and consumed in pass 2
+/// (with a clean mutable view) to avoid borrow conflicts.
+type RowCells = Vec<(LightBook, Option<PathBuf>, Option<CoverState>)>;
 
 impl Render for BooksGrid {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     self.image_cache.lock().unwrap().flush_evictions(cx);
 
-    let total = self.images.len();
-    let total_rows = total.div_ceil(COLS);
-    let scroll = self.scroll_handle.clone();
-    let bg_color = cx.theme().background;
-    let muted = cx.theme().muted_foreground;
+    let total_books = self.total_books(cx);
+    let columns = self.columns.max(1);
+    let total_rows = total_books.div_ceil(columns);
+    let row_height = self.row_height;
+    let card_height = row_height - px(C::GRID_ROW_GAP);
 
+    let item_sizes: Rc<Vec<gpui::Size<Pixels>>> =
+      Rc::new((0..total_rows.max(1)).map(|_| size(px(0.), row_height)).collect());
+
+    let scroll = self.scroll_handle.clone();
     let list = v_virtual_list(
       cx.entity().clone(),
-      "books-grid",
-      self.item_sizes.clone(),
-      move |view: &mut BooksGrid, visible_range, _window, _cx| {
-        let start_idx = visible_range.start * COLS;
-        let end_idx = (visible_range.end * COLS).min(total);
+      self.id.clone(),
+      item_sizes,
+      move |view: &mut BooksGrid, visible_range, _window, cx| {
+        let start_idx = visible_range.start * columns;
+        let end_idx = (visible_range.end * columns).min(total_books);
         view.visible_start.store(start_idx, Ordering::Relaxed);
         view.visible_end.store(end_idx, Ordering::Relaxed);
 
-        let mut cache_lock = view.image_cache.lock().unwrap();
-        let mut rows = Vec::new();
+        // --- Pass 1: gather per-row cell data while immutable borrows are held ---
+        // `view.state` (read) and `view.image_cache` (mutex) are borrowed here.
+        // Both must be released before pass 2 hands `view` to the card renderer.
+        let mut rows_data: Vec<RowCells> = Vec::new();
+        {
+          let state = view.state.read(cx);
+          let keys = match view.target {
+            TargetList::Library => &state.library_keys,
+            TargetList::Favorites => &state.favorites_keys,
+            TargetList::History => &state.history_keys,
+            TargetList::Bookmarks => &state.bookmarks_keys,
+          };
+          let mut cache_lock = view.image_cache.lock().unwrap();
 
-        for row in visible_range {
-          if row >= total_rows {
-            break;
-          }
-          let start = row * COLS;
-          let end = (start + COLS).min(total);
-
-          let mut cells = Vec::with_capacity(end - start);
-          for i in start..end {
-            let state = cache_lock.get_mut(i);
-
-            if state.is_none() {
-              cache_lock.insert(i, CoverState::Loading);
-              let _ = view.load_tx.send((i, view.images[i].clone()));
+          for row in visible_range {
+            if row >= total_rows {
+              break;
             }
-            cells.push(view.render_cell(i, state, bg_color, muted));
+            let start = row * columns;
+            let end = (start + columns).min(total_books);
+
+            let mut cell_data: RowCells = Vec::with_capacity(end - start);
+            for (i, id) in keys.iter().enumerate().take(end).skip(start) {
+              let light = match state.books_map.get(id) {
+                Some(b) => b.clone(),
+                None => continue,
+              };
+              let thumb = view.thumbnail_paths.get(i).cloned().flatten();
+
+              // Cache is keyed by book id, so a reorder (reverse/sort/search)
+              // never surfaces a stale cover from the old cell at this index.
+              let cover_state = cache_lock.get_mut(id);
+              if cover_state.is_none()
+                && let Some(path) = thumb.clone()
+              {
+                cache_lock.insert(id.clone(), CoverState::Loading);
+                let _ = view.load_tx.send((i, id.clone(), path));
+              }
+              cell_data.push((light, thumb, cover_state));
+            }
+            rows_data.push(cell_data);
           }
-          rows.push(div().flex().gap_2().h_full().w_full().px_2().children(cells));
+        }
+        // borrows of `view.state` and `view.image_cache` are now released.
+
+        // --- Pass 2: render cells with a clean mutable `view` ---
+        let mut rows = Vec::with_capacity(rows_data.len());
+        for cell_data in rows_data {
+          let mut cells: Vec<Div> = Vec::with_capacity(columns);
+          for (light, thumb, cover_state) in cell_data {
+            cells.push(card::render_book_card(view, &light, thumb, cover_state, card_height, cx));
+          }
+          // Pad the row so columns stay aligned.
+          for _ in cells.len()..columns {
+            cells.push(Self::render_placeholder());
+          }
+
+          rows.push(
+            div()
+              .flex()
+              .w_full()
+              .h(row_height)
+              .gap(px(C::GRID_CELL_GAP))
+              .pl(px(C::GRID_PL))
+              .pb(px(C::GRID_ROW_GAP))
+              .children(cells),
+          );
         }
         rows
       },
     )
     .track_scroll(&scroll)
-    .flex_1()
-    .w_full();
+    .size_full();
 
-    div().relative().size_full().child(list).child(
+    div().relative().size_full().child(div().size_full().pr(px(C::GRID_PR)).child(list)).child(
       div()
         .absolute()
-        .right_0()
         .top_0()
+        .right_0()
         .bottom_0()
         .w_2()
-        .bg(cx.theme().scrollbar)
         .child(Scrollbar::new(&self.scroll_handle)),
     )
   }
