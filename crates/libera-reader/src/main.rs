@@ -1,5 +1,14 @@
+// Conditional global allocator: dhat::Alloc when profiling, mimalloc otherwise.
+// Build with `cargo run --release --features dhat-heap` to get a `dhat-heap.json`
+// profile on exit. See documentation/ram.md §3 / §12.
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+
+#[cfg(not(feature = "dhat-heap"))]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
+
 rust_i18n::i18n!("../../locales");
 
 mod app_utils;
@@ -15,6 +24,7 @@ use gpui::AppContext;
 use gpui::{App, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
 use gpui_component::Root;
 use libera_reader_core::ctx::Ctx;
+#[cfg(not(feature = "dhat-heap"))]
 use mimalloc::MiMalloc;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -41,6 +51,11 @@ fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
 fn main() -> Result<()> {
   better_panic::install();
   create_subscriber()?;
+
+  // Activate the dhat heap profiler when the `dhat-heap` feature is on.
+  // The `Drop` of `_profiler` at process exit writes `dhat-heap.json` to cwd.
+  #[cfg(feature = "dhat-heap")]
+  let _profiler = dhat::Profiler::new_heap();
 
   TOKIO.set(Runtime::new().unwrap()).expect("Failed to initialize Tokio runtime");
 
