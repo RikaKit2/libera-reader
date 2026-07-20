@@ -7,6 +7,8 @@ members = [
     "crates/utils", "crates/grid_img_viewer",
 ]
 
+
+
 [workspace.dependencies]
 gpui = { git = "https://github.com/zed-industries/zed", rev = "9cb139fc385db58254296d984b05d49dbdfda683" }
 gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "9cb139fc385db58254296d984b05d49dbdfda683", features = ["font-kit", "wayland", "x11"] }
@@ -52,6 +54,7 @@ rust-i18n = "3.1.5"
 futures-util = { version = "0.3", features = ["sink"] }
 lru = "0.18"
 smallvec = "1.14"
+dhat = "0.3"
 
 
 
