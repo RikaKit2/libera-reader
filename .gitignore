@@ -21,3 +21,4 @@ combined_project.txt.rs
 crates/libera-reader-core-old/
 crates/libera-reader-old/
 documentation/
+.vscode/

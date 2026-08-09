@@ -4,10 +4,9 @@ members = [
     "crates/libera-reader-core",
     "crates/libera-reader",
     "crates/mutool",
-    "crates/utils", "crates/grid_img_viewer",
+    "crates/utils",
+    "crates/grid_img_viewer",
 ]
-
-
 
 [workspace.dependencies]
 gpui = { git = "https://github.com/zed-industries/zed", rev = "9cb139fc385db58254296d984b05d49dbdfda683" }
@@ -55,7 +54,6 @@ futures-util = { version = "0.3", features = ["sink"] }
 lru = "0.18"
 smallvec = "1.14"
 dhat = "0.3"
-
 
 
 [profile.dev.package."*"]
