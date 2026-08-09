@@ -7,11 +7,6 @@ repository = "https://github.com/RikaKit2/libera-reader"
 edition = "2024"
 
 [features]
-# Enable dhat-rs heap profiling. Run with:
-#   cargo run --release --features dhat-heap
-# then exit the app normally; `dhat-heap.json` will appear in the cwd.
-# Load it into https://nnethercote.github.io/dhat-viewer/ to inspect
-# allocations by call-site. See documentation/ram.md §3 / §12.
 default = []
 dhat-heap = ["dep:dhat"]
 
