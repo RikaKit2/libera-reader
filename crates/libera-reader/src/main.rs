@@ -15,6 +15,7 @@ use gpui::{App, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOpt
 use gpui_component::Root;
 use libera_reader::TOKIO;
 use libera_reader::app_utils::{set_lang, start_services};
+use libera_reader::books_state::BooksState;
 use libera_reader::ctx::Ctx;
 use libera_reader::theme::init_theme;
 use libera_reader::ui::{assets::Assets, pages::Pages};
@@ -23,17 +24,26 @@ use tokio::runtime::Runtime;
 use utils::create_subscriber;
 
 fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
+  let ctx = Ctx::global(cx);
+  let thumbnails_dir = ctx.app_dirs.read().thumbnails_dir.clone();
+  let db = ctx.db.clone();
+
+  let mut state_handle = None;
+  let books_state = cx.new(|cx| {
+    let (state, handle) = BooksState::new(thumbnails_dir, &db, cx);
+    state_handle = Some(handle);
+    state
+  });
+  if let Some(handle) = state_handle {
+    Ctx::global_mut(cx).set_state_handle(handle);
+  }
+
   let setup_is_done = Ctx::global(cx).settings.read().setup_is_done;
   if setup_is_done {
     start_services(cx);
   }
 
-  let ctx = Ctx::global(cx);
-  let thumbnails_dir = ctx.app_dirs.read().thumbnails_dir.clone();
-  let db = ctx.db.clone();
-
-  let event_rx = ctx.event_tx.subscribe();
-  let pages = Pages::new(window, cx, thumbnails_dir, &db, event_rx);
+  let pages = Pages::new(window, cx, books_state);
   cx.new(|cx| Root::new(pages, window, cx))
 }
 

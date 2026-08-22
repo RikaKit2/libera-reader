@@ -2,17 +2,13 @@ use serde::{Deserialize, Serialize};
 
 /// Lightweight, UI-agnostic snapshot of a `Book`.
 ///
-/// This is what services push through `LibraryEvent` instead of the full `Book`
-/// struct. `Book` carries `Vec<BookMark>`, two `String`s, a nested `BookPath`
-/// with multiple `SharedString`s — all of which would be cloned by every
-/// `broadcast::Sender::send` and then immediately discarded when the UI side
-/// rebuilds its own `LightBook`.
+/// Services construct this lightweight snapshot instead of passing full `Book`
+/// structs across thread boundaries. `Book` carries `Vec<BookMark>`, multiple `String`s,
+/// and a nested `BookPath` with multiple `SharedString`s.
 ///
 /// `BookSnapshot` carries exactly the fields the UI needs to render and sort,
-/// nothing else. Construction happens once, on the service side, right after
-/// the book is read from the database.
-///
-/// See `documentation/ram.md` §6 / §10 for the rationale.
+/// nothing else. Construction happens on the service side right after the book is
+/// read from or written to the database.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BookSnapshot {
   /// Full path string, same as `Book::id` / `BookPath::full_path_string()`.

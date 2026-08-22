@@ -1,12 +1,10 @@
 use anyhow::Result;
 use libera_reader::ctx::Ctx;
 use libera_reader::db::models::books::book::{Book, BookDir, BookPath};
-use libera_reader::types::LibraryEvent;
 use mutool::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::{create_dir, remove_dir_all, rename};
-use tokio::sync::broadcast::Receiver;
 use utils::{debug, error, title};
 #[allow(dead_code)]
 pub enum TestMode {
@@ -33,7 +31,6 @@ pub struct TestLib {
   tmp_dir: PathBuf,
 
   ctx: Ctx,
-  _event_rx: Receiver<LibraryEvent>,
 }
 
 impl TestLib {
@@ -50,8 +47,6 @@ impl TestLib {
 
     download_mutool_if_missing_blocking(&test_files).await?;
 
-    let _event_rx = ctx.event_tx.subscribe();
-
     Ok(Self {
       first_book: tmp_dir.join(FIRST_BOOK),
       second_book: tmp_dir.join(SECOND_BOOK),
@@ -61,7 +56,6 @@ impl TestLib {
       tmp_dir,
       test_mode,
       ctx,
-      _event_rx,
     })
   }
 

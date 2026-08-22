@@ -1,21 +1,21 @@
 use crate::app_dirs::AppDirs;
+use crate::books_state::BooksStateHandle;
 use crate::db::DB;
 use crate::db::models::books::BookType::{self, DuplicateSize};
 use crate::db::models::books::DuplicateBookData::{BookHash, MutoolData};
 use crate::db::models::books::book::{BookPath, BookSize};
 use crate::db::models::books::book_hashes::BookHashes;
 use crate::db::models::books::book_sizes::BookSizes;
-use crate::send_event;
 use crate::settings::SETTINGS;
-use crate::types::{HashSet, LibraryEvent};
+use crate::types::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use tokio::sync::Semaphore;
 use tokio::sync::mpsc::UnboundedReceiver;
-use tokio::sync::{Semaphore, broadcast};
 
 pub async fn run_data_extraction_service(
   db: DB, app_dirs: AppDirs, mut rx: UnboundedReceiver<BookPath>,
-  event_tx: broadcast::Sender<LibraryEvent>, settings: SETTINGS,
+  state_handle: Option<BooksStateHandle>, settings: SETTINGS,
 ) {
   let initial_workers = settings.read().workers_num.max(1) as usize;
   println!("[Extractor] SERVICE STARTING | Workers: {}", initial_workers);
@@ -38,7 +38,7 @@ pub async fn run_data_extraction_service(
     let permit = Arc::clone(&semaphore).acquire_owned().await.unwrap();
     let db = db.clone();
     let app_dirs = app_dirs.clone();
-    let event_tx = event_tx.clone();
+    let state_handle = state_handle.clone();
 
     tokio::spawn(async move {
       if let Ok(Some(book)) = db.get_book(path.clone()) {
@@ -60,7 +60,9 @@ pub async fn run_data_extraction_service(
           // PNG already on disk — the next `has_thumbnail_on_disk` check
           // (here or in the UI's `ThumbnailCache`) will pick it up via
           // `BookSizes` / `BookHashes`. No more DB flag to keep in sync.
-          send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
+          if let Some(handle) = &state_handle {
+            handle.mark_thumbnail_extracted(book.book_path.clone());
+          }
           drop(permit);
           return;
         }
@@ -69,7 +71,9 @@ pub async fn run_data_extraction_service(
         //    consult a `Book.has_thumbnail: bool` cache field, which could
         //    desync from reality; we now check the filesystem directly.
         if book.has_thumbnail_on_disk(&db, &app_dirs.read().thumbnails_dir) {
-          send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
+          if let Some(handle) = &state_handle {
+            handle.mark_thumbnail_extracted(book.book_path.clone());
+          }
           drop(permit);
           return;
         }
@@ -217,8 +221,10 @@ pub async fn run_data_extraction_service(
             Ok(())
           });
 
-          if db_save_res.is_ok() {
-            send_event!(event_tx, LibraryEvent::ThumbnailExtracted(book.book_path.clone()));
+          if db_save_res.is_ok()
+            && let Some(handle) = &state_handle
+          {
+            handle.mark_thumbnail_extracted(book.book_path.clone());
           }
         }
       }

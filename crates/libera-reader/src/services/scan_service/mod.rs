@@ -1,20 +1,20 @@
 use crate::{
   app_dirs::AppDirs,
+  books_state::BooksStateHandle,
   db::{
     DB,
     models::books::book::{Book, BookPath, BookSnapshot},
   },
   not_cached_books::NotCachedBooks,
-  send_event,
   settings::SETTINGS,
-  types::{LibraryEvent, MUPDF_EXTENSIONS},
+  types::MUPDF_EXTENSIONS,
 };
 use std::{path::PathBuf, time::Instant};
 
 use jwalk::WalkDir;
 
 use crate::types::HashSet;
-use tokio::sync::{broadcast, mpsc::UnboundedReceiver};
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::{self, Duration};
 use utils::debug;
 
@@ -22,17 +22,21 @@ use utils::debug;
 pub struct ScanService {
   settings: SETTINGS,
   db: DB,
-  event_tx: broadcast::Sender<LibraryEvent>,
+  state_handle: Option<BooksStateHandle>,
   not_cached_books: NotCachedBooks,
   app_dirs: AppDirs,
 }
 
 impl ScanService {
   pub(crate) fn new(
-    settings: SETTINGS, db: DB, event_tx: broadcast::Sender<LibraryEvent>,
-    not_cached_books: NotCachedBooks, app_dirs: AppDirs,
+    settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs,
+    state_handle: Option<BooksStateHandle>,
   ) -> Self {
-    Self { settings, db, event_tx, not_cached_books, app_dirs }
+    Self { settings, db, state_handle, not_cached_books, app_dirs }
+  }
+
+  pub fn set_state_handle(&mut self, handle: BooksStateHandle) {
+    self.state_handle = Some(handle);
   }
 
   pub fn settings(&self) -> &SETTINGS {
@@ -161,7 +165,6 @@ impl ScanService {
   fn insert_books(&self, buffer: Vec<BookPath>, existing_ids: &mut HashSet<String>) -> usize {
     let mut new_books = 0;
     let mut inserted_books: Vec<Book> = Vec::new();
-    let event_tx = &self.event_tx;
 
     let _ = self.db.rw_t(|rw_t| {
       for book_path in buffer {
@@ -194,15 +197,15 @@ impl ScanService {
         .iter()
         .map(|b| BookSnapshot::from_book(b, b.has_thumbnail_on_disk(&self.db, &thumbnails_dir)))
         .collect();
-      send_event!(event_tx, LibraryEvent::BooksBatchAdded(snapshots));
+      if let Some(handle) = &self.state_handle {
+        handle.add_books_batch(snapshots);
+      }
     }
-
     new_books
   }
 
   async fn remove_outdated_books(&self, remaining_ids: HashSet<String>) -> usize {
     let mut removed_count = 0;
-    let event_tx = &self.event_tx;
 
     // Collect updated books inside the transaction; build snapshots afterwards so
     // we can call `has_thumbnail_on_disk` with an `&DB` reference.
@@ -238,17 +241,18 @@ impl ScanService {
     });
 
     let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
-    for path in removed_paths {
-      send_event!(event_tx, LibraryEvent::BookRemoved(path));
+    if let Some(handle) = &self.state_handle {
+      for path in removed_paths {
+        handle.remove_book(path);
+      }
+      for updated_book in updated_books {
+        let snapshot = BookSnapshot::from_book(
+          &updated_book,
+          updated_book.has_thumbnail_on_disk(&self.db, &thumbnails_dir),
+        );
+        handle.update_book(snapshot);
+      }
     }
-    for updated_book in updated_books {
-      let snapshot = BookSnapshot::from_book(
-        &updated_book,
-        updated_book.has_thumbnail_on_disk(&self.db, &thumbnails_dir),
-      );
-      send_event!(event_tx, LibraryEvent::BookUpdated(snapshot));
-    }
-
     removed_count
   }
 }

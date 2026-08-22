@@ -2,14 +2,12 @@ pub mod data_extraction_service;
 pub mod notify_service;
 pub mod scan_service;
 
-use anyhow::Result;
-use notify_service::NotifyService;
-
-use crate::types::LibraryEvent;
+use crate::books_state::BooksStateHandle;
 use crate::{
   db::DB, not_cached_books::NotCachedBooks, services::scan_service::ScanService, settings::SETTINGS,
 };
-use tokio::sync::broadcast;
+use anyhow::Result;
+use notify_service::NotifyService;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WorkStatus {
@@ -24,27 +22,27 @@ pub struct Services {
   pub not_cached_books: NotCachedBooks,
   db: DB,
   app_dirs: crate::app_dirs::AppDirs,
-  event_tx: broadcast::Sender<LibraryEvent>,
+  state_handle: Option<BooksStateHandle>,
 }
 
 impl Services {
   pub(crate) fn new(
     settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks,
-    event_tx: broadcast::Sender<LibraryEvent>, app_dirs: crate::app_dirs::AppDirs,
+    app_dirs: crate::app_dirs::AppDirs, state_handle: Option<BooksStateHandle>,
   ) -> Result<Self> {
     let notify_service = NotifyService::new(
       not_cached_books.clone(),
       settings.clone(),
       db.clone(),
       app_dirs.clone(),
-      event_tx.clone(),
+      state_handle.clone(),
     )?;
     let scan_service = ScanService::new(
       settings,
       db.clone(),
-      event_tx.clone(),
       not_cached_books.clone(),
       app_dirs.clone(),
+      state_handle.clone(),
     );
 
     Ok(Self {
@@ -54,8 +52,14 @@ impl Services {
       not_cached_books,
       db,
       app_dirs,
-      event_tx,
+      state_handle,
     })
+  }
+
+  pub fn set_state_handle(&mut self, handle: BooksStateHandle) {
+    self.state_handle = Some(handle.clone());
+    self.scan_service.set_state_handle(handle.clone());
+    self.notify_service.set_state_handle(handle);
   }
 
   pub async fn run(&mut self) -> Result<()> {
@@ -72,13 +76,17 @@ impl Services {
     if self.data_extraction_service_working_status == WorkStatus::NotWorking {
       let db = self.db.clone();
       let app_dirs = self.app_dirs.clone();
-      let event_tx = self.event_tx.clone();
+      let state_handle = self.state_handle.clone();
       let settings = self.scan_service.settings().clone();
 
       if let Some(rx) = self.not_cached_books.take_rx() {
         tokio::spawn(async move {
           data_extraction_service::run_data_extraction_service(
-            db, app_dirs, rx, event_tx, settings,
+            db,
+            app_dirs,
+            rx,
+            state_handle,
+            settings,
           )
           .await;
         });

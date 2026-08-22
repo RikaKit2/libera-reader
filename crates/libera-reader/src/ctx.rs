@@ -3,19 +3,15 @@ use crate::db::models::BookMark;
 use crate::db::models::books::book::BookPath;
 
 use crate::app_dirs::AppDirs;
+use crate::books_state::BooksStateHandle;
 use crate::db::models::{AppTheme, Lang, RootRoute};
 use crate::error_handler::{ErrorHandler, ErrorReceiver};
 use crate::not_cached_books::NotCachedBooks;
-use crate::send_event;
 use crate::services::Services;
 use crate::settings::SETTINGS;
-use crate::types::LibraryEvent;
 use gpui::{App, Global};
 use std::path::PathBuf;
-use tokio::sync::broadcast;
 use utils::debug;
-
-pub type LibraryEventSender = broadcast::Sender<LibraryEvent>;
 
 pub struct Ctx {
   pub settings: SETTINGS,
@@ -25,7 +21,7 @@ pub struct Ctx {
   pub error_handler: ErrorHandler,
   pub error_receiver: ErrorReceiver,
   pub db: DB,
-  pub event_tx: LibraryEventSender,
+  pub state_handle: Option<BooksStateHandle>,
 }
 impl Default for Ctx {
   fn default() -> Self {
@@ -50,15 +46,9 @@ impl Ctx {
     let db = DB::new(path_to_db).unwrap();
     let settings = SETTINGS::new(db.clone()).unwrap();
     let not_cached_books = NotCachedBooks::new();
-    let (event_tx, _) = broadcast::channel::<LibraryEvent>(1024);
-    let services = Services::new(
-      settings.clone(),
-      db.clone(),
-      not_cached_books.clone(),
-      event_tx.clone(),
-      app_dirs.clone(),
-    )
-    .unwrap();
+    let services =
+      Services::new(settings.clone(), db.clone(), not_cached_books.clone(), app_dirs.clone(), None)
+        .unwrap();
     Self {
       services,
       settings,
@@ -67,7 +57,7 @@ impl Ctx {
       db,
       error_handler,
       error_receiver,
-      event_tx,
+      state_handle: None,
     }
   }
   pub fn init(cx: &mut App) {
@@ -90,30 +80,37 @@ impl Ctx {
   pub fn get_curr_route(&self) -> RootRoute {
     self.settings.read().route
   }
+  pub fn set_state_handle(&mut self, handle: BooksStateHandle) {
+    self.state_handle = Some(handle.clone());
+    self.services.set_state_handle(handle);
+  }
 
   pub fn add_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> anyhow::Result<()> {
-    if let Some(updated_book) = self.db.add_bookmark(book_path.clone(), bookmark)? {
+    if let Some(updated_book) = self.db.add_bookmark(book_path, bookmark)? {
       let snapshot = self.snapshot_for(&updated_book);
-      send_event!(self.event_tx, LibraryEvent::BookUpdated(snapshot));
-      send_event!(self.event_tx, LibraryEvent::BookMarkAdded { book_path });
+      if let Some(handle) = &self.state_handle {
+        handle.update_book(snapshot);
+      }
     }
     Ok(())
   }
 
   pub fn update_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> anyhow::Result<()> {
-    if let Some(updated_book) = self.db.update_bookmark(book_path.clone(), bookmark)? {
+    if let Some(updated_book) = self.db.update_bookmark(book_path, bookmark)? {
       let snapshot = self.snapshot_for(&updated_book);
-      send_event!(self.event_tx, LibraryEvent::BookUpdated(snapshot));
-      send_event!(self.event_tx, LibraryEvent::BookMarkUpdated { book_path });
+      if let Some(handle) = &self.state_handle {
+        handle.update_book(snapshot);
+      }
     }
     Ok(())
   }
 
   pub fn remove_bookmark(&self, book_path: BookPath, time_created: &str) -> anyhow::Result<()> {
-    if let Some(updated_book) = self.db.remove_bookmark(book_path.clone(), time_created)? {
+    if let Some(updated_book) = self.db.remove_bookmark(book_path, time_created)? {
       let snapshot = self.snapshot_for(&updated_book);
-      send_event!(self.event_tx, LibraryEvent::BookUpdated(snapshot));
-      send_event!(self.event_tx, LibraryEvent::BookMarkRemoved { book_path });
+      if let Some(handle) = &self.state_handle {
+        handle.update_book(snapshot);
+      }
     }
     Ok(())
   }

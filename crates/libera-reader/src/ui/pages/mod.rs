@@ -1,14 +1,10 @@
+use crate::books_state::BooksState;
 use crate::ctx::GlobalCTX;
-use crate::db::DB;
-use crate::types::LibraryEvent;
+use crate::ui::pages::main::MainPage;
 use crate::ui::pages::setup::SetupPage;
-use crate::{books_state::BooksState, ui::pages::main::MainPage};
 use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
-use std::path::PathBuf;
-use tokio::sync::broadcast::Receiver;
-
 #[path = "book-viewer/mod.rs"]
 pub(crate) mod book_viewer;
 pub(crate) mod main;
@@ -20,13 +16,9 @@ pub struct Pages {
 }
 
 impl Pages {
-  pub fn new(
-    window: &mut Window, cx: &mut App, thumbnails_dir: PathBuf, db: &DB,
-    event_rx: Receiver<LibraryEvent>,
-  ) -> Entity<Self> {
-    let books_state = cx.new(|cx| BooksState::new(thumbnails_dir, db, event_rx, cx));
+  pub fn new(window: &mut Window, cx: &mut App, books_state: Entity<BooksState>) -> Entity<Self> {
     cx.new(|c| Self {
-      main_page: MainPage::new(window, c, books_state.clone()),
+      main_page: MainPage::new(window, c, books_state),
       setup_page: SetupPage::new(window, c),
     })
   }
