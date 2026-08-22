@@ -6,7 +6,7 @@ use std::{
 use gpui::SharedString;
 use serde::{Deserialize, Serialize};
 
-use crate::db::models::{BookMark, UserData};
+use crate::db::models::UserData;
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
@@ -16,13 +16,11 @@ mod book_dir;
 mod book_ext;
 mod book_path;
 mod book_size;
-mod snapshot;
 
 pub use book_dir::BookDir;
 pub use book_ext::BookExt;
 pub use book_path::BookPath;
 pub use book_size::BookSize;
-pub use snapshot::BookSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[native_model(id = 1, version = 1)]
@@ -37,7 +35,7 @@ pub struct Book {
   pub book_size: BookSize,
   pub user_data: UserData,
   #[serde(default)]
-  pub bookmarks: Vec<BookMark>,
+  pub bookmark_count: usize,
 }
 
 impl Book {
@@ -49,7 +47,7 @@ impl Book {
       book_path,
       book_size,
       user_data: UserData::default(),
-      bookmarks: Vec::new(),
+      bookmark_count: 0,
     })
   }
 
@@ -65,9 +63,8 @@ impl Book {
     self.pathbuf().to_str().unwrap().to_string().into()
   }
   pub fn can_delete(&self) -> bool {
-    !self.user_data.favorite && self.user_data.last_opened == 0 && self.bookmarks.is_empty()
+    !self.user_data.favorite && self.user_data.last_opened == 0 && self.bookmark_count == 0
   }
-
   /// Whether a usable thumbnail PNG currently exists on disk for this book.
   ///
   /// This is the **source of truth** for the UI's "does this book have a cover?"
@@ -84,27 +81,48 @@ impl Book {
     self.get_thumbnail_png_path(db, thumbnails_dir).ok().flatten().is_some()
   }
 
-  pub fn add_bookmark(&mut self, bookmark: BookMark) {
-    self.bookmarks.push(bookmark);
+  pub fn name(&self) -> &SharedString {
+    &self.book_path.name
   }
 
-  pub fn update_bookmark(&mut self, bookmark: BookMark) -> bool {
-    if let Some(existing) =
-      self.bookmarks.iter_mut().find(|b| b.time_created == bookmark.time_created)
-    {
-      *existing = bookmark;
-      true
-    } else {
-      false
+  pub fn size_bytes(&self) -> u64 {
+    let BookSize::BYTES(size) = self.book_size;
+    size
+  }
+
+  pub fn format_title_pixel_perfect(title: &str) -> SharedString {
+    let mut breakable_title = String::with_capacity(title.len() * 4);
+    for ch in title.chars() {
+      breakable_title.push(ch);
+      breakable_title.push('\u{200B}');
     }
+    breakable_title.into()
   }
 
-  pub fn remove_bookmark(&mut self, time_created: &str) -> bool {
-    let old_len = self.bookmarks.len();
-    self.bookmarks.retain(|b| b.time_created.as_ref() != time_created);
-    old_len != self.bookmarks.len()
+  pub fn formatted_title(&self) -> SharedString {
+    Self::format_title_pixel_perfect(self.book_path.display_name().as_ref())
   }
 
+  pub fn size_label(&self) -> SharedString {
+    format!("File size: {} MB", self.size_bytes() / 1_048_576).into()
+  }
+
+  pub fn format_label(&self) -> SharedString {
+    format!(
+      "{}: {}",
+      rust_i18n::t!("components.card.format_label"),
+      self.book_path.ext.to_string().to_uppercase()
+    )
+    .into()
+  }
+
+  pub fn cover_btn_id(&self) -> SharedString {
+    format!("cover_{}", self.id).into()
+  }
+
+  pub fn fav_btn_id(&self) -> SharedString {
+    format!("fav_{}", self.id).into()
+  }
   pub(crate) fn mark_as_deleted(&mut self) {
     self.book_path.mark_as_deleted();
   }

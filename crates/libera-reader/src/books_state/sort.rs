@@ -39,10 +39,15 @@ impl BooksStateData {
 
       let cmp = match (book_a, book_b) {
         (Some(a), Some(b)) => match field {
-          SortField::Name => a.name_lower.cmp(&b.name_lower),
-          SortField::Size => a.size.cmp(&b.size),
-          SortField::Type => a.ext_lower.cmp(&b.ext_lower),
-          SortField::LastOpened => a.last_opened.cmp(&b.last_opened),
+          SortField::Name => a.book_path.name.to_lowercase().cmp(&b.book_path.name.to_lowercase()),
+          SortField::Size => a.size_bytes().cmp(&b.size_bytes()),
+          SortField::Type => a
+            .book_path
+            .ext
+            .to_string()
+            .to_lowercase()
+            .cmp(&b.book_path.ext.to_string().to_lowercase()),
+          SortField::LastOpened => a.user_data.last_opened.cmp(&b.user_data.last_opened),
         },
         (Some(_), None) => Ordering::Less,
         (None, Some(_)) => Ordering::Greater,
@@ -79,32 +84,22 @@ impl BooksState {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::books_state::models::{LightBook, SortConfig};
   use crate::books_state::thumbnails::ThumbnailCache;
+  use crate::db::models::UserData;
+  use crate::db::models::books::book::{Book, BookPath, BookSize};
   use std::collections::HashMap as StdHashMap;
   use std::path::PathBuf;
 
-  fn make_dummy_light_book(
-    id: &str, name: &str, ext: &str, size: u64, last_opened: u64,
-  ) -> LightBook {
-    LightBook {
-      id: id.into(),
-      name: name.into(),
-      name_lower: name.to_lowercase().into(),
-      ext: ext.into(),
-      ext_lower: ext.to_lowercase().into(),
-      ext_upper: ext.to_uppercase().into(),
-      size,
-      size_label: format!("{} MB", size).into(),
-      format_label: ext.into(),
-      cover_btn_id: format!("cover_{}", id).into(),
-      fav_btn_id: format!("fav_{}", id).into(),
-      last_opened,
-      is_favorite: false,
-      has_thumbnail: false,
-      formatted_title: name.into(),
-      parent_dir: "/dummy".into(),
-      deleted: false,
+  fn make_dummy_book(id: &str, name: &str, ext_str: &str, size: u64, last_opened: u64) -> Book {
+    let path_str = format!("{}/{}.{}", "/dummy", name, ext_str);
+    let mut book_path = BookPath::new(std::path::Path::new(&path_str)).unwrap();
+    book_path.name = name.into();
+    Book {
+      id: id.to_string(),
+      parent_dir: "/dummy".to_string(),
+      book_path,
+      book_size: BookSize::BYTES(size),
+      user_data: UserData { favorite: false, last_opened },
       bookmark_count: 0,
     }
   }
@@ -112,13 +107,13 @@ mod tests {
   #[test]
   fn test_sorting_by_name_and_reverse() {
     let mut books_map = StdHashMap::new();
-    let b1 = make_dummy_light_book("1", "Beta", "pdf", 100, 10);
-    let b2 = make_dummy_light_book("2", "Alpha", "epub", 200, 20);
-    let b3 = make_dummy_light_book("3", "Gamma", "pdf", 50, 5);
+    let b1 = make_dummy_book("1", "Beta", "pdf", 100, 10);
+    let b2 = make_dummy_book("2", "Alpha", "epub", 200, 20);
+    let b3 = make_dummy_book("3", "Gamma", "pdf", 50, 5);
 
-    books_map.insert(b1.id.clone(), b1);
-    books_map.insert(b2.id.clone(), b2);
-    books_map.insert(b3.id.clone(), b3);
+    books_map.insert("1".into(), b1);
+    books_map.insert("2".into(), b2);
+    books_map.insert("3".into(), b3);
 
     let mut state = BooksStateData {
       books_map,
@@ -151,13 +146,13 @@ mod tests {
   #[test]
   fn test_sorting_by_size() {
     let mut books_map = StdHashMap::new();
-    let b1 = make_dummy_light_book("1", "B", "pdf", 300, 10);
-    let b2 = make_dummy_light_book("2", "A", "epub", 100, 20);
-    let b3 = make_dummy_light_book("3", "C", "pdf", 200, 5);
+    let b1 = make_dummy_book("1", "B", "pdf", 300, 10);
+    let b2 = make_dummy_book("2", "A", "epub", 100, 20);
+    let b3 = make_dummy_book("3", "C", "pdf", 200, 5);
 
-    books_map.insert(b1.id.clone(), b1);
-    books_map.insert(b2.id.clone(), b2);
-    books_map.insert(b3.id.clone(), b3);
+    books_map.insert("1".into(), b1);
+    books_map.insert("2".into(), b2);
+    books_map.insert("3".into(), b3);
 
     let mut state = BooksStateData {
       books_map,

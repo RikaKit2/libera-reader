@@ -3,11 +3,10 @@ use std::time::Duration;
 
 use super::WorkStatus;
 use crate::{
-  app_dirs::AppDirs,
   books_state::BooksState,
   db::{
     DB,
-    models::books::book::{Book, BookDir, BookPath, BookSnapshot},
+    models::books::book::{Book, BookDir, BookPath},
   },
   not_cached_books::NotCachedBooks,
   settings::SETTINGS,
@@ -83,14 +82,12 @@ pub struct NotifyService {
   not_cached_books: NotCachedBooks,
   settings: SETTINGS,
   db: DB,
-  app_dirs: AppDirs,
   books_state: BooksState,
 }
 
 impl NotifyService {
   pub(crate) fn new(
-    not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, app_dirs: AppDirs,
-    books_state: BooksState,
+    not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, books_state: BooksState,
   ) -> Result<Self> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let watcher = notify::recommended_watcher(move |res| match res {
@@ -108,7 +105,6 @@ impl NotifyService {
       not_cached_books,
       settings,
       db,
-      app_dirs,
       books_state,
     })
   }
@@ -127,13 +123,11 @@ impl NotifyService {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
           let books_state = self.books_state.clone();
-          let app_dirs = self.app_dirs.clone();
-
           self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
           self.status = WorkStatus::Working;
 
           tokio::spawn(async move {
-            run_event_loop(rx, not_cached_books, db, app_dirs, books_state).await;
+            run_event_loop(rx, not_cached_books, db, books_state).await;
           });
         }
       }
@@ -155,7 +149,7 @@ impl NotifyService {
 /// Main event processing loop with batching using tokio::select!
 async fn run_event_loop(
   mut rx: UnboundedReceiver<notify::Event>, not_cached_books: NotCachedBooks, db: DB,
-  app_dirs: AppDirs, books_state: BooksState,
+  books_state: BooksState,
 ) {
   loop {
     let mut buffer: Vec<FSEvent> = Vec::new();
@@ -184,22 +178,14 @@ async fn run_event_loop(
 
     // Process buffer after timer expiration
     if !buffer.is_empty() {
-      process_batch(
-        buffer,
-        not_cached_books.clone(),
-        db.clone(),
-        app_dirs.clone(),
-        books_state.clone(),
-      )
-      .await;
+      process_batch(buffer, not_cached_books.clone(), db.clone(), books_state.clone()).await;
     }
   }
 }
 
 /// Process the entire batch of events in a SINGLE thread and a SINGLE DB transaction
 async fn process_batch(
-  batch: Vec<FSEvent>, not_cached_books: NotCachedBooks, db: DB, app_dirs: AppDirs,
-  books_state: BooksState,
+  batch: Vec<FSEvent>, not_cached_books: NotCachedBooks, db: DB, books_state: BooksState,
 ) {
   tokio::task::spawn_blocking(move || {
     let start_time = std::time::Instant::now();
@@ -299,21 +285,12 @@ async fn process_batch(
       Ok(())
     });
 
-    // Now update BooksState with snapshot construction that needs `&DB`.
-    let thumbnails_dir = app_dirs.read().thumbnails_dir.clone();
+    // Now update BooksState directly with Book.
     if !added_books.is_empty() {
-      let snapshots: Vec<BookSnapshot> = added_books
-        .into_iter()
-        .map(|book| {
-          BookSnapshot::from_book(&book, book.has_thumbnail_on_disk(&db, &thumbnails_dir))
-        })
-        .collect();
-      books_state.add_books_batch(&snapshots);
+      books_state.add_books_batch(&added_books);
     }
     for book in updated_books {
-      let snapshot =
-        BookSnapshot::from_book(&book, book.has_thumbnail_on_disk(&db, &thumbnails_dir));
-      books_state.update_book(&snapshot);
+      books_state.update_book(&book);
     }
     if !removed_paths.is_empty() {
       books_state.remove_books(&removed_paths);

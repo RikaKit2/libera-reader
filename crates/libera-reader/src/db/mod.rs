@@ -1,7 +1,7 @@
 pub mod models;
 
-use crate::db::models::BookMark;
 use crate::db::models::books::book::{Book, BookPath};
+use crate::db::models::{BookBookmarks, BookMark};
 
 use crate::db::models::books::book_hashes::BookHashes;
 use crate::db::models::books::book_sizes::BookSizes;
@@ -20,6 +20,7 @@ fn get_models() -> Result<Models> {
   models.define::<Settings>()?;
   models.define::<BookSizes>()?;
   models.define::<BookHashes>()?;
+  models.define::<BookBookmarks>()?;
   Ok(models)
 }
 
@@ -95,14 +96,31 @@ impl DB {
     Ok(all.into_iter().filter(|b| b.parent_dir == parent_dir).collect())
   }
 
+  pub fn get_bookmarks(&self, book_path: BookPath) -> Result<Vec<BookMark>> {
+    let id = book_path.full_path_string().to_string();
+    Ok(self.get_primary::<BookBookmarks>(id)?.map(|b| b.items).unwrap_or_default())
+  }
+
   pub fn add_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> Result<Option<Book>> {
     self.rw_t(|rw_t| {
-      let Some(mut book) = rw_t.get().primary::<Book>(book_path.full_path_string().to_string())?
-      else {
+      let id = book_path.full_path_string().to_string();
+      let Some(mut book) = rw_t.get().primary::<Book>(id.clone())? else {
         return Ok(None);
       };
+
+      let old_bookmarks = rw_t.get().primary::<BookBookmarks>(id.clone())?;
+      let mut new_bookmarks =
+        old_bookmarks.clone().unwrap_or_else(|| BookBookmarks::new(id.clone(), Vec::new()));
+      new_bookmarks.items.push(bookmark);
+
       let old_book = book.clone();
-      book.add_bookmark(bookmark);
+      book.bookmark_count = new_bookmarks.items.len();
+
+      if let Some(old) = old_bookmarks {
+        rw_t.update::<BookBookmarks>(old, new_bookmarks)?;
+      } else {
+        rw_t.insert::<BookBookmarks>(new_bookmarks)?;
+      }
       rw_t.update::<Book>(old_book, book.clone())?;
       Ok(Some(book))
     })
@@ -110,34 +128,53 @@ impl DB {
 
   pub fn update_bookmark(&self, book_path: BookPath, bookmark: BookMark) -> Result<Option<Book>> {
     self.rw_t(|rw_t| {
-      let Some(mut book) = rw_t.get().primary::<Book>(book_path.full_path_string().to_string())?
+      let id = book_path.full_path_string().to_string();
+      let Some(book) = rw_t.get().primary::<Book>(id.clone())? else {
+        return Ok(None);
+      };
+      let Some(mut bookmarks) = rw_t.get().primary::<BookBookmarks>(id)? else {
+        return Ok(None);
+      };
+      let old_bookmarks = bookmarks.clone();
+      let Some(existing) =
+        bookmarks.items.iter_mut().find(|b| b.time_created == bookmark.time_created)
       else {
         return Ok(None);
       };
-      let old_book = book.clone();
-      if !book.update_bookmark(bookmark) {
-        return Ok(None);
-      }
-      rw_t.update::<Book>(old_book, book.clone())?;
+      *existing = bookmark;
+      rw_t.update::<BookBookmarks>(old_bookmarks, bookmarks)?;
       Ok(Some(book))
     })
   }
 
   pub fn remove_bookmark(&self, book_path: BookPath, time_created: &str) -> Result<Option<Book>> {
     self.rw_t(|rw_t| {
-      let Some(mut book) = rw_t.get().primary::<Book>(book_path.full_path_string().to_string())?
-      else {
+      let id = book_path.full_path_string().to_string();
+      let Some(mut book) = rw_t.get().primary::<Book>(id.clone())? else {
         return Ok(None);
       };
-      let old_book = book.clone();
-      if !book.remove_bookmark(time_created) {
+      let Some(mut bookmarks) = rw_t.get().primary::<BookBookmarks>(id)? else {
         return Ok(None);
+      };
+      let old_bookmarks = bookmarks.clone();
+      let old_len = bookmarks.items.len();
+      bookmarks.items.retain(|b| b.time_created.as_ref() != time_created);
+      if bookmarks.items.len() == old_len {
+        return Ok(None);
+      }
+
+      let old_book = book.clone();
+      book.bookmark_count = bookmarks.items.len();
+
+      if bookmarks.items.is_empty() {
+        rw_t.remove::<BookBookmarks>(old_bookmarks)?;
+      } else {
+        rw_t.update::<BookBookmarks>(old_bookmarks, bookmarks)?;
       }
       rw_t.update::<Book>(old_book, book.clone())?;
       Ok(Some(book))
     })
   }
-
   pub(crate) fn get_primary<T: ToInput>(&self, key: impl ToKey) -> Result<Option<T>> {
     Ok(self.db.read().unwrap().r_transaction()?.get().primary(key)?)
   }
@@ -218,7 +255,7 @@ mod tests {
       book_path: book_path.clone(),
       book_size: BookSize::BYTES(1024),
       user_data: UserData::default(),
-      bookmarks: Vec::new(),
+      bookmark_count: 0,
     };
 
     db.insert(book.clone())?;
@@ -237,17 +274,20 @@ mod tests {
     db.add_bookmark(book_path.clone(), bookmark.clone())?;
 
     let with_bookmark = db.get_book(book_path.clone())?.unwrap();
-    assert_eq!(with_bookmark.bookmarks.len(), 1);
-    assert_eq!(with_bookmark.bookmarks[0].title, "Chapter 1");
+    assert_eq!(with_bookmark.bookmark_count, 1);
+
+    let bookmarks = db.get_bookmarks(book_path.clone())?;
+    assert_eq!(bookmarks.len(), 1);
+    assert_eq!(bookmarks[0].title, "Chapter 1");
 
     let books_in_dir = db.scan_books_by_parent_dir(book_dir.full_path().as_ref())?;
     assert_eq!(books_in_dir.len(), 1);
 
     db.remove_bookmark(book_path.clone(), &bookmark.time_created)?;
     let without_bookmark = db.get_book(book_path.clone())?.unwrap();
-    assert_eq!(without_bookmark.bookmarks.len(), 0);
-
-    db.compact()?;
+    assert_eq!(without_bookmark.bookmark_count, 0);
+    let bookmarks_after = db.get_bookmarks(book_path.clone())?;
+    assert_eq!(bookmarks_after.len(), 0);
     Ok(())
   }
 }

@@ -17,16 +17,16 @@ impl BooksStateData {
 
     let mut keys = Vec::new();
 
-    for (id, light) in &self.books_map {
-      if light.deleted {
+    for (id, book) in &self.books_map {
+      if book.book_path.deleted {
         continue;
       }
 
       let matches_target = match target {
         TargetList::Library => true,
-        TargetList::Favorites => light.is_favorite,
-        TargetList::History => light.last_opened > 0,
-        TargetList::Bookmarks => light.bookmark_count > 0,
+        TargetList::Favorites => book.user_data.favorite,
+        TargetList::History => book.user_data.last_opened > 0,
+        TargetList::Bookmarks => book.bookmark_count > 0,
       };
 
       if !matches_target {
@@ -34,9 +34,8 @@ impl BooksStateData {
       }
 
       let matches_search = query.is_empty()
-        || light.name_lower.contains(&query)
-        || light.parent_dir.to_lowercase().contains(&query);
-
+        || book.book_path.name.to_lowercase().contains(&query)
+        || book.parent_dir.to_lowercase().contains(&query);
       if matches_search {
         keys.push(id.clone());
       }

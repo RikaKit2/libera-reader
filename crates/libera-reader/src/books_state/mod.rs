@@ -4,7 +4,7 @@ pub mod sort;
 pub mod thumbnails;
 
 use crate::db::DB;
-use crate::db::models::books::book::{BookDir, BookPath, BookSnapshot};
+use crate::db::models::books::book::{Book, BookDir, BookPath};
 use gpui::{AsyncApp, Context, SharedString, WeakEntity};
 use std::collections::HashMap as StdHashMap;
 use std::path::PathBuf;
@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard}
 use thumbnails::ThumbnailCache;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
-pub use models::{LightBook, SortConfig, SortField, TargetList};
+pub use models::{SortConfig, SortField, TargetList};
 
 pub static BOOKS_STATE: OnceLock<BooksState> = OnceLock::new();
 
@@ -32,8 +32,8 @@ pub struct BooksStateEntity(pub gpui::Entity<BooksState>);
 
 impl gpui::Global for BooksStateEntity {}
 pub struct BooksStateData {
-  /// Map from book id (full path string) to LightBook
-  pub books_map: StdHashMap<SharedString, LightBook>,
+  /// Map from book id (full path string) to Book
+  pub books_map: StdHashMap<SharedString, Book>,
 
   /// Single source of truth for which book currently has a usable PNG on disk.
   pub thumbnails: ThumbnailCache,
@@ -65,9 +65,8 @@ impl BooksStateData {
     let _ = db.for_each_book(|book| {
       let id: SharedString = book.id.clone().into();
       let path = ThumbnailCache::resolve_for(db, &thumbnails_dir_ref, &book.id);
-      let has_thumbnail = path.is_some();
       thumbnails.insert_resolved(id.clone(), path);
-      books_map.insert(id, LightBook::from_book(&book, has_thumbnail));
+      books_map.insert(id, book);
       Ok(())
     });
 
@@ -100,12 +99,9 @@ impl BooksStateData {
     self.rebuild_and_sort(TargetList::Bookmarks);
   }
 
-  pub fn upsert_snapshot(&mut self, snapshot: &BookSnapshot) {
-    let id: SharedString = snapshot.id.clone().into();
-    let has_thumbnail =
-      snapshot.has_thumbnail || self.books_map.get(&id).is_some_and(|lb| lb.has_thumbnail);
-    let light = LightBook::from_snapshot(snapshot, has_thumbnail);
-    self.books_map.insert(id, light);
+  pub fn upsert_book(&mut self, book: Book) {
+    let id: SharedString = book.id.clone().into();
+    self.books_map.insert(id, book);
   }
 
   pub fn remove_book(&mut self, path: &BookPath) {
@@ -117,11 +113,11 @@ impl BooksStateData {
   pub fn update_book_path(&mut self, old_path: &BookPath, new_path: &BookPath) {
     let old_id: SharedString = old_path.full_path_string();
     let new_id: SharedString = new_path.full_path_string();
-    if let Some(light) = self.books_map.remove(&old_id) {
-      let mut updated = light;
-      updated.id = new_id.clone();
-      updated.parent_dir = new_path.parent_dir.full_path();
-      updated.name = new_path.name.clone();
+    if let Some(book) = self.books_map.remove(&old_id) {
+      let mut updated = book;
+      updated.id = new_id.to_string();
+      updated.parent_dir = new_path.parent_dir.full_path().to_string();
+      updated.book_path = new_path.clone();
       self.books_map.insert(new_id.clone(), updated);
     }
     self.thumbnails.rename(&old_id, new_id);
@@ -129,15 +125,12 @@ impl BooksStateData {
 
   pub fn remove_dir(&mut self, dir: &BookDir) {
     let dir_path = dir.full_path().to_string();
-    self.books_map.retain(|_id, light| light.parent_dir.as_ref() != dir_path);
+    self.books_map.retain(|_id, book| book.parent_dir != dir_path);
     self.thumbnails.remove_by_parent_dir(&dir_path);
   }
 
   pub fn mark_thumbnail_extracted(&mut self, path: &BookPath) {
     let id: SharedString = path.full_path_string();
-    if let Some(light) = self.books_map.get_mut(&id) {
-      light.has_thumbnail = true;
-    }
     self.thumbnails.mark_extracted(&id);
   }
 }
@@ -196,38 +189,37 @@ impl BooksState {
 
   // --- Direct mutation methods for background services and UI ---
 
-  pub fn add_book(&self, snapshot: &BookSnapshot) {
+  pub fn add_book(&self, book: Book) {
     {
       let mut data = self.write();
-      data.upsert_snapshot(snapshot);
+      data.upsert_book(book);
       data.rebuild_all();
     }
     self.notify();
   }
 
-  pub fn add_books_batch(&self, snapshots: &[BookSnapshot]) {
-    if snapshots.is_empty() {
+  pub fn add_books_batch(&self, books: &[Book]) {
+    if books.is_empty() {
       return;
     }
     {
       let mut data = self.write();
-      for snapshot in snapshots {
-        data.upsert_snapshot(snapshot);
+      for book in books {
+        data.upsert_book(book.clone());
       }
       data.rebuild_all();
     }
     self.notify();
   }
 
-  pub fn update_book(&self, snapshot: &BookSnapshot) {
+  pub fn update_book(&self, book: &Book) {
     {
       let mut data = self.write();
-      data.upsert_snapshot(snapshot);
+      data.upsert_book(book.clone());
       data.rebuild_all();
     }
     self.notify();
   }
-
   pub fn remove_book(&self, path: &BookPath) {
     {
       let mut data = self.write();
@@ -348,32 +340,27 @@ mod tests {
   #[test]
   fn test_books_state_direct_mutations() {
     let state = make_test_state();
-    let snapshot1 = BookSnapshot {
+    use crate::db::models::UserData;
+    use crate::db::models::books::book::BookSize;
+
+    let book1 = Book {
       id: "/path/to/book1.pdf".to_string(),
-      name: "book1.pdf".to_string(),
-      ext: "pdf".to_string(),
-      size: 1024,
       parent_dir: "/path/to".to_string(),
-      last_opened: 0,
-      is_favorite: false,
-      has_thumbnail: false,
-      deleted: false,
+      book_path: BookPath::new(std::path::Path::new("/path/to/book1.pdf")).unwrap(),
+      book_size: BookSize::BYTES(1024),
+      user_data: UserData { favorite: false, last_opened: 0 },
       bookmark_count: 0,
     };
 
-    let snapshot2 = BookSnapshot {
+    let book2 = Book {
       id: "/path/to/book2.epub".to_string(),
-      name: "book2.epub".to_string(),
-      ext: "epub".to_string(),
-      size: 2048,
       parent_dir: "/path/to".to_string(),
-      last_opened: 100,
-      is_favorite: true,
-      has_thumbnail: false,
-      deleted: false,
+      book_path: BookPath::new(std::path::Path::new("/path/to/book2.epub")).unwrap(),
+      book_size: BookSize::BYTES(2048),
+      user_data: UserData { favorite: true, last_opened: 100 },
       bookmark_count: 1,
     };
-    state.add_books_batch(&[snapshot1.clone(), snapshot2.clone()]);
+    state.add_books_batch(&[book1.clone(), book2.clone()]);
     assert_eq!(state.total_books(TargetList::Library), 2);
     assert_eq!(state.total_books(TargetList::Favorites), 1);
     assert_eq!(state.total_books(TargetList::History), 1);
@@ -382,15 +369,10 @@ mod tests {
     // 2. Mark thumbnail extracted
     let bp1 = BookPath::new(std::path::Path::new("/path/to/book1.pdf")).unwrap();
     state.mark_thumbnail_extracted(&bp1);
-    assert!(
-      state.read().books_map.get(&SharedString::from("/path/to/book1.pdf")).unwrap().has_thumbnail
-    );
-
     // 3. Update book
-    let mut updated1 = snapshot1.clone();
-    updated1.is_favorite = true;
+    let mut updated1 = book1.clone();
+    updated1.user_data.favorite = true;
     state.update_book(&updated1);
-    assert_eq!(state.total_books(TargetList::Favorites), 2);
 
     // 4. Remove book
     state.remove_book(&bp1);

@@ -83,7 +83,6 @@ impl Services {
       not_cached_books.clone(),
       settings.clone(),
       db.clone(),
-      app_dirs.clone(),
       books_state.clone(),
     )?;
     let scan_service = ScanService::new(

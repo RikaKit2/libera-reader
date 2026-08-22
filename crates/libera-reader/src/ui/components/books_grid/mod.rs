@@ -6,9 +6,9 @@ pub(crate) mod loader;
 
 use crate::TOKIO;
 use crate::app_ext::AppExt;
-use crate::books_state::models::LightBook;
 use crate::books_state::{BooksState, TargetList};
 use crate::db::models::CardDisplayMode;
+use crate::db::models::books::book::Book;
 use crate::ui::components::books_grid::cache::{BoundedCache, CoverState};
 use crate::ui::components::books_grid::loader::spawn_background_loader;
 use crate::ui::constants as C;
@@ -125,7 +125,7 @@ pub(crate) const FOOTER_HEIGHT_PX: f32 = 52.0;
 
 /// Per-cell data collected in pass 1 (with borrows held) and consumed in pass 2
 /// (with a clean mutable view) to avoid borrow conflicts.
-type RowCells = Vec<(LightBook, Option<PathBuf>, Option<CoverState>)>;
+type RowCells = Vec<(Book, Option<PathBuf>, Option<CoverState>)>;
 
 impl Render for BooksGrid {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -136,7 +136,6 @@ impl Render for BooksGrid {
     let total_rows = total_books.div_ceil(columns);
     let row_height = self.row_height;
     let card_height = row_height - px(C::GRID_ROW_GAP);
-
     let item_sizes: Rc<Vec<gpui::Size<Pixels>>> =
       Rc::new((0..total_rows.max(1)).map(|_| size(px(0.), row_height)).collect());
 
@@ -174,7 +173,7 @@ impl Render for BooksGrid {
 
             let mut cell_data: RowCells = Vec::with_capacity(end - start);
             for (i, id) in keys.iter().enumerate().take(end).skip(start) {
-              let light = match state_guard.books_map.get(id) {
+              let book = match state_guard.books_map.get(id) {
                 Some(b) => b.clone(),
                 None => continue,
               };
@@ -189,7 +188,7 @@ impl Render for BooksGrid {
                 cache_lock.insert(id.clone(), CoverState::Loading);
                 let _ = view.load_tx.send((i, id.clone(), path));
               }
-              cell_data.push((light, thumb, cover_state));
+              cell_data.push((book, thumb, cover_state));
             }
             rows_data.push(cell_data);
           }
@@ -200,8 +199,8 @@ impl Render for BooksGrid {
         let mut rows = Vec::with_capacity(rows_data.len());
         for cell_data in rows_data {
           let mut cells: Vec<Div> = Vec::with_capacity(columns);
-          for (light, thumb, cover_state) in cell_data {
-            cells.push(card::render_book_card(view, &light, thumb, cover_state, card_height, cx));
+          for (book, thumb, cover_state) in cell_data {
+            cells.push(card::render_book_card(view, &book, thumb, cover_state, card_height, cx));
           }
           // Pad the row so columns stay aligned.
           for _ in cells.len()..columns {

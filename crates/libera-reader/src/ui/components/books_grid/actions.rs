@@ -14,8 +14,8 @@ pub fn push_at_history(path: BookPath, cx: &mut App) {
 
   books_state.update(cx, |state, cx| {
     let mut data = state.write();
-    if let Some(light) = data.books_map.get_mut(&id) {
-      light.last_opened = now;
+    if let Some(book) = data.books_map.get_mut(&id) {
+      book.user_data.last_opened = now;
       should_persist = true;
 
       if !data.history_keys.contains(&id) {
@@ -45,9 +45,9 @@ pub fn toggle_favorite(path: BookPath, cx: &mut App) {
 
   books_state.update(cx, |state, cx| {
     let mut data = state.write();
-    if let Some(light) = data.books_map.get_mut(&id) {
-      light.is_favorite = !light.is_favorite;
-      new_state = Some(light.is_favorite);
+    if let Some(book) = data.books_map.get_mut(&id) {
+      book.user_data.favorite = !book.user_data.favorite;
+      new_state = Some(book.user_data.favorite);
       data.rebuild_and_sort(TargetList::Favorites);
       drop(data);
       cx.notify();

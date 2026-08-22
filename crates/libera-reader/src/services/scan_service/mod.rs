@@ -3,7 +3,7 @@ use crate::{
   books_state::BooksState,
   db::{
     DB,
-    models::books::book::{Book, BookPath, BookSnapshot},
+    models::books::book::{Book, BookPath},
   },
   not_cached_books::NotCachedBooks,
   settings::SETTINGS,
@@ -191,12 +191,7 @@ impl ScanService {
     // Build snapshots outside the transaction so we can consult the filesystem
     // through `has_thumbnail_on_disk` (which needs an `&DB`, not an `RwTransaction`).
     if !inserted_books.is_empty() {
-      let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
-      let snapshots: Vec<BookSnapshot> = inserted_books
-        .iter()
-        .map(|b| BookSnapshot::from_book(b, b.has_thumbnail_on_disk(&self.db, &thumbnails_dir)))
-        .collect();
-      self.books_state.add_books_batch(&snapshots);
+      self.books_state.add_books_batch(&inserted_books);
     }
     new_books
   }
@@ -237,14 +232,9 @@ impl ScanService {
       Ok(())
     });
 
-    let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
     self.books_state.remove_books(&removed_paths);
     for updated_book in updated_books {
-      let snapshot = BookSnapshot::from_book(
-        &updated_book,
-        updated_book.has_thumbnail_on_disk(&self.db, &thumbnails_dir),
-      );
-      self.books_state.update_book(&snapshot);
+      self.books_state.update_book(&updated_book);
     }
     removed_count
   }

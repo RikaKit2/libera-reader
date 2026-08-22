@@ -1,7 +1,7 @@
 use super::FOOTER_HEIGHT_PX;
 use super::actions::{push_at_history, toggle_favorite};
 use crate::app_ext::AppExt;
-use crate::books_state::models::LightBook;
+use crate::db::models::books::book::Book;
 use crate::db::models::books::book::BookPath;
 use crate::ui::components::books_grid::cache::CoverState;
 use gpui::*;
@@ -13,7 +13,7 @@ pub(crate) const TITLE_FONT_SIZE_REM: f32 = 0.9;
 pub(crate) const TITLE_LINE_HEIGHT_REM: f32 = 1.1;
 
 impl super::BooksGrid {
-  pub(crate) fn render_book_title(&self, light: &LightBook, foreground: Hsla) -> Div {
+  pub(crate) fn render_book_title(&self, book: &Book, foreground: Hsla) -> Div {
     div().flex_1().min_w_0().pt_1().child(
       div()
         .w_full()
@@ -24,7 +24,7 @@ impl super::BooksGrid {
         .text_size(rems(TITLE_FONT_SIZE_REM))
         .line_height(rems(TITLE_LINE_HEIGHT_REM))
         .text_color(foreground)
-        .child(light.formatted_title.clone()),
+        .child(book.formatted_title()),
     )
   }
 
@@ -74,10 +74,10 @@ impl super::BooksGrid {
   }
 
   pub(crate) fn render_favorite_button(
-    &self, light: &LightBook, id: SharedString, foreground: Hsla, primary: Hsla,
+    &self, book: &Book, id: SharedString, foreground: Hsla, primary: Hsla,
   ) -> Div {
-    let book_path = BookPath::from_id(&light.id);
-    let is_favorite = light.is_favorite;
+    let book_path = book.book_path.clone();
+    let is_favorite = book.user_data.favorite;
     let fav_icon_source =
       if is_favorite { "heroicons--star-solid.svg" } else { "heroicons--star.svg" };
 
@@ -101,11 +101,8 @@ impl super::BooksGrid {
           .with_size(gpui_component::Size::Large),
       )
   }
-
-  pub(crate) fn render_book_footer(
-    &self, light: &LightBook, foreground: Hsla, primary: Hsla,
-  ) -> Div {
-    let title = self.render_book_title(light, foreground);
+  pub(crate) fn render_book_footer(&self, book: &Book, foreground: Hsla, primary: Hsla) -> Div {
+    let title = self.render_book_title(book, foreground);
     div()
       .w_full()
       .h(px(FOOTER_HEIGHT_PX))
@@ -118,10 +115,10 @@ impl super::BooksGrid {
       .px_2()
       .py_1()
       .child(title)
-      .child(self.render_favorite_button(light, light.fav_btn_id.clone(), foreground, primary))
+      .child(self.render_favorite_button(book, book.fav_btn_id(), foreground, primary))
   }
 
-  pub(crate) fn render_book_card_info(&self, light: &LightBook, cx: &Context<Self>) -> Div {
+  pub(crate) fn render_book_card_info(&self, book: &Book, cx: &Context<Self>) -> Div {
     let theme = cx.theme();
 
     div()
@@ -148,35 +145,29 @@ impl super::BooksGrid {
               .overflow_hidden()
               .text_ellipsis()
               .line_clamp(3)
-              .child(light.formatted_title.clone()),
+              .child(book.formatted_title()),
           )
           .child(
             div().flex().flex_col().text_sm().text_color(theme.foreground.opacity(0.7)).children([
-              div()
-                .text_sm()
-                .text_color(theme.foreground.opacity(0.7))
-                .child(light.format_label.clone()),
-              div()
-                .text_sm()
-                .text_color(theme.foreground.opacity(0.7))
-                .child(light.size_label.clone()),
+              div().text_sm().text_color(theme.foreground.opacity(0.7)).child(book.format_label()),
+              div().text_sm().text_color(theme.foreground.opacity(0.7)).child(book.size_label()),
             ]),
           ),
       )
       .child(div().flex().justify_end().items_center().child(self.render_favorite_button(
-        light,
-        light.fav_btn_id.clone(),
+        book,
+        book.fav_btn_id(),
         theme.foreground,
         theme.primary,
       )))
   }
 
   pub(crate) fn render_list_card(
-    &self, light: &LightBook, thumb: Option<PathBuf>, cover_state: Option<CoverState>,
+    &self, book: &Book, thumb: Option<PathBuf>, cover_state: Option<CoverState>,
     card_height: Pixels, cx: &Context<Self>,
   ) -> Div {
     let theme = cx.theme();
-    let book_path = BookPath::from_id(&light.id);
+    let book_path = book.book_path.clone();
 
     div()
       .w_0()
@@ -200,22 +191,22 @@ impl super::BooksGrid {
           .overflow_hidden()
           .child(self.render_cover_click_area(
             book_path,
-            light.cover_btn_id.clone(),
+            book.cover_btn_id(),
             thumb,
             cover_state,
             cx,
           )),
       )
-      .child(self.render_book_card_info(light, cx))
+      .child(self.render_book_card_info(book, cx))
   }
 
   pub(crate) fn render_book_card_detailed_or_compact(
-    &self, light: &LightBook, thumb: Option<PathBuf>, cover_state: Option<CoverState>,
+    &self, book: &Book, thumb: Option<PathBuf>, cover_state: Option<CoverState>,
     card_height: Pixels, cx: &Context<Self>,
   ) -> Div {
     let mode = cx.settings().read().card_display_mode;
     let theme = cx.theme();
-    let book_path = BookPath::from_id(&light.id);
+    let book_path = book.book_path.clone();
 
     let footer_height = if mode == crate::db::models::CardDisplayMode::Detailed {
       px(FOOTER_HEIGHT_PX)
@@ -245,7 +236,7 @@ impl super::BooksGrid {
           .border_color(theme.border)
           .child(self.render_cover_click_area(
             book_path,
-            light.cover_btn_id.clone(),
+            book.cover_btn_id(),
             thumb,
             cover_state,
             cx,
@@ -253,7 +244,7 @@ impl super::BooksGrid {
       );
 
     if mode == crate::db::models::CardDisplayMode::Detailed {
-      card = card.child(self.render_book_footer(light, theme.foreground, theme.primary));
+      card = card.child(self.render_book_footer(book, theme.foreground, theme.primary));
     }
     card
   }
@@ -261,13 +252,13 @@ impl super::BooksGrid {
 
 /// Free function entry point used by the grid render loop.
 pub(crate) fn render_book_card(
-  view: &mut super::BooksGrid, light: &LightBook, thumb: Option<PathBuf>,
+  view: &mut super::BooksGrid, book: &Book, thumb: Option<PathBuf>,
   cover_state: Option<CoverState>, card_height: Pixels, cx: &Context<super::BooksGrid>,
 ) -> Div {
   let mode = cx.settings().read().card_display_mode;
   if mode == crate::db::models::CardDisplayMode::List {
-    view.render_list_card(light, thumb, cover_state, card_height, cx)
+    view.render_list_card(book, thumb, cover_state, card_height, cx)
   } else {
-    view.render_book_card_detailed_or_compact(light, thumb, cover_state, card_height, cx)
+    view.render_book_card_detailed_or_compact(book, thumb, cover_state, card_height, cx)
   }
 }
