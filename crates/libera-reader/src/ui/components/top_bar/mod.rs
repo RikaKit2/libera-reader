@@ -3,7 +3,8 @@ pub(crate) mod sort_controls;
 
 pub(crate) use sort_controls::SortControls;
 
-use crate::books_state::{BooksState, TargetList};
+use crate::app_ext::AppExt;
+use crate::books_state::TargetList;
 use crate::ui::constants as C;
 use gpui::*;
 use gpui_component::{
@@ -21,13 +22,11 @@ pub(crate) struct TopBar {
 }
 
 impl TopBar {
-  pub(crate) fn new(
-    window: &mut Window, cx: &mut Context<Self>, books_state: Entity<BooksState>,
-    target: TargetList,
-  ) -> Self {
+  pub(crate) fn new(window: &mut Window, cx: &mut Context<Self>, target: TargetList) -> Self {
+    let books_state = cx.books_state_entity().clone();
     let input_state: Entity<InputState> =
       cx.new(|cx| InputState::new(window, cx).placeholder(t!("components.search_placeholder")));
-    let sort_controls = SortControls::new(window, cx, books_state.clone(), target);
+    let sort_controls = SortControls::new(window, cx, target);
 
     let _subscriptions = vec![cx.subscribe_in(&input_state, window, {
       let books_state = books_state.clone();

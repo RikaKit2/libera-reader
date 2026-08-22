@@ -3,24 +3,39 @@ pub mod search;
 pub mod sort;
 pub mod thumbnails;
 
-use crate::db::models::books::book::{Book, BookDir, BookPath, BookSnapshot};
-use gpui::{AsyncApp, Context, SharedString, Task, WeakEntity};
+use crate::db::DB;
+use crate::db::models::books::book::{BookDir, BookPath, BookSnapshot};
+use gpui::{AsyncApp, Context, SharedString, WeakEntity};
 use std::collections::HashMap as StdHashMap;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thumbnails::ThumbnailCache;
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
 pub use models::{LightBook, SortConfig, SortField, TargetList};
 
-/// In-memory state for all books.
-/// No heavy `Book` structs — only lightweight `LightBook`s.
+pub static BOOKS_STATE: OnceLock<BooksState> = OnceLock::new();
+
+/// Thread-safe in-memory state for all books.
+/// Wraps `BooksStateData` in an `Arc<RwLock<...>>` for safe multi-threaded access
+/// by background Tokio tasks (scanner, notify watcher, extractor) and GPUI UI.
+#[derive(Clone)]
 pub struct BooksState {
+  inn: Arc<RwLock<BooksStateData>>,
+  notify_tx: Arc<Mutex<Option<UnboundedSender<()>>>>,
+}
+
+impl gpui::Global for BooksState {}
+
+#[derive(Clone)]
+pub struct BooksStateEntity(pub gpui::Entity<BooksState>);
+
+impl gpui::Global for BooksStateEntity {}
+pub struct BooksStateData {
   /// Map from book id (full path string) to LightBook
   pub books_map: StdHashMap<SharedString, LightBook>,
 
   /// Single source of truth for which book currently has a usable PNG on disk.
-  /// Incrementally updated from `apply_event`; queried by every content page
-  /// instead of doing per-frame `db.get_book()` calls.
   pub thumbnails: ThumbnailCache,
 
   pub library_keys: Vec<SharedString>,
@@ -38,24 +53,26 @@ pub struct BooksState {
   pub history_search: SharedString,
   pub bookmarks_search: SharedString,
 
-  #[allow(dead_code)]
-  pub search_tasks: StdHashMap<TargetList, Task<()>>,
-
-  /// Generation counter for search debounce: each new search increments the generation
-  /// for its target. When the debounced task fires, it checks if its generation is still
-  /// current; if not, it skips the rebuild. This effectively cancels stale search tasks.
-  #[allow(dead_code)]
   pub search_generation: StdHashMap<TargetList, u64>,
 }
 
-impl BooksState {
-  pub fn new(
-    thumbnails_dir: PathBuf, db: &crate::db::DB, cx: &mut Context<Self>,
-  ) -> (Self, BooksStateHandle) {
-    let thumbnails = ThumbnailCache::new(thumbnails_dir);
+impl BooksStateData {
+  pub fn from_db(thumbnails_dir: PathBuf, db: &DB) -> Self {
+    let mut thumbnails = ThumbnailCache::new(thumbnails_dir);
+    let mut books_map = StdHashMap::new();
 
-    let mut state = Self {
-      books_map: StdHashMap::new(),
+    let thumbnails_dir_ref = thumbnails.thumbnails_dir().to_path_buf();
+    let _ = db.for_each_book(|book| {
+      let id: SharedString = book.id.clone().into();
+      let path = ThumbnailCache::resolve_for(db, &thumbnails_dir_ref, &book.id);
+      let has_thumbnail = path.is_some();
+      thumbnails.insert_resolved(id.clone(), path);
+      books_map.insert(id, LightBook::from_book(&book, has_thumbnail));
+      Ok(())
+    });
+
+    let mut data = Self {
+      books_map,
       thumbnails,
       library_keys: Vec::new(),
       favorites_keys: Vec::new(),
@@ -69,81 +86,13 @@ impl BooksState {
       favorites_search: "".into(),
       history_search: "".into(),
       bookmarks_search: "".into(),
-      search_tasks: StdHashMap::new(),
       search_generation: StdHashMap::new(),
     };
 
-    // Stream books one-by-one so we never hold the full `Vec<Book>` in memory.
-    // Each book is converted to a LightBook immediately and the heavy `Book`
-    // is dropped before the next one is read.
-    let thumbnails_dir = state.thumbnails.thumbnails_dir().to_path_buf();
-    let _ = db.for_each_book(|book| {
-      let id: SharedString = book.id.clone().into();
-      let path = ThumbnailCache::resolve_for(db, &thumbnails_dir, &book.id);
-      let has_thumbnail = path.is_some();
-      state.thumbnails.insert_resolved(id.clone(), path);
-      state.books_map.insert(id, LightBook::from_book(&book, has_thumbnail));
-      Ok(())
-    });
-
-    state.rebuild_all();
-
-    let (tx, mut rx) = unbounded_channel::<BooksUpdate>();
-    cx.spawn(|this: WeakEntity<BooksState>, cx: &mut AsyncApp| {
-      let mut owned_cx = cx.clone();
-      async move {
-        while let Some(update) = rx.recv().await {
-          let _ = this.update(&mut owned_cx, |state, cx| {
-            state.apply_update(update);
-            cx.notify();
-          });
-        }
-      }
-    })
-    .detach();
-
-    let handle = BooksStateHandle::new(tx);
-    (state, handle)
-  }
-  #[allow(dead_code)]
-  pub fn get_light_book(&self, id: &SharedString) -> Option<&LightBook> {
-    self.books_map.get(id)
+    data.rebuild_all();
+    data
   }
 
-  /// Insert or update a LightBook from a full Book.
-  ///
-  /// Used by the initial-load path in `BooksState::new`. Event-driven updates
-  /// go through `upsert_snapshot` after services convert `Book` to `BookSnapshot`.
-  #[allow(dead_code)]
-  pub(crate) fn upsert_book(&mut self, book: &Book) {
-    let id: SharedString = book.id.clone().into();
-    let has_thumbnail = self.books_map.get(&id).is_some_and(|lb| lb.has_thumbnail);
-    let light = LightBook::from_book(book, has_thumbnail);
-    self.books_map.insert(id, light);
-  }
-
-  /// Insert or update a LightBook from a UI-ready snapshot.
-  ///
-  /// This is the post-`BookSnapshot` path used by `apply_event` for the
-  /// `BookAdded` / `BooksBatchAdded` / `BookUpdated` variants. The snapshot
-  /// already carries the resolved `has_thumbnail` flag from the service side,
-  /// so we preserve the existing value only when the snapshot's flag is stale
-  /// (e.g. the UI already saw a `ThumbnailExtracted` event ahead of the
-  /// snapshot arriving).
-  pub(crate) fn upsert_snapshot(&mut self, snapshot: &BookSnapshot) {
-    let id: SharedString = snapshot.id.clone().into();
-    let has_thumbnail =
-      snapshot.has_thumbnail || self.books_map.get(&id).is_some_and(|lb| lb.has_thumbnail);
-    let light = LightBook::from_snapshot(snapshot, has_thumbnail);
-    self.books_map.insert(id, light);
-  }
-
-  /// Insert a LightBook with existing has_thumbnail state
-  pub(crate) fn upsert_light(&mut self, id: SharedString, light: LightBook) {
-    self.books_map.insert(id, light);
-  }
-
-  /// Rebuild and sort all four target lists.
   pub fn rebuild_all(&mut self) {
     self.rebuild_and_sort(TargetList::Library);
     self.rebuild_and_sort(TargetList::Favorites);
@@ -151,35 +100,20 @@ impl BooksState {
     self.rebuild_and_sort(TargetList::Bookmarks);
   }
 
-  /// Add a single book snapshot to state and rebuild lists.
-  pub fn add_book(&mut self, snapshot: &BookSnapshot) {
-    self.upsert_snapshot(snapshot);
-    self.rebuild_all();
+  pub fn upsert_snapshot(&mut self, snapshot: &BookSnapshot) {
+    let id: SharedString = snapshot.id.clone().into();
+    let has_thumbnail =
+      snapshot.has_thumbnail || self.books_map.get(&id).is_some_and(|lb| lb.has_thumbnail);
+    let light = LightBook::from_snapshot(snapshot, has_thumbnail);
+    self.books_map.insert(id, light);
   }
 
-  /// Add a batch of book snapshots to state and rebuild lists once.
-  pub fn add_books_batch(&mut self, snapshots: &[BookSnapshot]) {
-    for snapshot in snapshots {
-      self.upsert_snapshot(snapshot);
-    }
-    self.rebuild_all();
-  }
-
-  /// Update an existing book snapshot and rebuild lists.
-  pub fn update_book(&mut self, snapshot: &BookSnapshot) {
-    self.upsert_snapshot(snapshot);
-    self.rebuild_all();
-  }
-
-  /// Remove a book from state and thumbnail cache, then rebuild lists.
   pub fn remove_book(&mut self, path: &BookPath) {
     let id: SharedString = path.full_path_string();
     self.books_map.remove(&id);
     self.thumbnails.remove(&id);
-    self.rebuild_all();
   }
 
-  /// Update a book's path/name/dir after rename or move.
   pub fn update_book_path(&mut self, old_path: &BookPath, new_path: &BookPath) {
     let old_id: SharedString = old_path.full_path_string();
     let new_id: SharedString = new_path.full_path_string();
@@ -188,21 +122,17 @@ impl BooksState {
       updated.id = new_id.clone();
       updated.parent_dir = new_path.parent_dir.full_path();
       updated.name = new_path.name.clone();
-      self.upsert_light(new_id.clone(), updated);
+      self.books_map.insert(new_id.clone(), updated);
     }
     self.thumbnails.rename(&old_id, new_id);
-    self.rebuild_all();
   }
 
-  /// Remove all books belonging to a deleted directory.
   pub fn remove_dir(&mut self, dir: &BookDir) {
     let dir_path = dir.full_path().to_string();
     self.books_map.retain(|_id, light| light.parent_dir.as_ref() != dir_path);
     self.thumbnails.remove_by_parent_dir(&dir_path);
-    self.rebuild_all();
   }
 
-  /// Mark that a thumbnail has been extracted for the book.
   pub fn mark_thumbnail_extracted(&mut self, path: &BookPath) {
     let id: SharedString = path.full_path_string();
     if let Some(light) = self.books_map.get_mut(&id) {
@@ -210,72 +140,266 @@ impl BooksState {
     }
     self.thumbnails.mark_extracted(&id);
   }
+}
 
-  /// Apply a state update command dispatched from a background service.
-  pub fn apply_update(&mut self, update: BooksUpdate) {
-    match update {
-      BooksUpdate::AddBooks(snapshots) => self.add_books_batch(&snapshots),
-      BooksUpdate::AddBook(snapshot) => self.add_book(&snapshot),
-      BooksUpdate::UpdateBook(snapshot) => self.update_book(&snapshot),
-      BooksUpdate::RemoveBook(path) => self.remove_book(&path),
-      BooksUpdate::UpdateBookPath { old_path, new_path } => {
-        self.update_book_path(&old_path, &new_path);
+impl BooksState {
+  pub fn new(thumbnails_dir: PathBuf, db: &DB) -> Self {
+    let state = Self {
+      inn: Arc::new(RwLock::new(BooksStateData::from_db(thumbnails_dir, db))),
+      notify_tx: Arc::new(Mutex::new(None)),
+    };
+    let _ = BOOKS_STATE.set(state.clone());
+    state
+  }
+
+  pub fn global() -> Option<&'static BooksState> {
+    BOOKS_STATE.get()
+  }
+
+  pub fn read(&self) -> RwLockReadGuard<'_, BooksStateData> {
+    self.inn.read().unwrap()
+  }
+
+  pub fn write(&self) -> RwLockWriteGuard<'_, BooksStateData> {
+    self.inn.write().unwrap()
+  }
+
+  /// Attach GPUI UI notification listener when creating the root GPUI entity.
+  /// Spawns a background listener on the GPUI UI thread that coalesces rapid updates
+  /// into a single `cx.notify()` call to avoid redundant frame rendering.
+  pub fn attach_ui(&self, cx: &mut Context<Self>) -> Self {
+    let (tx, mut rx) = unbounded_channel::<()>();
+    *self.notify_tx.lock().unwrap() = Some(tx);
+
+    cx.spawn(|this: WeakEntity<BooksState>, cx: &mut AsyncApp| {
+      let mut owned_cx = cx.clone();
+      async move {
+        while rx.recv().await.is_some() {
+          // Drain all pending notifications to coalesce into a single UI redraw
+          while rx.try_recv().is_ok() {}
+          let _ = this.update(&mut owned_cx, |_, cx| {
+            cx.notify();
+          });
+        }
       }
-      BooksUpdate::RemoveDir(dir) => self.remove_dir(&dir),
-      BooksUpdate::ThumbnailExtracted(path) => self.mark_thumbnail_extracted(&path),
+    })
+    .detach();
+
+    self.clone()
+  }
+
+  pub fn notify(&self) {
+    if let Some(tx) = self.notify_tx.lock().unwrap().as_ref() {
+      let _ = tx.send(());
     }
   }
+
+  // --- Direct mutation methods for background services and UI ---
+
+  pub fn add_book(&self, snapshot: &BookSnapshot) {
+    {
+      let mut data = self.write();
+      data.upsert_snapshot(snapshot);
+      data.rebuild_all();
+    }
+    self.notify();
+  }
+
+  pub fn add_books_batch(&self, snapshots: &[BookSnapshot]) {
+    if snapshots.is_empty() {
+      return;
+    }
+    {
+      let mut data = self.write();
+      for snapshot in snapshots {
+        data.upsert_snapshot(snapshot);
+      }
+      data.rebuild_all();
+    }
+    self.notify();
+  }
+
+  pub fn update_book(&self, snapshot: &BookSnapshot) {
+    {
+      let mut data = self.write();
+      data.upsert_snapshot(snapshot);
+      data.rebuild_all();
+    }
+    self.notify();
+  }
+
+  pub fn remove_book(&self, path: &BookPath) {
+    {
+      let mut data = self.write();
+      data.remove_book(path);
+      data.rebuild_all();
+    }
+    self.notify();
+  }
+
+  pub fn remove_books(&self, paths: &[BookPath]) {
+    if paths.is_empty() {
+      return;
+    }
+    {
+      let mut data = self.write();
+      for path in paths {
+        data.remove_book(path);
+      }
+      data.rebuild_all();
+    }
+    self.notify();
+  }
+
+  pub fn update_book_path(&self, old_path: &BookPath, new_path: &BookPath) {
+    {
+      let mut data = self.write();
+      data.update_book_path(old_path, new_path);
+      data.rebuild_all();
+    }
+    self.notify();
+  }
+
+  pub fn remove_dir(&self, dir: &BookDir) {
+    {
+      let mut data = self.write();
+      data.remove_dir(dir);
+      data.rebuild_all();
+    }
+    self.notify();
+  }
+
+  pub fn mark_thumbnail_extracted(&self, path: &BookPath) {
+    {
+      let mut data = self.write();
+      data.mark_thumbnail_extracted(path);
+    }
+    self.notify();
+  }
+
+  // --- Convenience helper methods for UI ---
+
+  pub fn library_keys(&self) -> Vec<SharedString> {
+    self.read().library_keys.clone()
+  }
+
+  pub fn favorites_keys(&self) -> Vec<SharedString> {
+    self.read().favorites_keys.clone()
+  }
+
+  pub fn history_keys(&self) -> Vec<SharedString> {
+    self.read().history_keys.clone()
+  }
+
+  pub fn bookmarks_keys(&self) -> Vec<SharedString> {
+    self.read().bookmarks_keys.clone()
+  }
+
+  pub fn total_books(&self, target: TargetList) -> usize {
+    let data = self.read();
+    match target {
+      TargetList::Library => data.library_keys.len(),
+      TargetList::Favorites => data.favorites_keys.len(),
+      TargetList::History => data.history_keys.len(),
+      TargetList::Bookmarks => data.bookmarks_keys.len(),
+    }
+  }
+
+  pub fn sort_field(&self, target: TargetList) -> SortField {
+    self.read().sort_config(target).field
+  }
+
+  pub fn is_reversed(&self, target: TargetList) -> bool {
+    self.read().sort_config(target).is_reversed
+  }
+
+  pub fn collect_thumbnail_paths(&self, keys: &[SharedString], db: &DB) -> Vec<Option<PathBuf>> {
+    self.write().thumbnails.collect_paths(keys, db)
+  }
 }
 
-/// Commands dispatched from background services to update BooksState on the UI thread.
-#[derive(Debug, Clone)]
-pub enum BooksUpdate {
-  AddBooks(Vec<BookSnapshot>),
-  AddBook(BookSnapshot),
-  UpdateBook(BookSnapshot),
-  RemoveBook(BookPath),
-  UpdateBookPath { old_path: BookPath, new_path: BookPath },
-  RemoveDir(BookDir),
-  ThumbnailExtracted(BookPath),
-}
+#[cfg(test)]
+mod tests {
+  use super::*;
 
-/// Thread-safe handle to dispatch BooksState updates from background Tokio tasks
-/// to GPUI's main thread.
-#[derive(Clone)]
-pub struct BooksStateHandle {
-  tx: UnboundedSender<BooksUpdate>,
-}
-
-impl BooksStateHandle {
-  pub fn new(tx: UnboundedSender<BooksUpdate>) -> Self {
-    Self { tx }
+  fn make_test_state() -> BooksState {
+    BooksState {
+      inn: Arc::new(RwLock::new(BooksStateData {
+        books_map: StdHashMap::new(),
+        thumbnails: ThumbnailCache::new(PathBuf::from("/tmp")),
+        library_keys: Vec::new(),
+        favorites_keys: Vec::new(),
+        history_keys: Vec::new(),
+        bookmarks_keys: Vec::new(),
+        library_sort: SortConfig::default(),
+        favorites_sort: SortConfig::default(),
+        history_sort: SortConfig::default(),
+        bookmarks_sort: SortConfig::default(),
+        library_search: "".into(),
+        favorites_search: "".into(),
+        history_search: "".into(),
+        bookmarks_search: "".into(),
+        search_generation: StdHashMap::new(),
+      })),
+      notify_tx: Arc::new(Mutex::new(None)),
+    }
   }
 
-  pub fn add_book(&self, snapshot: BookSnapshot) {
-    let _ = self.tx.send(BooksUpdate::AddBook(snapshot));
-  }
+  #[test]
+  fn test_books_state_direct_mutations() {
+    let state = make_test_state();
+    let snapshot1 = BookSnapshot {
+      id: "/path/to/book1.pdf".to_string(),
+      name: "book1.pdf".to_string(),
+      ext: "pdf".to_string(),
+      size: 1024,
+      parent_dir: "/path/to".to_string(),
+      last_opened: 0,
+      is_favorite: false,
+      has_thumbnail: false,
+      deleted: false,
+      bookmark_count: 0,
+    };
 
-  pub fn add_books_batch(&self, snapshots: Vec<BookSnapshot>) {
-    let _ = self.tx.send(BooksUpdate::AddBooks(snapshots));
-  }
+    let snapshot2 = BookSnapshot {
+      id: "/path/to/book2.epub".to_string(),
+      name: "book2.epub".to_string(),
+      ext: "epub".to_string(),
+      size: 2048,
+      parent_dir: "/path/to".to_string(),
+      last_opened: 100,
+      is_favorite: true,
+      has_thumbnail: false,
+      deleted: false,
+      bookmark_count: 1,
+    };
+    state.add_books_batch(&[snapshot1.clone(), snapshot2.clone()]);
+    assert_eq!(state.total_books(TargetList::Library), 2);
+    assert_eq!(state.total_books(TargetList::Favorites), 1);
+    assert_eq!(state.total_books(TargetList::History), 1);
+    assert_eq!(state.total_books(TargetList::Bookmarks), 1);
 
-  pub fn update_book(&self, snapshot: BookSnapshot) {
-    let _ = self.tx.send(BooksUpdate::UpdateBook(snapshot));
-  }
+    // 2. Mark thumbnail extracted
+    let bp1 = BookPath::new(std::path::Path::new("/path/to/book1.pdf")).unwrap();
+    state.mark_thumbnail_extracted(&bp1);
+    assert!(
+      state.read().books_map.get(&SharedString::from("/path/to/book1.pdf")).unwrap().has_thumbnail
+    );
 
-  pub fn remove_book(&self, path: BookPath) {
-    let _ = self.tx.send(BooksUpdate::RemoveBook(path));
-  }
+    // 3. Update book
+    let mut updated1 = snapshot1.clone();
+    updated1.is_favorite = true;
+    state.update_book(&updated1);
+    assert_eq!(state.total_books(TargetList::Favorites), 2);
 
-  pub fn update_book_path(&self, old_path: BookPath, new_path: BookPath) {
-    let _ = self.tx.send(BooksUpdate::UpdateBookPath { old_path, new_path });
-  }
+    // 4. Remove book
+    state.remove_book(&bp1);
+    assert_eq!(state.total_books(TargetList::Library), 1);
+    assert_eq!(state.total_books(TargetList::Favorites), 1);
 
-  pub fn remove_dir(&self, dir: BookDir) {
-    let _ = self.tx.send(BooksUpdate::RemoveDir(dir));
-  }
-
-  pub fn mark_thumbnail_extracted(&self, path: BookPath) {
-    let _ = self.tx.send(BooksUpdate::ThumbnailExtracted(path));
+    // 5. Remove dir
+    let dir = BookDir::new(PathBuf::from("/path/to"));
+    state.remove_dir(&dir);
+    assert_eq!(state.total_books(TargetList::Library), 0);
   }
 }

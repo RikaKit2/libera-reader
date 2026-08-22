@@ -1,5 +1,6 @@
 use anyhow::Result;
 use libera_reader::app_dirs::AppDirs;
+use libera_reader::books_state::BooksState;
 use libera_reader::db::DB;
 use libera_reader::not_cached_books::NotCachedBooks;
 use libera_reader::services::Services;
@@ -21,8 +22,14 @@ async fn main() -> Result<()> {
   let db = DB::new(path_to_db)?;
   let mut settings = SETTINGS::new(db.clone())?;
   let not_cached_books = NotCachedBooks::new();
-  let mut services =
-    Services::new(settings.clone(), db.clone(), not_cached_books, app_dirs.clone(), None)?;
+  let books_state = BooksState::new(app_dirs.read().thumbnails_dir.clone(), &db);
+  let mut services = Services::from_deps(
+    settings.clone(),
+    db.clone(),
+    not_cached_books,
+    app_dirs.clone(),
+    books_state,
+  )?;
   let path_to_scan_is_some = settings.read().path_to_scan.is_some();
   match path_to_scan_is_some {
     true => {

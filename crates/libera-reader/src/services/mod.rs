@@ -2,11 +2,14 @@ pub mod data_extraction_service;
 pub mod notify_service;
 pub mod scan_service;
 
-use crate::books_state::BooksStateHandle;
+use crate::app_dirs::AppDirs;
+use crate::app_ext::AppExt;
+use crate::books_state::BooksState;
 use crate::{
   db::DB, not_cached_books::NotCachedBooks, services::scan_service::ScanService, settings::SETTINGS,
 };
 use anyhow::Result;
+use gpui::App;
 use notify_service::NotifyService;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,8 +24,8 @@ pub struct Services {
   pub data_extraction_service_working_status: WorkStatus,
   pub not_cached_books: NotCachedBooks,
   db: DB,
-  app_dirs: crate::app_dirs::AppDirs,
-  state_handle: Option<BooksStateHandle>,
+  app_dirs: AppDirs,
+  books_state: BooksState,
 }
 
 impl gpui::Global for Services {}
@@ -60,23 +63,35 @@ pub fn start_services(cx: &mut gpui::App) {
 }
 
 impl Services {
-  pub fn new(
-    settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks,
-    app_dirs: crate::app_dirs::AppDirs, state_handle: Option<BooksStateHandle>,
+  /// Create `Services` by pulling all required global dependencies from `App`.
+  pub fn new(cx: &App) -> Result<Self> {
+    Self::from_deps(
+      cx.settings().clone(),
+      cx.db().clone(),
+      cx.not_cached_books().clone(),
+      cx.app_dirs().clone(),
+      cx.books_state().clone(),
+    )
+  }
+
+  /// Create `Services` directly from explicit dependencies (used in headless tests/benchmarks).
+  pub fn from_deps(
+    settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs,
+    books_state: BooksState,
   ) -> Result<Self> {
     let notify_service = NotifyService::new(
       not_cached_books.clone(),
       settings.clone(),
       db.clone(),
       app_dirs.clone(),
-      state_handle.clone(),
+      books_state.clone(),
     )?;
     let scan_service = ScanService::new(
       settings,
       db.clone(),
       not_cached_books.clone(),
       app_dirs.clone(),
-      state_handle.clone(),
+      books_state.clone(),
     );
 
     Ok(Self {
@@ -86,16 +101,9 @@ impl Services {
       not_cached_books,
       db,
       app_dirs,
-      state_handle,
+      books_state,
     })
   }
-
-  pub fn set_state_handle(&mut self, handle: BooksStateHandle) {
-    self.state_handle = Some(handle.clone());
-    self.scan_service.set_state_handle(handle.clone());
-    self.notify_service.set_state_handle(handle);
-  }
-
   pub async fn run(&mut self) -> Result<()> {
     // Start extraction service FIRST so it's already running when books arrive
     self.run_data_extraction_service();
@@ -110,19 +118,12 @@ impl Services {
     if self.data_extraction_service_working_status == WorkStatus::NotWorking {
       let db = self.db.clone();
       let app_dirs = self.app_dirs.clone();
-      let state_handle = self.state_handle.clone();
+      let books_state = self.books_state.clone();
       let settings = self.scan_service.settings().clone();
 
       if let Some(rx) = self.not_cached_books.take_rx() {
         tokio::spawn(async move {
-          data_extraction_service::run_data_extraction_service(
-            db,
-            app_dirs,
-            rx,
-            state_handle,
-            settings,
-          )
-          .await;
+          data_extraction_service::run(db, app_dirs, rx, books_state, settings).await;
         });
 
         self.data_extraction_service_working_status = WorkStatus::Working;

@@ -1,5 +1,4 @@
 use crate::app_ext::AppExt;
-use crate::books_state::BooksState;
 use crate::ui::pages::main::MainPage;
 use crate::ui::pages::setup::SetupPage;
 use gpui::{
@@ -16,11 +15,8 @@ pub struct Pages {
 }
 
 impl Pages {
-  pub fn new(window: &mut Window, cx: &mut App, books_state: Entity<BooksState>) -> Entity<Self> {
-    cx.new(|c| Self {
-      main_page: MainPage::new(window, c, books_state),
-      setup_page: SetupPage::new(window, c),
-    })
+  pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
+    cx.new(|c| Self { main_page: MainPage::new(window, c), setup_page: SetupPage::new(window, c) })
   }
 }
 

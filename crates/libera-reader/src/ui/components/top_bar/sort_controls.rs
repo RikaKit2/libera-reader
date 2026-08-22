@@ -3,7 +3,7 @@ use gpui_component::{ActiveTheme, select::*, *};
 
 use crate::app_ext::AppExt;
 use crate::books_state::models::DisplayModeOption;
-use crate::books_state::{BooksState, SortField, TargetList};
+use crate::books_state::{SortField, TargetList};
 use crate::ui::components::top_bar::reverse_btn::ReverseBtn;
 
 /// Sort controls for the top bar: sort-field select, reverse-direction button
@@ -15,15 +15,9 @@ pub struct SortControls {
 }
 
 impl SortControls {
-  pub fn new(
-    window: &mut Window, cx: &mut App, books_state: Entity<BooksState>, target: TargetList,
-  ) -> Entity<Self> {
-    let current_field = match target {
-      TargetList::Library => books_state.read(cx).library_sort.field,
-      TargetList::Favorites => books_state.read(cx).favorites_sort.field,
-      TargetList::History => books_state.read(cx).history_sort.field,
-      TargetList::Bookmarks => books_state.read(cx).bookmarks_sort.field,
-    };
+  pub fn new(window: &mut Window, cx: &mut App, target: TargetList) -> Entity<Self> {
+    let books_state = cx.books_state_entity().clone();
+    let current_field = books_state.read(cx).sort_field(target);
     let current_mode = cx.settings().read().card_display_mode;
 
     let available_fields = SortField::available_for(target);
@@ -41,7 +35,7 @@ impl SortControls {
     let mode_select =
       cx.new(|cx| SelectState::new(modes_vec, mode_idx, window, cx).searchable(false));
 
-    let reverse_btn = ReverseBtn::new(books_state.clone(), target, cx);
+    let reverse_btn = ReverseBtn::new(target, cx);
 
     cx.new(|cx| {
       cx.subscribe_in(&sort_select, window, {

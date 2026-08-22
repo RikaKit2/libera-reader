@@ -1,5 +1,5 @@
 use crate::app_ext::AppExt;
-use crate::books_state::{BooksState, TargetList};
+use crate::books_state::TargetList;
 use crate::ui::components::{BooksGrid, TopBar};
 use crate::ui::constants as C;
 use gpui::{
@@ -7,7 +7,6 @@ use gpui::{
   div, px,
 };
 use gpui_component::ActiveTheme;
-use std::path::PathBuf;
 
 pub(crate) struct Favorite {
   top_bar: Entity<TopBar>,
@@ -15,42 +14,21 @@ pub(crate) struct Favorite {
   _subscriptions: Vec<Subscription>,
 }
 
-fn collect_thumbnail_paths(
-  thumbnails: &mut crate::books_state::thumbnails::ThumbnailCache, keys: &[gpui::SharedString],
-  db: &crate::db::DB,
-) -> Vec<Option<PathBuf>> {
-  let mut out = Vec::with_capacity(keys.len());
-  for id in keys {
-    out.push(thumbnails.get_or_resolve(db, id));
-  }
-  out
-}
-
 impl Favorite {
-  pub fn new(window: &mut Window, cx: &mut Context<Self>, books_state: Entity<BooksState>) -> Self {
-    let top_bar = cx.new(|cx| TopBar::new(window, cx, books_state.clone(), TargetList::Favorites));
+  pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+    let books_state = cx.books_state_entity().clone();
+    let top_bar = cx.new(|cx| TopBar::new(window, cx, TargetList::Favorites));
 
     let db = cx.db().clone();
-    let cache_size = cx.settings().read().image_cache_size as usize;
-    let keys = books_state.read(cx).favorites_keys.clone();
-    let paths = books_state
-      .update(cx, |state, _cx| collect_thumbnail_paths(&mut state.thumbnails, &keys, &db));
-    let book_grid = cx.new(|cx| {
-      BooksGrid::new(
-        books_state.clone(),
-        TargetList::Favorites,
-        cache_size,
-        "favorites-grid".into(),
-        cx,
-      )
-    });
+    let keys = books_state.read(cx).favorites_keys();
+    let paths = books_state.read(cx).collect_thumbnail_paths(&keys, &db);
+    let book_grid = cx.new(|cx| BooksGrid::new(TargetList::Favorites, "favorites-grid".into(), cx));
     book_grid.update(cx, |grid, cx| grid.set_thumbnail_paths(paths, cx));
 
     let _subscriptions = vec![cx.observe(&books_state, move |this, state, cx| {
       let db = cx.db().clone();
-      let keys = state.read(cx).favorites_keys.clone();
-      let paths =
-        state.update(cx, |state, _cx| collect_thumbnail_paths(&mut state.thumbnails, &keys, &db));
+      let keys = state.read(cx).favorites_keys();
+      let paths = state.read(cx).collect_thumbnail_paths(&keys, &db);
       this.book_grid.update(cx, |grid, cx| grid.set_thumbnail_paths(paths, cx));
       cx.notify();
     })];

@@ -136,6 +136,15 @@ impl ThumbnailCache {
     }
   }
 
+  /// Collect resolved thumbnail paths for a slice of book IDs.
+  pub fn collect_paths(&mut self, keys: &[SharedString], db: &DB) -> Vec<Option<PathBuf>> {
+    let mut out = Vec::with_capacity(keys.len());
+    for id in keys {
+      out.push(self.get_or_resolve(db, id));
+    }
+    out
+  }
+
   /// Number of cached entries.
   #[allow(dead_code)]
   pub fn len(&self) -> usize {

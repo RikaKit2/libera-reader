@@ -1,5 +1,6 @@
 use anyhow::Result;
 use libera_reader::app_dirs::AppDirs;
+use libera_reader::books_state::BooksState;
 use libera_reader::db::DB;
 use libera_reader::db::models::books::book::{Book, BookDir, BookPath};
 use libera_reader::not_cached_books::NotCachedBooks;
@@ -52,10 +53,15 @@ impl TestLib {
     let mut settings = SETTINGS::new(db.clone()).unwrap();
     settings.set_path_to_scan(tmp_dir.clone())?;
     let not_cached_books = NotCachedBooks::new();
-    let services =
-      Services::new(settings.clone(), db.clone(), not_cached_books, app_dirs.clone(), None)
-        .unwrap();
-
+    let books_state = BooksState::new(app_dirs.read().thumbnails_dir.clone(), &db);
+    let services = Services::from_deps(
+      settings.clone(),
+      db.clone(),
+      not_cached_books,
+      app_dirs.clone(),
+      books_state,
+    )
+    .unwrap();
     download_mutool_if_missing_blocking(&test_files).await?;
 
     Ok(Self {

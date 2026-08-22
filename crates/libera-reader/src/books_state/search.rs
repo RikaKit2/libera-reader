@@ -1,48 +1,11 @@
-use super::{BooksState, TargetList};
+use super::{BooksState, BooksStateData, TargetList};
 use gpui::{AsyncApp, Context, WeakEntity};
 use std::time::Duration;
 
 #[allow(dead_code)]
 const DEBOUNCE_DELAY_MS: u64 = 600;
 
-impl BooksState {
-  #[allow(dead_code)]
-  pub fn set_search_query(&mut self, query: String, target: TargetList, cx: &mut Context<Self>) {
-    let current_query = match target {
-      TargetList::Library => &mut self.library_search,
-      TargetList::Favorites => &mut self.favorites_search,
-      TargetList::History => &mut self.history_search,
-      TargetList::Bookmarks => &mut self.bookmarks_search,
-    };
-
-    if current_query.as_ref() == query {
-      return;
-    }
-    *current_query = query.into();
-
-    // Increment generation counter to invalidate previous pending tasks
-    let generation = self.search_generation.entry(target).or_insert(0);
-    *generation += 1;
-    let my_gen = *generation;
-
-    let task = cx.spawn(move |this: WeakEntity<BooksState>, cx: &mut AsyncApp| {
-      let mut owned_cx = cx.clone();
-      async move {
-        owned_cx.background_executor().timer(Duration::from_millis(DEBOUNCE_DELAY_MS)).await;
-        let _ = this.update(&mut owned_cx, |state, context| {
-          // Skip if a newer search was already issued
-          if state.search_generation.get(&target) != Some(&my_gen) {
-            return;
-          }
-          state.rebuild_and_sort(target);
-          context.notify();
-        });
-      }
-    });
-
-    self.search_tasks.insert(target, task);
-  }
-
+impl BooksStateData {
   pub fn rebuild_and_sort(&mut self, target: TargetList) {
     let query = match target {
       TargetList::Library => self.library_search.as_ref(),
@@ -87,5 +50,47 @@ impl BooksState {
     };
 
     self.apply_sorting_to(target);
+  }
+}
+
+impl BooksState {
+  #[allow(dead_code)]
+  pub fn set_search_query(&self, query: String, target: TargetList, cx: &mut Context<Self>) {
+    let mut data = self.write();
+    let current_query = match target {
+      TargetList::Library => &mut data.library_search,
+      TargetList::Favorites => &mut data.favorites_search,
+      TargetList::History => &mut data.history_search,
+      TargetList::Bookmarks => &mut data.bookmarks_search,
+    };
+
+    if current_query.as_ref() == query {
+      return;
+    }
+    *current_query = query.into();
+
+    // Increment generation counter to invalidate previous pending tasks
+    let generation = data.search_generation.entry(target).or_insert(0);
+    *generation += 1;
+    let my_gen = *generation;
+    drop(data);
+
+    cx.spawn(move |this: WeakEntity<BooksState>, cx: &mut AsyncApp| {
+      let mut owned_cx = cx.clone();
+      async move {
+        owned_cx.background_executor().timer(Duration::from_millis(DEBOUNCE_DELAY_MS)).await;
+        let _ = this.update(&mut owned_cx, |state, context| {
+          let mut data = state.write();
+          // Skip if a newer search was already issued
+          if data.search_generation.get(&target) != Some(&my_gen) {
+            return;
+          }
+          data.rebuild_and_sort(target);
+          drop(data);
+          context.notify();
+        });
+      }
+    })
+    .detach();
   }
 }

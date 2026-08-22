@@ -1,5 +1,5 @@
 use crate::app_dirs::AppDirs;
-use crate::books_state::BooksStateHandle;
+use crate::books_state::BooksState;
 use crate::db::DB;
 use crate::db::models::books::BookType::{self, DuplicateSize};
 use crate::db::models::books::DuplicateBookData::{BookHash, MutoolData};
@@ -13,9 +13,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-pub async fn run_data_extraction_service(
-  db: DB, app_dirs: AppDirs, mut rx: UnboundedReceiver<BookPath>,
-  state_handle: Option<BooksStateHandle>, settings: SETTINGS,
+pub async fn run(
+  db: DB, app_dirs: AppDirs, mut rx: UnboundedReceiver<BookPath>, books_state: BooksState,
+  settings: SETTINGS,
 ) {
   let initial_workers = settings.read().workers_num.max(1) as usize;
   println!("[Extractor] SERVICE STARTING | Workers: {}", initial_workers);
@@ -38,7 +38,7 @@ pub async fn run_data_extraction_service(
     let permit = Arc::clone(&semaphore).acquire_owned().await.unwrap();
     let db = db.clone();
     let app_dirs = app_dirs.clone();
-    let state_handle = state_handle.clone();
+    let books_state = books_state.clone();
 
     tokio::spawn(async move {
       if let Ok(Some(book)) = db.get_book(path.clone()) {
@@ -60,9 +60,7 @@ pub async fn run_data_extraction_service(
           // PNG already on disk — the next `has_thumbnail_on_disk` check
           // (here or in the UI's `ThumbnailCache`) will pick it up via
           // `BookSizes` / `BookHashes`. No more DB flag to keep in sync.
-          if let Some(handle) = &state_handle {
-            handle.mark_thumbnail_extracted(book.book_path.clone());
-          }
+          books_state.mark_thumbnail_extracted(&book.book_path);
           drop(permit);
           return;
         }
@@ -71,9 +69,7 @@ pub async fn run_data_extraction_service(
         //    consult a `Book.has_thumbnail: bool` cache field, which could
         //    desync from reality; we now check the filesystem directly.
         if book.has_thumbnail_on_disk(&db, &app_dirs.read().thumbnails_dir) {
-          if let Some(handle) = &state_handle {
-            handle.mark_thumbnail_extracted(book.book_path.clone());
-          }
+          books_state.mark_thumbnail_extracted(&book.book_path);
           drop(permit);
           return;
         }
@@ -221,10 +217,8 @@ pub async fn run_data_extraction_service(
             Ok(())
           });
 
-          if db_save_res.is_ok()
-            && let Some(handle) = &state_handle
-          {
-            handle.mark_thumbnail_extracted(book.book_path.clone());
+          if db_save_res.is_ok() {
+            books_state.mark_thumbnail_extracted(&book.book_path);
           }
         }
       }

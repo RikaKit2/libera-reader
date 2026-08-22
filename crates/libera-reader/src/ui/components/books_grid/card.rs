@@ -35,7 +35,6 @@ impl super::BooksGrid {
     cover_state: Option<CoverState>, cx: &Context<Self>,
   ) -> Div {
     let theme = cx.theme();
-    let state_hist = self.state.clone();
 
     let mut cover =
       div().w_full().h_full().relative().flex().items_center().justify_center().cursor_pointer();
@@ -69,7 +68,7 @@ impl super::BooksGrid {
         .w_full()
         .h_full()
         .on_click(move |_ev, _window, cx| {
-          push_at_history(book_path.clone(), state_hist.clone(), cx);
+          push_at_history(book_path.clone(), cx);
         }),
     )
   }
@@ -78,7 +77,6 @@ impl super::BooksGrid {
     &self, light: &LightBook, id: SharedString, foreground: Hsla, primary: Hsla,
   ) -> Div {
     let book_path = BookPath::from_id(&light.id);
-    let state_fav = self.state.clone();
     let is_favorite = light.is_favorite;
     let fav_icon_source =
       if is_favorite { "heroicons--star-solid.svg" } else { "heroicons--star.svg" };
@@ -96,7 +94,7 @@ impl super::BooksGrid {
           .ghost()
           .xsmall()
           .on_click(move |_ev, _window, cx| {
-            toggle_favorite(book_path.clone(), state_fav.clone(), cx);
+            toggle_favorite(book_path.clone(), cx);
           })
           .text()
           .icon(Icon::new(Icon::empty()).path(fav_icon_source).text_color(primary))

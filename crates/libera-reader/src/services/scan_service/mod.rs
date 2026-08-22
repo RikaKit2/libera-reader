@@ -1,6 +1,6 @@
 use crate::{
   app_dirs::AppDirs,
-  books_state::BooksStateHandle,
+  books_state::BooksState,
   db::{
     DB,
     models::books::book::{Book, BookPath, BookSnapshot},
@@ -22,7 +22,7 @@ use utils::debug;
 pub struct ScanService {
   settings: SETTINGS,
   db: DB,
-  state_handle: Option<BooksStateHandle>,
+  books_state: BooksState,
   not_cached_books: NotCachedBooks,
   app_dirs: AppDirs,
 }
@@ -30,15 +30,14 @@ pub struct ScanService {
 impl ScanService {
   pub(crate) fn new(
     settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs,
-    state_handle: Option<BooksStateHandle>,
+    books_state: BooksState,
   ) -> Self {
-    Self { settings, db, state_handle, not_cached_books, app_dirs }
+    Self { settings, db, books_state, not_cached_books, app_dirs }
   }
 
-  pub fn set_state_handle(&mut self, handle: BooksStateHandle) {
-    self.state_handle = Some(handle);
+  pub fn books_state(&self) -> &BooksState {
+    &self.books_state
   }
-
   pub fn settings(&self) -> &SETTINGS {
     &self.settings
   }
@@ -197,9 +196,7 @@ impl ScanService {
         .iter()
         .map(|b| BookSnapshot::from_book(b, b.has_thumbnail_on_disk(&self.db, &thumbnails_dir)))
         .collect();
-      if let Some(handle) = &self.state_handle {
-        handle.add_books_batch(snapshots);
-      }
+      self.books_state.add_books_batch(&snapshots);
     }
     new_books
   }
@@ -241,17 +238,13 @@ impl ScanService {
     });
 
     let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
-    if let Some(handle) = &self.state_handle {
-      for path in removed_paths {
-        handle.remove_book(path);
-      }
-      for updated_book in updated_books {
-        let snapshot = BookSnapshot::from_book(
-          &updated_book,
-          updated_book.has_thumbnail_on_disk(&self.db, &thumbnails_dir),
-        );
-        handle.update_book(snapshot);
-      }
+    self.books_state.remove_books(&removed_paths);
+    for updated_book in updated_books {
+      let snapshot = BookSnapshot::from_book(
+        &updated_book,
+        updated_book.has_thumbnail_on_disk(&self.db, &thumbnails_dir),
+      );
+      self.books_state.update_book(&snapshot);
     }
     removed_count
   }

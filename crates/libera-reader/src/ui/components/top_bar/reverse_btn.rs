@@ -1,8 +1,8 @@
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, button::*};
 
+use crate::app_ext::AppExt;
 use crate::books_state::{BooksState, TargetList};
-
 /// Standalone "reverse sort direction" button for the top bar.
 ///
 /// Renders an arrow icon (up/down depending on the current sort direction) that
@@ -15,7 +15,8 @@ pub struct ReverseBtn {
 }
 
 impl ReverseBtn {
-  pub fn new(books_state: Entity<BooksState>, target: TargetList, cx: &mut App) -> Entity<Self> {
+  pub fn new(target: TargetList, cx: &mut App) -> Entity<Self> {
+    let books_state = cx.books_state_entity().clone();
     cx.new(|cx| {
       // Re-render whenever the sort direction flips so the arrow icon updates.
       cx.observe(&books_state, |_, _, cx| cx.notify()).detach();
@@ -24,12 +25,7 @@ impl ReverseBtn {
   }
 
   fn is_reversed(&self, cx: &App) -> bool {
-    match self.target {
-      TargetList::Library => self.books_state.read(cx).library_sort.is_reversed,
-      TargetList::Favorites => self.books_state.read(cx).favorites_sort.is_reversed,
-      TargetList::History => self.books_state.read(cx).history_sort.is_reversed,
-      TargetList::Bookmarks => self.books_state.read(cx).bookmarks_sort.is_reversed,
-    }
+    self.books_state.read(cx).is_reversed(self.target)
   }
 }
 

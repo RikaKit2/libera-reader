@@ -1,34 +1,24 @@
-use super::{BooksState, SortField, TargetList};
+use super::{BooksState, BooksStateData, SortConfig, SortField, TargetList};
 use gpui::Context;
 use std::cmp::Ordering;
 
-impl BooksState {
-  #[allow(dead_code)]
-  pub fn set_sort_field(&mut self, field: SortField, target: TargetList, cx: &mut Context<Self>) {
-    let config = match target {
-      TargetList::Library => &mut self.library_sort,
-      TargetList::Favorites => &mut self.favorites_sort,
-      TargetList::History => &mut self.history_sort,
-      TargetList::Bookmarks => &mut self.bookmarks_sort,
-    };
-    if config.field != field {
-      config.field = field;
-      self.apply_sorting_to(target);
-      cx.notify();
+impl BooksStateData {
+  pub fn sort_config(&self, target: TargetList) -> &SortConfig {
+    match target {
+      TargetList::Library => &self.library_sort,
+      TargetList::Favorites => &self.favorites_sort,
+      TargetList::History => &self.history_sort,
+      TargetList::Bookmarks => &self.bookmarks_sort,
     }
   }
 
-  #[allow(dead_code)]
-  pub fn toggle_reverse(&mut self, target: TargetList, cx: &mut Context<Self>) {
-    let config = match target {
+  pub fn sort_config_mut(&mut self, target: TargetList) -> &mut SortConfig {
+    match target {
       TargetList::Library => &mut self.library_sort,
       TargetList::Favorites => &mut self.favorites_sort,
       TargetList::History => &mut self.history_sort,
       TargetList::Bookmarks => &mut self.bookmarks_sort,
-    };
-    config.is_reversed = !config.is_reversed;
-    self.apply_sorting_to(target);
-    cx.notify();
+    }
   }
 
   pub fn apply_sorting_to(&mut self, target: TargetList) {
@@ -61,6 +51,28 @@ impl BooksState {
 
       if reversed { cmp.reverse() } else { cmp }
     });
+  }
+}
+
+impl BooksState {
+  #[allow(dead_code)]
+  pub fn set_sort_field(&self, field: SortField, target: TargetList, cx: &mut Context<Self>) {
+    let mut data = self.write();
+    if data.sort_config(target).field != field {
+      data.sort_config_mut(target).field = field;
+      data.apply_sorting_to(target);
+      drop(data);
+      cx.notify();
+    }
+  }
+
+  #[allow(dead_code)]
+  pub fn toggle_reverse(&self, target: TargetList, cx: &mut Context<Self>) {
+    let mut data = self.write();
+    data.sort_config_mut(target).is_reversed = !data.sort_config(target).is_reversed;
+    data.apply_sorting_to(target);
+    drop(data);
+    cx.notify();
   }
 }
 
@@ -108,7 +120,7 @@ mod tests {
     books_map.insert(b2.id.clone(), b2);
     books_map.insert(b3.id.clone(), b3);
 
-    let mut state = BooksState {
+    let mut state = BooksStateData {
       books_map,
       thumbnails: ThumbnailCache::new(PathBuf::from("/tmp")),
       library_keys: vec!["1".into(), "2".into(), "3".into()],
@@ -123,7 +135,6 @@ mod tests {
       favorites_search: "".into(),
       history_search: "".into(),
       bookmarks_search: "".into(),
-      search_tasks: StdHashMap::new(),
       search_generation: StdHashMap::new(),
     };
 
@@ -148,7 +159,7 @@ mod tests {
     books_map.insert(b2.id.clone(), b2);
     books_map.insert(b3.id.clone(), b3);
 
-    let mut state = BooksState {
+    let mut state = BooksStateData {
       books_map,
       thumbnails: ThumbnailCache::new(PathBuf::from("/tmp")),
       library_keys: vec!["1".into(), "2".into(), "3".into()],
@@ -163,7 +174,6 @@ mod tests {
       favorites_search: "".into(),
       history_search: "".into(),
       bookmarks_search: "".into(),
-      search_tasks: StdHashMap::new(),
       search_generation: StdHashMap::new(),
     };
 

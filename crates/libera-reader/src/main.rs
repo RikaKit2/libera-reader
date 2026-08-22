@@ -16,7 +16,7 @@ use gpui_component::Root;
 use libera_reader::TOKIO;
 use libera_reader::app_dirs::AppDirs;
 use libera_reader::app_ext::AppExt;
-use libera_reader::books_state::BooksState;
+use libera_reader::books_state::{BooksState, BooksStateEntity};
 use libera_reader::db::DB;
 use libera_reader::not_cached_books::NotCachedBooks;
 use libera_reader::services::{Services, start_services};
@@ -28,25 +28,14 @@ use tokio::runtime::Runtime;
 use utils::create_subscriber;
 
 fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
-  let thumbnails_dir = cx.app_dirs().read().thumbnails_dir.clone();
-  let db = cx.db().clone();
+  let books_state = cx.books_state().clone();
+  let books_state_entity = cx.new(|cx| books_state.attach_ui(cx));
+  cx.set_global(BooksStateEntity(books_state_entity));
 
-  let mut state_handle = None;
-  let books_state = cx.new(|cx| {
-    let (state, handle) = BooksState::new(thumbnails_dir, &db, cx);
-    state_handle = Some(handle);
-    state
-  });
-  if let Some(handle) = state_handle {
-    cx.services_mut().set_state_handle(handle);
-  }
-
-  let setup_is_done = cx.settings().read().setup_is_done;
-  if setup_is_done {
+  if cx.settings().read().setup_is_done {
     start_services(cx);
   }
-
-  let pages = Pages::new(window, cx, books_state);
+  let pages = Pages::new(window, cx);
   cx.new(|cx| Root::new(pages, window, cx))
 }
 
@@ -69,16 +58,16 @@ fn main() -> Result<()> {
     let db = DB::new(path_to_db).unwrap();
     let settings = SETTINGS::new(db.clone()).unwrap();
     let not_cached_books = NotCachedBooks::new();
-    let services =
-      Services::new(settings.clone(), db.clone(), not_cached_books.clone(), app_dirs.clone(), None)
-        .unwrap();
+    let books_state = BooksState::new(app_dirs.read().thumbnails_dir.clone(), &db);
 
     cx.set_global(app_dirs);
     cx.set_global(db);
     cx.set_global(settings);
     cx.set_global(not_cached_books);
-    cx.set_global(services);
+    cx.set_global(books_state);
 
+    let services = Services::new(cx).unwrap();
+    cx.set_global(services);
     gpui_component::init(cx);
     init_theme(themes_dir, cx);
     apply_language(cx);

@@ -1,25 +1,28 @@
 use crate::app_ext::AppExt;
-use crate::books_state::{BooksState, TargetList};
+use crate::books_state::TargetList;
 use crate::db::models::books::book::BookPath;
-use gpui::{App, Entity};
+use gpui::App;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Record that a book was opened: bump its `last_opened`, ensure it is in the
 /// history list, and persist the change to the database.
-pub fn push_at_history(path: BookPath, books_state: Entity<BooksState>, cx: &mut App) {
+pub fn push_at_history(path: BookPath, cx: &mut App) {
   let id: gpui::SharedString = path.full_path_string();
   let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
   let mut should_persist = false;
+  let books_state = cx.books_state_entity().clone();
 
   books_state.update(cx, |state, cx| {
-    if let Some(light) = state.books_map.get_mut(&id) {
+    let mut data = state.write();
+    if let Some(light) = data.books_map.get_mut(&id) {
       light.last_opened = now;
       should_persist = true;
 
-      if !state.history_keys.contains(&id) {
-        state.history_keys.push(id.clone());
+      if !data.history_keys.contains(&id) {
+        data.history_keys.push(id.clone());
       }
-      state.rebuild_and_sort(TargetList::History);
+      data.rebuild_and_sort(TargetList::History);
+      drop(data);
       cx.notify();
     }
   });
@@ -35,16 +38,18 @@ pub fn push_at_history(path: BookPath, books_state: Entity<BooksState>, cx: &mut
 }
 
 /// Toggle the favorite flag on a book, rebuild the favorites list, and persist.
-pub fn toggle_favorite(path: BookPath, books_state: Entity<BooksState>, cx: &mut App) {
+pub fn toggle_favorite(path: BookPath, cx: &mut App) {
   let id: gpui::SharedString = path.full_path_string();
   let mut new_state = None;
+  let books_state = cx.books_state_entity().clone();
 
   books_state.update(cx, |state, cx| {
-    if let Some(light) = state.books_map.get_mut(&id) {
+    let mut data = state.write();
+    if let Some(light) = data.books_map.get_mut(&id) {
       light.is_favorite = !light.is_favorite;
       new_state = Some(light.is_favorite);
-      // Favorites list is rebuilt from `is_favorite` flags by `rebuild_and_sort`.
-      state.rebuild_and_sort(TargetList::Favorites);
+      data.rebuild_and_sort(TargetList::Favorites);
+      drop(data);
       cx.notify();
     }
   });

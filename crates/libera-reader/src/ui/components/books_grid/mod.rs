@@ -5,6 +5,7 @@ pub(crate) mod image_utils;
 pub(crate) mod loader;
 
 use crate::TOKIO;
+use crate::app_ext::AppExt;
 use crate::books_state::models::LightBook;
 use crate::books_state::{BooksState, TargetList};
 use crate::db::models::CardDisplayMode;
@@ -37,12 +38,10 @@ pub struct BooksGrid {
 }
 
 impl BooksGrid {
-  pub fn new(
-    state: gpui::Entity<BooksState>, target: TargetList, cache_size: usize, id: gpui::ElementId,
-    cx: &mut Context<Self>,
-  ) -> Self {
+  pub fn new(target: TargetList, id: gpui::ElementId, cx: &mut Context<Self>) -> Self {
+    let state = cx.books_state_entity().clone();
+    let cache_size = cx.settings().read().image_cache_size as usize;
     cx.observe(&state, |_, _, cx| cx.notify()).detach();
-
     let cache = Arc::new(Mutex::new(BoundedCache::new(cache_size.max(1))));
     let visible_start = Arc::new(AtomicUsize::new(0));
     let visible_end = Arc::new(AtomicUsize::new(0));
@@ -113,13 +112,7 @@ impl BooksGrid {
   }
 
   fn total_books(&self, cx: &mut Context<Self>) -> usize {
-    let state = self.state.read(cx);
-    match self.target {
-      TargetList::Library => state.library_keys.len(),
-      TargetList::Favorites => state.favorites_keys.len(),
-      TargetList::History => state.history_keys.len(),
-      TargetList::Bookmarks => state.bookmarks_keys.len(),
-    }
+    self.state.read(cx).total_books(self.target)
   }
 
   fn render_placeholder() -> Div {
@@ -163,12 +156,12 @@ impl Render for BooksGrid {
         // Both must be released before pass 2 hands `view` to the card renderer.
         let mut rows_data: Vec<RowCells> = Vec::new();
         {
-          let state = view.state.read(cx);
+          let state_guard = view.state.read(cx).read();
           let keys = match view.target {
-            TargetList::Library => &state.library_keys,
-            TargetList::Favorites => &state.favorites_keys,
-            TargetList::History => &state.history_keys,
-            TargetList::Bookmarks => &state.bookmarks_keys,
+            TargetList::Library => &state_guard.library_keys,
+            TargetList::Favorites => &state_guard.favorites_keys,
+            TargetList::History => &state_guard.history_keys,
+            TargetList::Bookmarks => &state_guard.bookmarks_keys,
           };
           let mut cache_lock = view.image_cache.lock().unwrap();
 
@@ -181,7 +174,7 @@ impl Render for BooksGrid {
 
             let mut cell_data: RowCells = Vec::with_capacity(end - start);
             for (i, id) in keys.iter().enumerate().take(end).skip(start) {
-              let light = match state.books_map.get(id) {
+              let light = match state_guard.books_map.get(id) {
                 Some(b) => b.clone(),
                 None => continue,
               };
