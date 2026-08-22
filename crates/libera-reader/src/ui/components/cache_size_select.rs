@@ -1,9 +1,9 @@
+use crate::ctx::GlobalCTX;
 use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
 };
 use gpui_component::input::*;
 use gpui_component::{Sizable, gray, h_flex};
-use libera_reader_core::ctx::GlobalCTX;
 
 const CACHE_SIZE_MIN: usize = 10;
 const CACHE_SIZE_MAX: usize = 1000;

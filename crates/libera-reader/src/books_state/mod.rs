@@ -4,9 +4,9 @@ pub mod search;
 pub mod sort;
 pub mod thumbnails;
 
+use crate::db::models::books::book::{Book, BookPath, BookSnapshot};
+use crate::types::LibraryEvent;
 use gpui::{Context, SharedString, Task};
-use libera_reader_core::db::models::books::book::{Book, BookPath, BookSnapshot};
-use libera_reader_core::types::LibraryEvent;
 use std::collections::HashMap as StdHashMap;
 use std::path::PathBuf;
 use thumbnails::ThumbnailCache;
@@ -63,7 +63,7 @@ pub struct BooksState {
 
 impl BooksState {
   pub fn new(
-    thumbnails_dir: PathBuf, db: &libera_reader_core::db::DB, mut event_rx: Receiver<LibraryEvent>,
+    thumbnails_dir: PathBuf, db: &crate::db::DB, mut event_rx: Receiver<LibraryEvent>,
     cx: &mut Context<Self>,
   ) -> Self {
     let thumbnails = ThumbnailCache::new(thumbnails_dir);

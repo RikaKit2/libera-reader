@@ -1,8 +1,8 @@
+use crate::ctx::GlobalCTX;
 use gpui::*;
 use gpui_component::gray;
 use gpui_component::input::*;
 use gpui_component::*;
-use libera_reader_core::ctx::GlobalCTX;
 use rust_i18n::t;
 
 pub struct WorkersSelect {

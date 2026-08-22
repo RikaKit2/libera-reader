@@ -25,7 +25,7 @@ pub use book_size::BookSize;
 pub use snapshot::BookSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
-#[native_model(id = 1, version = 2)]
+#[native_model(id = 1, version = 1)]
 #[native_db]
 pub struct Book {
   #[primary_key]

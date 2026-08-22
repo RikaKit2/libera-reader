@@ -1,10 +1,10 @@
 use gpui::{AsyncApp, Hsla};
 
 use crate::TOKIO;
+use crate::ctx::Ctx;
 use gpui::App;
-use libera_reader_core::ctx::Ctx;
 
-pub(crate) fn set_lang(cx: &mut App) {
+pub fn set_lang(cx: &mut App) {
   let ctx = Ctx::global(cx);
   let lang = ctx.settings.read().language.to_string();
   rust_i18n::set_locale(lang);
@@ -15,7 +15,7 @@ pub fn adjust_brightness(color: Hsla, factor: f32) -> Hsla {
   Hsla { h: color.h, s: color.s, l: (color.l * factor).clamp(0.0, 1.0), a: color.a }
 }
 
-pub(crate) fn start_services(cx: &mut App) {
+pub fn start_services(cx: &mut App) {
   let scan_service = Ctx::global(cx).services.scan_service.clone();
 
   cx.spawn(|async_app: &mut AsyncApp| {

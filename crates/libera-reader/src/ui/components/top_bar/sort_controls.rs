@@ -3,8 +3,8 @@ use gpui_component::{ActiveTheme, select::*, *};
 
 use crate::books_state::models::DisplayModeOption;
 use crate::books_state::{BooksState, SortField, TargetList};
+use crate::ctx::Ctx;
 use crate::ui::components::top_bar::reverse_btn::ReverseBtn;
-use libera_reader_core::ctx::Ctx;
 
 /// Sort controls for the top bar: sort-field select, reverse-direction button
 /// (its own component), and display-mode select.

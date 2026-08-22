@@ -1,3 +1,7 @@
+use crate::{
+  ctx::GlobalCTX,
+  db::models::{RootRoute, Route, settings::route::SetupRoute},
+};
 use gpui::{
   App, AppContext, Context, Div, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -5,18 +9,12 @@ use gpui_component::{
   Disableable,
   button::{Button, ButtonVariants},
 };
-use libera_reader_core::{
-  ctx::GlobalCTX,
-  db::models::{RootRoute, Route, settings::route::SetupRoute},
-};
 use rust_i18n::t;
 
-use crate::{
-  start_services,
-  ui::pages::setup::{
-    appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage,
-    welcome::Welcome,
-  },
+use crate::app_utils::start_services;
+use crate::ui::pages::setup::{
+  appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage,
+  welcome::Welcome,
 };
 
 mod appearance;

@@ -7,31 +7,20 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 
 #[cfg(not(feature = "dhat-heap"))]
 #[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-rust_i18n::i18n!("../../locales");
-
-mod app_utils;
-mod books_state;
-mod theme;
-mod ui;
-
-use crate::app_utils::{set_lang, start_services};
-use crate::theme::init_theme;
-use crate::ui::{assets::Assets, pages::Pages};
 use anyhow::Result;
 use gpui::AppContext;
 use gpui::{App, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
 use gpui_component::Root;
-use libera_reader_core::ctx::Ctx;
-#[cfg(not(feature = "dhat-heap"))]
-use mimalloc::MiMalloc;
+use libera_reader::TOKIO;
+use libera_reader::app_utils::{set_lang, start_services};
+use libera_reader::ctx::Ctx;
+use libera_reader::theme::init_theme;
+use libera_reader::ui::{assets::Assets, pages::Pages};
 use std::path::PathBuf;
-use std::sync::OnceLock;
 use tokio::runtime::Runtime;
 use utils::create_subscriber;
-
-pub static TOKIO: OnceLock<Runtime> = OnceLock::new();
 
 fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
   let setup_is_done = Ctx::global(cx).settings.read().setup_is_done;
@@ -52,8 +41,6 @@ fn main() -> Result<()> {
   better_panic::install();
   create_subscriber()?;
 
-  // Activate the dhat heap profiler when the `dhat-heap` feature is on.
-  // The `Drop` of `_profiler` at process exit writes `dhat-heap.json` to cwd.
   #[cfg(feature = "dhat-heap")]
   let _profiler = dhat::Profiler::new_heap();
 

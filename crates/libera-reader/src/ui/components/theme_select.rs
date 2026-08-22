@@ -1,8 +1,8 @@
 use crate::theme::set_app_theme;
+use crate::{ctx::GlobalCTX, db::models::AppTheme};
 use gpui::*;
 use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use gpui_component::{select::*, *};
-use libera_reader_core::{ctx::GlobalCTX, db::models::AppTheme};
 use rust_i18n::t;
 
 pub struct ThemeSelect {

@@ -1,7 +1,7 @@
+use crate::ctx::GlobalCTX;
 use gpui::*;
 use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use gpui_component::{select::*, *};
-use libera_reader_core::ctx::GlobalCTX;
 use rust_i18n::t;
 
 #[derive(Clone, PartialEq)]

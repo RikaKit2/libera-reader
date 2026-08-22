@@ -22,9 +22,9 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::db::DB;
+use crate::db::models::books::book::{Book, BookPath};
 use gpui::SharedString;
-use libera_reader_core::db::DB;
-use libera_reader_core::db::models::books::book::{Book, BookPath};
 
 /// Entry in the thumbnail cache.
 #[derive(Clone, Debug)]

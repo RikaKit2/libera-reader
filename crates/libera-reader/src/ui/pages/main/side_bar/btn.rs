@@ -1,11 +1,11 @@
+use crate::ctx::GlobalCTX;
+use crate::db::models::{RootRoute, Route};
 use gpui::{
   App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div, px,
   svg,
 };
 use gpui::{Stateful, prelude::*};
 use gpui_component::ActiveTheme;
-use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::models::{RootRoute, Route};
 
 use crate::app_utils::adjust_brightness;
 

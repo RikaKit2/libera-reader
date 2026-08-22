@@ -1,7 +1,7 @@
 use super::{BooksState, TargetList};
+use crate::ctx::Ctx;
+use crate::types::LibraryEvent;
 use gpui::Context;
-use libera_reader_core::ctx::Ctx;
-use libera_reader_core::types::LibraryEvent;
 
 impl BooksState {
   pub(crate) fn apply_event(&mut self, event: LibraryEvent, cx: &mut Context<Self>) {

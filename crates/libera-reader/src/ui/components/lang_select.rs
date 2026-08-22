@@ -1,7 +1,7 @@
+use crate::{ctx::GlobalCTX, db::models::Lang};
 use gpui::*;
 use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use gpui_component::{select::*, *};
-use libera_reader_core::{ctx::GlobalCTX, db::models::Lang};
 use rust_i18n::t;
 
 use crate::app_utils::set_lang;

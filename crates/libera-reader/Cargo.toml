@@ -14,17 +14,16 @@ dhat-heap = ["dep:dhat"]
 gpui = { workspace = true }
 gpui_platform = { workspace = true }
 gpui-component = { workspace = true }
+gpui-component-assets = { workspace = true }
 rfd = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 unicode-segmentation = { workspace = true }
-libera-reader-core = { version = "0.0.2", path = "../libera-reader-core" }
 mutool = { version = "0.1.0", path = "../mutool" }
 utils = { version = "0.1.0", path = "../utils" }
 mimalloc = { workspace = true }
 better-panic = { workspace = true }
 tracing = { workspace = true }
-gpui-component-assets = { workspace = true }
 rust-embed = { workspace = true }
 rust-i18n = { workspace = true }
 tokio = { workspace = true }
@@ -34,3 +33,18 @@ libc = { workspace = true }
 image = { workspace = true }
 smallvec = { workspace = true }
 dhat = { workspace = true, optional = true }
+gxhash = { workspace = true }
+directories = { workspace = true }
+notify = { workspace = true }
+native_db = { workspace = true }
+native_model = { workspace = true }
+itertools = { workspace = true }
+once_cell = { workspace = true }
+concurrent-queue = { workspace = true }
+num_cpus = { workspace = true }
+sys-locale = { workspace = true }
+dashmap = { workspace = true }
+jwalk = { workspace = true }
+chrono = { workspace = true }
+indexmap = { workspace = true }
+tempfile = { workspace = true }

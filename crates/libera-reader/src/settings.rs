@@ -148,3 +148,41 @@ impl SETTINGS {
     };
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::db::models::settings::AppTheme;
+  use crate::db::models::settings::Lang;
+
+  #[test]
+  fn test_settings_persistence() -> Result<()> {
+    let tmp_dir = tempfile::tempdir()?;
+    let db_path = tmp_dir.path().join("test_settings.redb");
+    let db = DB::new(db_path)?;
+
+    let mut settings = SETTINGS::new(db.clone())?;
+    assert!(!settings.read().setup_is_done);
+
+    settings.set_setup_status(true)?;
+    assert!(settings.read().setup_is_done);
+
+    settings.set_language(Lang::RU)?;
+    assert_eq!(settings.read().language, Lang::RU);
+
+    settings.set_theme(&AppTheme::AyuDark)?;
+    assert_eq!(settings.read().theme, AppTheme::AyuDark);
+
+    settings.set_number_of_columns(5)?;
+    assert_eq!(settings.read().number_of_columns, 5);
+
+    // Re-open settings with new instance to verify db persistence
+    let settings_reopened = SETTINGS::new(db)?;
+    assert!(settings_reopened.read().setup_is_done);
+    assert_eq!(settings_reopened.read().language, Lang::RU);
+    assert_eq!(settings_reopened.read().theme, AppTheme::AyuDark);
+    assert_eq!(settings_reopened.read().number_of_columns, 5);
+
+    Ok(())
+  }
+}

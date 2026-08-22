@@ -1,11 +1,11 @@
+use crate::ctx::GlobalCTX;
+use crate::db::DB;
+use crate::types::LibraryEvent;
 use crate::ui::pages::setup::SetupPage;
 use crate::{books_state::BooksState, ui::pages::main::MainPage};
 use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
-use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::DB;
-use libera_reader_core::types::LibraryEvent;
 use std::path::PathBuf;
 use tokio::sync::broadcast::Receiver;
 
@@ -14,7 +14,7 @@ pub(crate) mod book_viewer;
 pub(crate) mod main;
 pub(crate) mod setup;
 
-pub(crate) struct Pages {
+pub struct Pages {
   main_page: Entity<MainPage>,
   setup_page: Entity<SetupPage>,
 }

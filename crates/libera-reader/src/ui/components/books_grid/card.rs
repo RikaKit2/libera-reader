@@ -1,11 +1,11 @@
 use super::FOOTER_HEIGHT_PX;
 use super::actions::{push_at_history, toggle_favorite};
 use crate::books_state::models::LightBook;
+use crate::ctx::Ctx;
+use crate::db::models::books::book::BookPath;
 use crate::ui::components::books_grid::cache::CoverState;
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, button::*};
-use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::models::books::book::BookPath;
 use std::path::PathBuf;
 
 pub(crate) const FAVORITE_INACTIVE_OPACITY: f32 = 0.7;
@@ -219,7 +219,7 @@ impl super::BooksGrid {
     let theme = cx.theme();
     let book_path = BookPath::from_id(&light.id);
 
-    let footer_height = if mode == libera_reader_core::db::models::CardDisplayMode::Detailed {
+    let footer_height = if mode == crate::db::models::CardDisplayMode::Detailed {
       px(FOOTER_HEIGHT_PX)
     } else {
       px(0.0)
@@ -254,7 +254,7 @@ impl super::BooksGrid {
           )),
       );
 
-    if mode == libera_reader_core::db::models::CardDisplayMode::Detailed {
+    if mode == crate::db::models::CardDisplayMode::Detailed {
       card = card.child(self.render_book_footer(light, theme.foreground, theme.primary));
     }
     card
@@ -267,7 +267,7 @@ pub(crate) fn render_book_card(
   cover_state: Option<CoverState>, card_height: Pixels, cx: &Context<super::BooksGrid>,
 ) -> Div {
   let mode = Ctx::global(cx).settings.read().card_display_mode;
-  if mode == libera_reader_core::db::models::CardDisplayMode::List {
+  if mode == crate::db::models::CardDisplayMode::List {
     view.render_list_card(light, thumb, cover_state, card_height, cx)
   } else {
     view.render_book_card_detailed_or_compact(light, thumb, cover_state, card_height, cx)

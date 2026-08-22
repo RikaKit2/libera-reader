@@ -1,6 +1,6 @@
+use crate::{ctx::Ctx, error_handler::ErrorType::Other};
 use gpui::{App, SharedString};
 use gpui_component::{Theme, ThemeRegistry};
-use libera_reader_core::{ctx::Ctx, error_handler::ErrorType::Other};
 use std::path::PathBuf;
 use utils::error;
 

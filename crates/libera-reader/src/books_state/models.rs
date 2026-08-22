@@ -1,7 +1,7 @@
+use crate::db::models::CardDisplayMode;
+use crate::db::models::books::book::{Book, BookSize, BookSnapshot};
 use gpui::{AnyElement, App, IntoElement, ParentElement, SharedString, Styled, Window, div};
 use gpui_component::{Icon, select::SelectItem};
-use libera_reader_core::db::models::CardDisplayMode;
-use libera_reader_core::db::models::books::book::{Book, BookSize, BookSnapshot};
 use rust_i18n::t;
 use std::fmt;
 
@@ -128,11 +128,9 @@ impl LightBook {
 
   #[allow(dead_code)]
   pub fn get_mutool_error(
-    &self, db: &libera_reader_core::db::DB,
+    &self, db: &crate::db::DB,
   ) -> anyhow::Result<Option<mutool::mutool_error::MuToolError>> {
-    if let Some(book) =
-      db.get_book(libera_reader_core::db::models::books::book::BookPath::from_id(&self.id))?
-    {
+    if let Some(book) = db.get_book(crate::db::models::books::book::BookPath::from_id(&self.id))? {
       book.get_mutool_error(db)
     } else {
       Ok(None)

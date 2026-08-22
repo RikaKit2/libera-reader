@@ -100,10 +100,10 @@ impl DB {
       else {
         return Ok(None);
       };
+      let old_book = book.clone();
       book.add_bookmark(bookmark);
-      let updated_book = book.clone();
-      rw_t.update::<Book>(book, updated_book.clone())?;
-      Ok(Some(updated_book))
+      rw_t.update::<Book>(old_book, book.clone())?;
+      Ok(Some(book))
     })
   }
 
@@ -113,12 +113,12 @@ impl DB {
       else {
         return Ok(None);
       };
+      let old_book = book.clone();
       if !book.update_bookmark(bookmark) {
         return Ok(None);
       }
-      let updated_book = book.clone();
-      rw_t.update::<Book>(book, updated_book.clone())?;
-      Ok(Some(updated_book))
+      rw_t.update::<Book>(old_book, book.clone())?;
+      Ok(Some(book))
     })
   }
 
@@ -128,12 +128,12 @@ impl DB {
       else {
         return Ok(None);
       };
+      let old_book = book.clone();
       if !book.remove_bookmark(time_created) {
         return Ok(None);
       }
-      let updated_book = book.clone();
-      rw_t.update::<Book>(book, updated_book.clone())?;
-      Ok(Some(updated_book))
+      rw_t.update::<Book>(old_book, book.clone())?;
+      Ok(Some(book))
     })
   }
 
@@ -189,4 +189,64 @@ impl DB {
 
 pub(crate) fn scan_primary<T: ToInput>(r: &RTransaction<'_>) -> Result<Vec<T>> {
   Ok(r.scan().primary()?.all()?.try_collect()?)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::db::models::UserData;
+  use crate::db::models::books::book::{BookDir, BookExt, BookSize};
+
+  #[test]
+  fn test_db_crud_operations() -> Result<()> {
+    let tmp_dir = tempfile::tempdir()?;
+    let db_path = tmp_dir.path().join("test.redb");
+    let db = DB::new(db_path)?;
+
+    let book_dir = BookDir::new(tmp_dir.path().to_path_buf());
+    let book_path = BookPath {
+      parent_dir: book_dir.clone(),
+      name: "sample".into(),
+      ext: BookExt::PDF("pdf".into()),
+      deleted: false,
+    };
+
+    let book = Book {
+      id: book_path.full_path_string().to_string(),
+      parent_dir: book_dir.full_path().to_string(),
+      book_path: book_path.clone(),
+      book_size: BookSize::BYTES(1024),
+      user_data: UserData::default(),
+      bookmarks: Vec::new(),
+    };
+
+    db.insert(book.clone())?;
+
+    let retrieved = db.get_book(book_path.clone())?;
+    assert!(retrieved.is_some());
+    assert_eq!(retrieved.unwrap().id, book.id);
+
+    let bookmark = BookMark {
+      title: "Chapter 1".into(),
+      content: "First note".into(),
+      page_number: 5,
+      time_created: "2026-08-22T00:00:00Z".into(),
+      time_updated: "2026-08-22T00:00:00Z".into(),
+    };
+    db.add_bookmark(book_path.clone(), bookmark.clone())?;
+
+    let with_bookmark = db.get_book(book_path.clone())?.unwrap();
+    assert_eq!(with_bookmark.bookmarks.len(), 1);
+    assert_eq!(with_bookmark.bookmarks[0].title, "Chapter 1");
+
+    let books_in_dir = db.scan_books_by_parent_dir(book_dir.full_path().as_ref())?;
+    assert_eq!(books_in_dir.len(), 1);
+
+    db.remove_bookmark(book_path.clone(), &bookmark.time_created)?;
+    let without_bookmark = db.get_book(book_path.clone())?.unwrap();
+    assert_eq!(without_bookmark.bookmarks.len(), 0);
+
+    db.compact()?;
+    Ok(())
+  }
 }

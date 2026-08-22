@@ -1,7 +1,7 @@
 use crate::books_state::{BooksState, TargetList};
+use crate::ctx::Ctx;
+use crate::db::models::books::book::BookPath;
 use gpui::{App, BorrowAppContext, Entity};
-use libera_reader_core::ctx::Ctx;
-use libera_reader_core::db::models::books::book::BookPath;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Record that a book was opened: bump its `last_opened`, ensure it is in the

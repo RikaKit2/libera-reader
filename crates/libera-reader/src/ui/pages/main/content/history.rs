@@ -1,4 +1,5 @@
 use crate::books_state::{BooksState, TargetList};
+use crate::ctx::Ctx;
 use crate::ui::components::{BooksGrid, TopBar};
 use crate::ui::constants as C;
 use gpui::{
@@ -6,7 +7,6 @@ use gpui::{
   div, px,
 };
 use gpui_component::ActiveTheme;
-use libera_reader_core::ctx::Ctx;
 use std::path::PathBuf;
 
 pub(crate) struct History {
@@ -17,7 +17,7 @@ pub(crate) struct History {
 
 fn collect_thumbnail_paths(
   thumbnails: &mut crate::books_state::thumbnails::ThumbnailCache, keys: &[gpui::SharedString],
-  db: &libera_reader_core::db::DB,
+  db: &crate::db::DB,
 ) -> Vec<Option<PathBuf>> {
   let mut out = Vec::with_capacity(keys.len());
   for id in keys {

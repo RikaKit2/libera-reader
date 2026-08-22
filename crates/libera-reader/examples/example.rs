@@ -1,5 +1,5 @@
 use anyhow::Result;
-use libera_reader_core::ctx::Ctx;
+use libera_reader::ctx::Ctx;
 use mimalloc::MiMalloc;
 use rfd::AsyncFileDialog;
 use std::thread::sleep;

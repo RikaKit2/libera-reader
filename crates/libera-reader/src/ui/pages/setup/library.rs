@@ -1,9 +1,9 @@
+use crate::ctx::GlobalCTX;
 use gpui::{
   AbsoluteLength, App, AppContext, Context, Entity, IntoElement, ParentElement, Pixels, Render,
   Styled, Window, div, px,
 };
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable};
-use libera_reader_core::ctx::GlobalCTX;
 use rust_i18n::t;
 
 use crate::ui::{

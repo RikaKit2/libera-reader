@@ -1,3 +1,4 @@
+use crate::ctx::GlobalCTX;
 use gpui::prelude::FluentBuilder;
 use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
@@ -6,7 +7,6 @@ use gpui_component::{
   Disableable,
   button::{Button, ButtonVariants},
 };
-use libera_reader_core::ctx::GlobalCTX;
 use rfd::AsyncFileDialog;
 use rust_i18n::t;
 use std::sync::atomic::{AtomicBool, Ordering};

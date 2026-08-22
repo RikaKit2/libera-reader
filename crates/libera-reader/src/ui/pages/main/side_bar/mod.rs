@@ -1,11 +1,11 @@
 mod btn;
 
+use crate::ctx::GlobalCTX;
+use crate::db::models::{RootRoute, Route};
 use crate::ui::pages::main::side_bar::btn::Btn;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 use gpui_component::ActiveTheme;
-use libera_reader_core::ctx::GlobalCTX;
-use libera_reader_core::db::models::{RootRoute, Route};
 
 /// Primary navigation entries shown at the top of the sidebar.
 const TOP_ENTRIES: &[(Route, &str)] = &[

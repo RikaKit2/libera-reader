@@ -1,7 +1,8 @@
+#[path = "mod.rs"]
 mod test_lib;
 
-use crate::test_lib::*;
 use anyhow::Result;
+use test_lib::*;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn notify_service_test() -> Result<()> {

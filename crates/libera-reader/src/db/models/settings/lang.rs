@@ -4,7 +4,7 @@ use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 use sys_locale::get_locale;
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub enum Lang {
   EN,
   RU,

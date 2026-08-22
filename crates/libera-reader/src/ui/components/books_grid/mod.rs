@@ -7,6 +7,7 @@ pub(crate) mod loader;
 use crate::TOKIO;
 use crate::books_state::models::LightBook;
 use crate::books_state::{BooksState, TargetList};
+use crate::db::models::CardDisplayMode;
 use crate::ui::components::books_grid::cache::{BoundedCache, CoverState};
 use crate::ui::components::books_grid::loader::spawn_background_loader;
 use crate::ui::constants as C;
@@ -15,7 +16,6 @@ use gpui::{
 };
 use gpui_component::scroll::Scrollbar;
 use gpui_component::{VirtualListScrollHandle, v_virtual_list};
-use libera_reader_core::db::models::CardDisplayMode;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};

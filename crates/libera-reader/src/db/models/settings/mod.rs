@@ -29,7 +29,7 @@ pub enum CardDisplayMode {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-#[native_model(id = 1, version = 1)]
+#[native_model(id = 4, version = 1)]
 #[native_db]
 pub struct Settings {
   #[primary_key]
