@@ -10,6 +10,16 @@ pub struct SETTINGS {
   inn: Arc<RwLock<Settings>>,
   db: DB,
 }
+
+impl gpui::Global for SETTINGS {}
+
+/// Apply current language from settings to the localization engine and refresh windows.
+pub fn apply_language(cx: &mut gpui::App) {
+  let lang = cx.global::<SETTINGS>().read().language.to_string();
+  rust_i18n::set_locale(lang);
+  cx.refresh_windows();
+}
+
 impl SETTINGS {
   pub fn new(db: DB) -> Result<Self> {
     Ok(Self { inn: Arc::new(RwLock::new(Settings::get_or_create(1u32, &db)?)), db })

@@ -1,4 +1,4 @@
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use gpui::*;
 use gpui_component::gray;
 use gpui_component::input::*;
@@ -11,7 +11,7 @@ pub struct WorkersSelect {
 
 impl WorkersSelect {
   pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
-    let current = cx.ctx().settings.read().workers_num;
+    let current = cx.settings().read().workers_num;
     let max_workers: u32 =
       std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(4);
 
@@ -29,7 +29,7 @@ impl WorkersSelect {
             let text = state.read(cx).value();
             if let Ok(val) = text.parse::<u32>() {
               let clamped = val.clamp(1, max_workers as u32);
-              cx.ctx_mut().settings.set_workers_num(clamped).unwrap();
+              cx.settings_mut().set_workers_num(clamped).unwrap();
             }
           }
         }
@@ -42,12 +42,12 @@ impl WorkersSelect {
               event: &NumberInputEvent,
               _window: &mut Window,
               cx: &mut Context<'_, WorkersSelect>| {
-          let current = cx.ctx().settings.read().workers_num;
+          let current = cx.settings().read().workers_num;
           match event {
             NumberInputEvent::Step(StepAction::Increment) => {
               if current < max_workers as u32 {
                 let new_val = current + 1;
-                cx.ctx_mut().settings.set_workers_num(new_val).unwrap();
+                cx.settings_mut().set_workers_num(new_val).unwrap();
                 state.update(cx, |input, cx| {
                   input.set_value(new_val.to_string(), _window, cx);
                 });
@@ -56,7 +56,7 @@ impl WorkersSelect {
             NumberInputEvent::Step(StepAction::Decrement) => {
               if current > 1 {
                 let new_val = current - 1;
-                cx.ctx_mut().settings.set_workers_num(new_val).unwrap();
+                cx.settings_mut().set_workers_num(new_val).unwrap();
                 state.update(cx, |input, cx| {
                   input.set_value(new_val.to_string(), _window, cx);
                 });

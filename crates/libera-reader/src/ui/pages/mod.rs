@@ -1,5 +1,5 @@
+use crate::app_ext::AppExt;
 use crate::books_state::BooksState;
-use crate::ctx::GlobalCTX;
 use crate::ui::pages::main::MainPage;
 use crate::ui::pages::setup::SetupPage;
 use gpui::{
@@ -26,8 +26,8 @@ impl Pages {
 
 impl Render for Pages {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let path_to_scan = cx.ctx().settings.read().path_to_scan.is_some();
-    let setup_status = cx.ctx().settings.read().setup_is_done;
+    let path_to_scan = cx.settings().read().path_to_scan.is_some();
+    let setup_status = cx.settings().read().setup_is_done;
     match path_to_scan && setup_status {
       true => div().w_full().h_full().child(self.main_page.clone()),
       false => div().w_full().h_full().child(self.setup_page.clone()),

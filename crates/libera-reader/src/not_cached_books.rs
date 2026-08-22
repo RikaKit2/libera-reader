@@ -11,8 +11,16 @@ pub struct NotCachedBooks {
   rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<BookPath>>>>,
 }
 
+impl gpui::Global for NotCachedBooks {}
+
+impl Default for NotCachedBooks {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl NotCachedBooks {
-  pub(crate) fn new() -> Self {
+  pub fn new() -> Self {
     let (tx, rx) = mpsc::unbounded_channel();
     Self { tx, rx: Arc::new(Mutex::new(Some(rx))) }
   }

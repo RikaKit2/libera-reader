@@ -1,7 +1,7 @@
 use super::FOOTER_HEIGHT_PX;
 use super::actions::{push_at_history, toggle_favorite};
+use crate::app_ext::AppExt;
 use crate::books_state::models::LightBook;
-use crate::ctx::Ctx;
 use crate::db::models::books::book::BookPath;
 use crate::ui::components::books_grid::cache::CoverState;
 use gpui::*;
@@ -215,7 +215,7 @@ impl super::BooksGrid {
     &self, light: &LightBook, thumb: Option<PathBuf>, cover_state: Option<CoverState>,
     card_height: Pixels, cx: &Context<Self>,
   ) -> Div {
-    let mode = Ctx::global(cx).settings.read().card_display_mode;
+    let mode = cx.settings().read().card_display_mode;
     let theme = cx.theme();
     let book_path = BookPath::from_id(&light.id);
 
@@ -266,7 +266,7 @@ pub(crate) fn render_book_card(
   view: &mut super::BooksGrid, light: &LightBook, thumb: Option<PathBuf>,
   cover_state: Option<CoverState>, card_height: Pixels, cx: &Context<super::BooksGrid>,
 ) -> Div {
-  let mode = Ctx::global(cx).settings.read().card_display_mode;
+  let mode = cx.settings().read().card_display_mode;
   if mode == crate::db::models::CardDisplayMode::List {
     view.render_list_card(light, thumb, cover_state, card_height, cx)
   } else {

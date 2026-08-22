@@ -1,8 +1,13 @@
-use crate::{ctx::Ctx, error_handler::ErrorType::Other};
-use gpui::{App, SharedString};
+use crate::settings::SETTINGS;
+use gpui::{App, Hsla, SharedString};
 use gpui_component::{Theme, ThemeRegistry};
 use std::path::PathBuf;
 use utils::error;
+
+/// Adjust color lightness by a multiplication factor.
+pub fn adjust_brightness(color: Hsla, factor: f32) -> Hsla {
+  Hsla { h: color.h, s: color.s, l: (color.l * factor).clamp(0.0, 1.0), a: color.a }
+}
 
 pub fn set_app_theme(cx: &mut App, theme: String) {
   let theme_name = SharedString::from(theme);
@@ -11,24 +16,19 @@ pub fn set_app_theme(cx: &mut App, theme: String) {
       Theme::global_mut(cx).apply_config(&theme_config);
     }
     None => {
-      let ctx = Ctx::global(cx);
-      let msg = format!("Theme not faund: {:?}", theme_name);
-      error!("{}", &msg);
-      ctx.error_handler.report(msg.into(), Other);
+      error!("Theme not found: {:?}", theme_name);
     }
   };
 }
 
 pub fn init_theme(themes_dir: PathBuf, cx: &mut App) {
   match ThemeRegistry::watch_dir(themes_dir, cx, move |cx| {
-    let ctx = Ctx::global(cx);
-    let theme = ctx.theme().to_string();
+    let theme = cx.global::<SETTINGS>().read().theme.to_string();
     set_app_theme(cx, theme);
   }) {
     Ok(_) => {}
     Err(err) => {
-      let ctx = Ctx::global(cx);
-      ctx.error_handler.report(err.to_string().into(), Other);
+      error!("Failed to watch themes directory: {:?}", err);
     }
   };
 }

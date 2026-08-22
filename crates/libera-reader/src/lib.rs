@@ -6,11 +6,9 @@ pub static TOKIO: OnceLock<Runtime> = OnceLock::new();
 rust_i18n::i18n!("../../locales");
 
 pub mod app_dirs;
-pub mod app_utils;
+pub mod app_ext;
 pub mod books_state;
-pub mod ctx;
 pub mod db;
-pub mod error_handler;
 pub mod not_cached_books;
 pub mod services;
 pub mod settings;

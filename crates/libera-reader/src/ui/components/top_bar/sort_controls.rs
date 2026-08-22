@@ -1,9 +1,9 @@
 use gpui::*;
 use gpui_component::{ActiveTheme, select::*, *};
 
+use crate::app_ext::AppExt;
 use crate::books_state::models::DisplayModeOption;
 use crate::books_state::{BooksState, SortField, TargetList};
-use crate::ctx::Ctx;
 use crate::ui::components::top_bar::reverse_btn::ReverseBtn;
 
 /// Sort controls for the top bar: sort-field select, reverse-direction button
@@ -24,7 +24,7 @@ impl SortControls {
       TargetList::History => books_state.read(cx).history_sort.field,
       TargetList::Bookmarks => books_state.read(cx).bookmarks_sort.field,
     };
-    let current_mode = Ctx::global(cx).settings.read().card_display_mode;
+    let current_mode = cx.settings().read().card_display_mode;
 
     let available_fields = SortField::available_for(target);
     let fields = SearchableVec::new(available_fields.clone());
@@ -65,7 +65,7 @@ impl SortControls {
               _window: &mut Window,
               cx: &mut Context<'_, SortControls>| {
           if let SelectEvent::Confirm(Some(new_mode)) = event {
-            let _ = Ctx::global_mut(cx).settings.set_display_mode(*new_mode);
+            let _ = cx.settings_mut().set_display_mode(*new_mode);
             cx.notify();
           }
         }

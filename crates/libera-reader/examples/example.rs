@@ -1,5 +1,9 @@
 use anyhow::Result;
-use libera_reader::ctx::Ctx;
+use libera_reader::app_dirs::AppDirs;
+use libera_reader::db::DB;
+use libera_reader::not_cached_books::NotCachedBooks;
+use libera_reader::services::Services;
+use libera_reader::settings::SETTINGS;
 use mimalloc::MiMalloc;
 use rfd::AsyncFileDialog;
 use std::thread::sleep;
@@ -12,18 +16,24 @@ static GLOBAL_ALLOCATOR: MiMalloc = MiMalloc;
 async fn main() -> Result<()> {
   better_panic::install();
   utils::create_subscriber()?;
-  let mut ctx = Ctx::new();
-  let path_to_scan_is_some = ctx.settings.read().path_to_scan.is_some();
+  let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
+  let path_to_db = app_dirs.read().path_to_db.clone();
+  let db = DB::new(path_to_db)?;
+  let mut settings = SETTINGS::new(db.clone())?;
+  let not_cached_books = NotCachedBooks::new();
+  let mut services =
+    Services::new(settings.clone(), db.clone(), not_cached_books, app_dirs.clone(), None)?;
+  let path_to_scan_is_some = settings.read().path_to_scan.is_some();
   match path_to_scan_is_some {
     true => {
-      ctx.services.run().await?;
+      services.run().await?;
     }
     false => {
       println!("Please input path to scan:");
       if let Some(folder) = AsyncFileDialog::new().pick_folder().await {
         let path = folder.path().to_path_buf();
-        ctx.settings.set_path_to_scan(path)?;
-        ctx.services.run().await?;
+        settings.set_path_to_scan(path)?;
+        services.run().await?;
       }
     }
   }

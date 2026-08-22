@@ -1,4 +1,4 @@
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use gpui::{
   AbsoluteLength, App, AppContext, Context, Entity, IntoElement, ParentElement, Pixels, Render,
   Styled, Window, div, px,
@@ -48,7 +48,7 @@ impl Render for Library {
       ]),
     ]);
 
-    let path_selected = cx.ctx().settings.read().path_to_scan.is_some();
+    let path_selected = cx.settings().read().path_to_scan.is_some();
     let next_btn_disabled = !path_selected;
 
     div()

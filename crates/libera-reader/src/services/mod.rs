@@ -25,8 +25,42 @@ pub struct Services {
   state_handle: Option<BooksStateHandle>,
 }
 
+impl gpui::Global for Services {}
+
+/// Start background scanner, watcher, and thumbnail extractor services.
+pub fn start_services(cx: &mut gpui::App) {
+  let scan_service = cx.global::<Services>().scan_service.clone();
+
+  cx.spawn(|async_app: &mut gpui::AsyncApp| {
+    let owned_app = async_app.clone();
+
+    async move {
+      let tokio_rt = crate::TOKIO.get().unwrap();
+
+      tokio_rt.spawn(async move {
+        if let Err(e) = scan_service.run().await {
+          eprintln!("ScanService error: {:?}", e);
+        }
+      });
+
+      owned_app.update(|cx| {
+        let _guard = tokio_rt.enter();
+
+        let services = cx.global_mut::<Services>();
+
+        if let Err(e) = services.notify_service.run() {
+          eprintln!("NotifyService error: {:?}", e);
+        }
+
+        services.run_data_extraction_service();
+      });
+    }
+  })
+  .detach();
+}
+
 impl Services {
-  pub(crate) fn new(
+  pub fn new(
     settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks,
     app_dirs: crate::app_dirs::AppDirs, state_handle: Option<BooksStateHandle>,
   ) -> Result<Self> {

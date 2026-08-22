@@ -1,7 +1,6 @@
-use crate::{
-  ctx::GlobalCTX,
-  db::models::{RootRoute, Route, settings::route::SetupRoute},
-};
+use crate::app_ext::AppExt;
+use crate::db::models::{RootRoute, Route, settings::route::SetupRoute};
+use crate::services::start_services;
 use gpui::{
   App, AppContext, Context, Div, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
@@ -11,7 +10,6 @@ use gpui_component::{
 };
 use rust_i18n::t;
 
-use crate::app_utils::start_services;
 use crate::ui::pages::setup::{
   appearance::Appearance, finish::Finish, library::Library, sync::SyncPage, tts::TTSPage,
   welcome::Welcome,
@@ -52,14 +50,14 @@ fn next_btn(disabled: bool) -> Div {
       .label(t!("pages.setup.next_btn"))
       .disabled(disabled)
       .on_click(|_event, _window, cx| {
-        cx.ctx_mut().settings.to_next_setup_route();
+        cx.settings_mut().to_next_setup_route();
       }),
   )
 }
 fn back_btn() -> Div {
   div().child(Button::new("pages.setup.back_btn").label(t!("pages.setup.back_btn")).on_click(
     move |_event, _window, cx| {
-      cx.ctx_mut().settings.to_previous_setup_route();
+      cx.settings_mut().to_previous_setup_route();
     },
   ))
 }
@@ -68,9 +66,9 @@ fn finish_btn() -> Div {
   div().child(
     Button::new("pages.setup.finish_btn").primary().label(t!("pages.setup.finish_btn")).on_click(
       move |_event, _window, cx| {
-        cx.ctx_mut().settings.set_setup_status(true).unwrap();
-        cx.ctx_mut().settings.set_route(RootRoute::Main(Route::Library)).unwrap();
-        cx.ctx_mut().db.compact().unwrap();
+        cx.settings_mut().set_setup_status(true).unwrap();
+        cx.settings_mut().set_route(RootRoute::Main(Route::Library)).unwrap();
+        cx.db().compact().unwrap();
         start_services(cx);
       },
     ),
@@ -79,7 +77,7 @@ fn finish_btn() -> Div {
 
 impl Render for SetupPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    match cx.ctx().get_curr_route() {
+    match cx.settings().read().route {
       RootRoute::Main(_route) => div(),
       RootRoute::BookViewer => div(),
       RootRoute::Setup(setup_route) => match setup_route {

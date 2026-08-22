@@ -8,6 +8,9 @@ use utils::{error, title};
 pub struct AppDirs {
   inn: Arc<RwLock<Dirs>>,
 }
+
+impl gpui::Global for AppDirs {}
+
 impl AppDirs {
   pub fn new(path_to_data_dir: PathBuf) -> Result<Self, Vec<Error>> {
     let dirs = Dirs::new(path_to_data_dir)?;

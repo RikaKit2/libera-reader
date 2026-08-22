@@ -14,9 +14,13 @@ use gpui::AppContext;
 use gpui::{App, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
 use gpui_component::Root;
 use libera_reader::TOKIO;
-use libera_reader::app_utils::{set_lang, start_services};
+use libera_reader::app_dirs::AppDirs;
+use libera_reader::app_ext::AppExt;
 use libera_reader::books_state::BooksState;
-use libera_reader::ctx::Ctx;
+use libera_reader::db::DB;
+use libera_reader::not_cached_books::NotCachedBooks;
+use libera_reader::services::{Services, start_services};
+use libera_reader::settings::{SETTINGS, apply_language};
 use libera_reader::theme::init_theme;
 use libera_reader::ui::{assets::Assets, pages::Pages};
 use std::path::PathBuf;
@@ -24,9 +28,8 @@ use tokio::runtime::Runtime;
 use utils::create_subscriber;
 
 fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
-  let ctx = Ctx::global(cx);
-  let thumbnails_dir = ctx.app_dirs.read().thumbnails_dir.clone();
-  let db = ctx.db.clone();
+  let thumbnails_dir = cx.app_dirs().read().thumbnails_dir.clone();
+  let db = cx.db().clone();
 
   let mut state_handle = None;
   let books_state = cx.new(|cx| {
@@ -35,10 +38,10 @@ fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
     state
   });
   if let Some(handle) = state_handle {
-    Ctx::global_mut(cx).set_state_handle(handle);
+    cx.services_mut().set_state_handle(handle);
   }
 
-  let setup_is_done = Ctx::global(cx).settings.read().setup_is_done;
+  let setup_is_done = cx.settings().read().setup_is_done;
   if setup_is_done {
     start_services(cx);
   }
@@ -61,11 +64,24 @@ fn main() -> Result<()> {
 
   let app = gpui_platform::application().with_assets(Assets);
   app.run(move |cx| {
-    Ctx::init(cx);
+    let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
+    let path_to_db = app_dirs.read().path_to_db.clone();
+    let db = DB::new(path_to_db).unwrap();
+    let settings = SETTINGS::new(db.clone()).unwrap();
+    let not_cached_books = NotCachedBooks::new();
+    let services =
+      Services::new(settings.clone(), db.clone(), not_cached_books.clone(), app_dirs.clone(), None)
+        .unwrap();
+
+    cx.set_global(app_dirs);
+    cx.set_global(db);
+    cx.set_global(settings);
+    cx.set_global(not_cached_books);
+    cx.set_global(services);
+
     gpui_component::init(cx);
     init_theme(themes_dir, cx);
-    set_lang(cx);
-
+    apply_language(cx);
     let bounds = Bounds::centered(None, size(px(700.0), px(400.0)), cx);
     let window_options = WindowOptions {
       window_bounds: Some(WindowBounds::Windowed(bounds)),

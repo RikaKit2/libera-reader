@@ -1,6 +1,6 @@
 mod btn;
 
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use crate::db::models::{RootRoute, Route};
 use crate::ui::pages::main::side_bar::btn::Btn;
 use gpui::prelude::*;
@@ -28,7 +28,7 @@ impl SideBar {
   }
 
   fn mark_btn_as_active(&mut self, route: Route, cx: &mut App) {
-    cx.ctx_mut().settings.set_route(RootRoute::Main(route)).unwrap();
+    cx.settings_mut().set_route(RootRoute::Main(route)).unwrap();
   }
 
   /// Build a sidebar button that activates the given route on click.

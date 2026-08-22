@@ -1,4 +1,4 @@
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use gpui::*;
 use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use gpui_component::{select::*, *};
@@ -44,7 +44,7 @@ pub struct ColumnsSelect {
 impl ColumnsSelect {
   pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
     let columns = SearchableVec::new(ColumnOption::all());
-    let current_columns = cx.ctx().settings.read().number_of_columns;
+    let current_columns = cx.settings().read().number_of_columns;
     let initial_index = ColumnOption::all()
       .iter()
       .position(|c| c.0 == current_columns)
@@ -60,7 +60,7 @@ impl ColumnsSelect {
       ) {
         let SelectEvent::Confirm(new_columns) = event;
         if let Some(new_columns) = new_columns {
-          cx.ctx_mut().settings.set_number_of_columns(*new_columns).unwrap();
+          cx.settings_mut().set_number_of_columns(*new_columns).unwrap();
         };
       }
       cx.subscribe_in(&columns_select, window, fun_name).detach();

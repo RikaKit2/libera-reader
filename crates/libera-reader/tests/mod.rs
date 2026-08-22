@@ -1,6 +1,10 @@
 use anyhow::Result;
-use libera_reader::ctx::Ctx;
+use libera_reader::app_dirs::AppDirs;
+use libera_reader::db::DB;
 use libera_reader::db::models::books::book::{Book, BookDir, BookPath};
+use libera_reader::not_cached_books::NotCachedBooks;
+use libera_reader::services::Services;
+use libera_reader::settings::SETTINGS;
 use mutool::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -30,7 +34,9 @@ pub struct TestLib {
   test_files_dir: PathBuf,
   tmp_dir: PathBuf,
 
-  ctx: Ctx,
+  settings: SETTINGS,
+  services: Services,
+  db: DB,
 }
 
 impl TestLib {
@@ -41,9 +47,14 @@ impl TestLib {
 
     Self::drop_files(&tmp_dir).await;
 
-    let mut ctx = Ctx::new_for_test(tmp_dir.clone());
-    let path_to_scan = tmp_dir.clone();
-    ctx.settings.set_path_to_scan(path_to_scan)?;
+    let app_dirs = AppDirs::new(tmp_dir.clone()).unwrap();
+    let db = DB::new(app_dirs.read().path_to_db.clone()).unwrap();
+    let mut settings = SETTINGS::new(db.clone()).unwrap();
+    settings.set_path_to_scan(tmp_dir.clone())?;
+    let not_cached_books = NotCachedBooks::new();
+    let services =
+      Services::new(settings.clone(), db.clone(), not_cached_books, app_dirs.clone(), None)
+        .unwrap();
 
     download_mutool_if_missing_blocking(&test_files).await?;
 
@@ -55,7 +66,9 @@ impl TestLib {
       test_files_dir: test_files,
       tmp_dir,
       test_mode,
-      ctx,
+      settings,
+      services,
+      db,
     })
   }
 
@@ -65,7 +78,7 @@ impl TestLib {
         tokio::time::sleep(Duration::from_millis(TIME_BETWEEN_TESTS)).await;
       }
       TestMode::ScanService => {
-        self.ctx.services.scan_service.run().await?;
+        self.services.scan_service.run().await?;
       }
     }
     Ok(())
@@ -150,7 +163,7 @@ impl TestLib {
 
     let parent_dir = self.first_book.parent().unwrap().to_path_buf();
     let book_dir = BookDir::new(parent_dir);
-    let target_books = self.ctx.db.scan_books_by_parent_dir(book_dir.full_path().as_ref())?;
+    let target_books = self.db.scan_books_by_parent_dir(book_dir.full_path().as_ref())?;
 
     assert!(target_books.is_empty(), "Directory exists in DB but should be empty");
 
@@ -173,14 +186,14 @@ impl TestLib {
     let book_path = BookPath::new(book_path_in_db)
       .expect("Failed to create BookPath from file path (check if extension is valid)");
 
-    let book_result = self.ctx.db.get_book(book_path.clone());
+    let book_result = self.db.get_book(book_path.clone());
 
     match book_result {
       Ok(Some(book)) => {
         assert_fn(&book);
       }
       Ok(None) => {
-        let Ok(books_from_db) = self.ctx.db.scan_all_books() else {
+        let Ok(books_from_db) = self.db.scan_all_books() else {
           panic!("Failed to get all books from db for debug dump");
         };
         let book_count = books_from_db.len();
@@ -198,10 +211,10 @@ impl TestLib {
 
   pub async fn run(&mut self) -> Result<()> {
     let path_to_scan = self.tmp_dir.clone();
-    self.ctx.settings.set_path_to_scan(path_to_scan)?;
+    self.settings.set_path_to_scan(path_to_scan)?;
 
     if let TestMode::Notify = self.test_mode {
-      self.ctx.services.notify_service.run()?;
+      self.services.notify_service.run()?;
     }
 
     self.create_first_book().await?;

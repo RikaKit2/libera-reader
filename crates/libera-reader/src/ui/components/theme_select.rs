@@ -1,5 +1,6 @@
+use crate::app_ext::AppExt;
+use crate::db::models::AppTheme;
 use crate::theme::set_app_theme;
-use crate::{ctx::GlobalCTX, db::models::AppTheme};
 use gpui::*;
 use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use gpui_component::{select::*, *};
@@ -11,7 +12,7 @@ pub struct ThemeSelect {
 impl ThemeSelect {
   pub fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
     let themes = SearchableVec::new(AppTheme::all());
-    let current_theme = cx.ctx().theme();
+    let current_theme = cx.settings().read().theme.clone();
     let initial_index =
       AppTheme::all().iter().position(|t| t == &current_theme).map(|i| IndexPath::default().row(i));
     let theme_select =
@@ -25,7 +26,7 @@ impl ThemeSelect {
       ) {
         let SelectEvent::Confirm(new_theme) = event;
         if let Some(new_theme) = new_theme {
-          cx.ctx_mut().settings.set_theme(new_theme).unwrap();
+          cx.settings_mut().set_theme(new_theme).unwrap();
           set_app_theme(cx, new_theme.to_string());
         };
       }

@@ -1,4 +1,4 @@
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use crate::db::models::{RootRoute, Route};
 use gpui::{
   App, ClickEvent, ElementId, IntoElement, ParentElement, SharedString, Styled, Window, div, px,
@@ -7,7 +7,7 @@ use gpui::{
 use gpui::{Stateful, prelude::*};
 use gpui_component::ActiveTheme;
 
-use crate::app_utils::adjust_brightness;
+use crate::theme::adjust_brightness;
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 
@@ -32,7 +32,7 @@ impl Btn {
   }
 
   fn get_active_status(&self, cx: &mut App) -> bool {
-    match cx.ctx().settings.read().route {
+    match cx.settings().read().route {
       RootRoute::Main(curr_route) => curr_route.eq(&self.btn_route),
       _ => false,
     }

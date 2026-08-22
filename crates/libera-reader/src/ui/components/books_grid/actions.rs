@@ -1,7 +1,7 @@
+use crate::app_ext::AppExt;
 use crate::books_state::{BooksState, TargetList};
-use crate::ctx::Ctx;
 use crate::db::models::books::book::BookPath;
-use gpui::{App, BorrowAppContext, Entity};
+use gpui::{App, Entity};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Record that a book was opened: bump its `last_opened`, ensure it is in the
@@ -25,13 +25,12 @@ pub fn push_at_history(path: BookPath, books_state: Entity<BooksState>, cx: &mut
   });
 
   if should_persist {
-    cx.update_global::<Ctx, _>(|ctx, _cx| {
-      if let Ok(Some(book)) = ctx.db.get_book(path.clone()) {
-        let mut updated = book.clone();
-        updated.user_data.last_opened = now;
-        let _ = ctx.db.update_book(updated);
-      }
-    });
+    let db = cx.db().clone();
+    if let Ok(Some(book)) = db.get_book(path.clone()) {
+      let mut updated = book.clone();
+      updated.user_data.last_opened = now;
+      let _ = db.update_book(updated);
+    }
   }
 }
 
@@ -51,12 +50,11 @@ pub fn toggle_favorite(path: BookPath, books_state: Entity<BooksState>, cx: &mut
   });
 
   if let Some(is_favorite) = new_state {
-    cx.update_global::<Ctx, _>(|ctx, _cx| {
-      if let Ok(Some(book)) = ctx.db.get_book(path.clone()) {
-        let mut updated = book.clone();
-        updated.user_data.favorite = is_favorite;
-        let _ = ctx.db.update_book(updated);
-      }
-    });
+    let db = cx.db().clone();
+    if let Ok(Some(book)) = db.get_book(path.clone()) {
+      let mut updated = book.clone();
+      updated.user_data.favorite = is_favorite;
+      let _ = db.update_book(updated);
+    }
   }
 }

@@ -30,6 +30,7 @@ pub struct DB {
   db: Arc<RwLock<Database<'static>>>,
 }
 
+impl gpui::Global for DB {}
 impl DB {
   pub fn new(path_to_db: PathBuf) -> Result<Self> {
     let mut builder = Builder::new();

@@ -1,4 +1,4 @@
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
 };
@@ -16,7 +16,7 @@ pub struct CacheSizeSelect {
 
 impl CacheSizeSelect {
   pub fn new(_window: &mut Window, cx: &mut App) -> Entity<Self> {
-    let current = cx.ctx().settings.read().image_cache_size as usize;
+    let current = cx.settings().read().image_cache_size as usize;
     cx.new(|_cx| Self { cache_size: current, cache_input: None })
   }
 }
@@ -40,7 +40,7 @@ impl Render for CacheSizeSelect {
             if let Ok(val) = text.parse::<usize>() {
               let clamped = val.clamp(CACHE_SIZE_MIN, CACHE_SIZE_MAX);
               _this.cache_size = clamped;
-              cx.ctx_mut().settings.set_image_cache_size(clamped as u32).unwrap();
+              cx.settings_mut().set_image_cache_size(clamped as u32).unwrap();
             }
           }
         }
@@ -62,7 +62,7 @@ impl Render for CacheSizeSelect {
           };
           if new_val != _this.cache_size {
             _this.cache_size = new_val;
-            cx.ctx_mut().settings.set_image_cache_size(new_val as u32).unwrap();
+            cx.settings_mut().set_image_cache_size(new_val as u32).unwrap();
             state.update(cx, |s, cx| {
               s.set_value(new_val.to_string(), _window, cx);
             });

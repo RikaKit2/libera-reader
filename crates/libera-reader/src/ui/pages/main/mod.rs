@@ -1,4 +1,4 @@
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use crate::db::models::{RootRoute, Route};
 use crate::ui::pages::main::content::{
   Bookmarks, Favorite, FileManager, History, Library, Settings, Stats,
@@ -47,7 +47,7 @@ impl MainPage {
 
 impl Render for MainPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let curr_route = cx.ctx().settings.read().route;
+    let curr_route = cx.settings().read().route;
     div().w_full().h_full().flex().children([
       div().w_12().h_full().child(self.side_bar.clone()),
       match curr_route {

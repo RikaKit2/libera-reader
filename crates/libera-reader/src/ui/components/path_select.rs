@@ -1,4 +1,4 @@
-use crate::ctx::GlobalCTX;
+use crate::app_ext::AppExt;
 use gpui::prelude::FluentBuilder;
 use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
@@ -43,13 +43,13 @@ impl Render for PathSelect {
               let path = folder.path().to_path_buf();
               cx.update(|cx| {
                 // Stop the notify service for the old directory
-                let _ = cx.ctx_mut().services.notify_service.stop();
+                let _ = cx.services_mut().notify_service.stop();
 
                 // Save the new directory to scan
-                cx.ctx_mut().settings.set_path_to_scan(path).unwrap();
+                cx.settings_mut().set_path_to_scan(path).unwrap();
 
                 // Restart scanning and watcher services for the new directory
-                crate::app_utils::start_services(cx);
+                crate::services::start_services(cx);
               });
             }
             // Reset dialog state when done
@@ -60,10 +60,10 @@ impl Render for PathSelect {
     );
 
     let path_to_scan = div()
-      .when(cx.ctx().settings.read().path_to_scan.is_some(), |_| {
-        div().child(cx.ctx().settings.get_path_to_scan_str().unwrap())
+      .when(cx.settings().read().path_to_scan.is_some(), |_| {
+        div().child(cx.settings().get_path_to_scan_str().unwrap())
       })
-      .when(cx.ctx().settings.read().path_to_scan.is_none(), |_| {
+      .when(cx.settings().read().path_to_scan.is_none(), |_| {
         div().child(t!("components.path_select.path_not_selected").to_string())
       })
       .max_w(px(300.0));
