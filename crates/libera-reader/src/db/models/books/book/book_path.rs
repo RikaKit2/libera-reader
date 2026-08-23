@@ -4,6 +4,7 @@ use std::{
 };
 
 use gpui::SharedString;
+use native_db::{Key, ToKey};
 use serde::{Deserialize, Serialize};
 
 use crate::db::models::books::book::{BookDir, BookExt, BookName, BookSize};
@@ -63,11 +64,11 @@ impl BookPath {
   pub fn full_path_string(&self) -> SharedString {
     self.as_pathbuf().to_str().unwrap().to_string().into()
   }
-  /// Reconstruct a BookPath from an id (full path string)
-  pub fn from_id(id: &str) -> Self {
-    let path = Path::new(id);
+
+  /// Reconstruct a BookPath from a full path string
+  pub fn from_full_path(path_str: &str) -> Self {
+    let path = Path::new(path_str);
     Self::new(path).unwrap_or_else(|| {
-      // Fallback: create a minimal BookPath
       let parent_dir = BookDir::new(path.parent().map(|p| p.to_path_buf()).unwrap_or_default());
       let name = path.file_stem().unwrap_or_default().to_string_lossy().to_string().into();
       let ext = BookExt::from_pathbuf(path).unwrap_or(BookExt::PDF("pdf".into()));
@@ -79,6 +80,16 @@ impl BookPath {
   }
   pub(crate) fn mark_as_deleted(&mut self) {
     self.deleted = true;
+  }
+}
+
+impl ToKey for BookPath {
+  fn to_key(&self) -> Key {
+    Key::new(self.full_path_string().as_bytes().to_vec())
+  }
+
+  fn key_names() -> Vec<String> {
+    vec!["BookPath".into()]
   }
 }
 

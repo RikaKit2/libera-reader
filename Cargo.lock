@@ -3728,8 +3728,10 @@ dependencies = [
  "anyhow",
  "better-panic",
  "chrono",
+ "colored",
  "concurrent-queue",
  "dashmap",
+ "data-encoding",
  "dhat",
  "directories",
  "futures-util",
@@ -3760,8 +3762,8 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "unicode-segmentation",
- "utils",
 ]
 
 [[package]]
@@ -7801,20 +7803,6 @@ dependencies = [
  "perf",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "colored",
- "concurrent-queue",
- "data-encoding",
- "gxhash",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

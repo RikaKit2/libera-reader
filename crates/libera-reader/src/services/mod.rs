@@ -5,9 +5,10 @@ pub mod scan_service;
 use crate::app_dirs::AppDirs;
 use crate::app_ext::AppExt;
 use crate::books_state::BooksState;
-use crate::{
-  db::DB, not_cached_books::NotCachedBooks, services::scan_service::ScanService, settings::SETTINGS,
-};
+use crate::db::DB;
+use crate::not_cached_books::{NotCachedBooks, NotCachedBooksRx};
+use crate::services::scan_service::ScanService;
+use crate::settings::SETTINGS;
 use anyhow::Result;
 use gpui::App;
 use notify_service::NotifyService;
@@ -22,7 +23,8 @@ pub struct Services {
   pub notify_service: NotifyService,
   pub scan_service: ScanService,
   pub data_extraction_service_working_status: WorkStatus,
-  pub not_cached_books: NotCachedBooks,
+  pub extraction_rx: Option<NotCachedBooksRx>,
+  settings: SETTINGS,
   db: DB,
   app_dirs: AppDirs,
   books_state: BooksState,
@@ -32,7 +34,7 @@ impl gpui::Global for Services {}
 
 /// Start background scanner, watcher, and thumbnail extractor services.
 pub fn start_services(cx: &mut gpui::App) {
-  let scan_service = cx.global::<Services>().scan_service.clone();
+  let scan_service = cx.services().scan_service.clone();
 
   cx.spawn(|async_app: &mut gpui::AsyncApp| {
     let owned_app = async_app.clone();
@@ -49,7 +51,7 @@ pub fn start_services(cx: &mut gpui::App) {
       owned_app.update(|cx| {
         let _guard = tokio_rt.enter();
 
-        let services = cx.global_mut::<Services>();
+        let services = cx.services_mut();
 
         if let Err(e) = services.notify_service.run() {
           eprintln!("NotifyService error: {:?}", e);
@@ -63,32 +65,39 @@ pub fn start_services(cx: &mut gpui::App) {
 }
 
 impl Services {
-  /// Create `Services` by pulling all required global dependencies from `App`.
-  pub fn new(cx: &App) -> Result<Self> {
-    Self::from_deps(
-      cx.settings().clone(),
-      cx.db().clone(),
-      cx.not_cached_books().clone(),
-      cx.app_dirs().clone(),
-      cx.books_state().clone(),
-    )
+  /// Create `Services` by pulling all required global dependencies from `App`
+  /// and taking ownership of the single thumbnail extraction receiver `rx`.
+  pub fn new(cx: &App, rx: NotCachedBooksRx) -> Result<Self> {
+    let notify_service = NotifyService::new(cx)?;
+    let scan_service = ScanService::new(cx);
+
+    Ok(Self {
+      notify_service,
+      scan_service,
+      data_extraction_service_working_status: WorkStatus::NotWorking,
+      extraction_rx: Some(rx),
+      settings: cx.settings().clone(),
+      db: cx.db().clone(),
+      app_dirs: cx.app_dirs().clone(),
+      books_state: cx.books_state().clone(),
+    })
   }
 
   /// Create `Services` directly from explicit dependencies (used in headless tests/benchmarks).
   pub fn from_deps(
     settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs,
-    books_state: BooksState,
+    books_state: BooksState, rx: NotCachedBooksRx,
   ) -> Result<Self> {
-    let notify_service = NotifyService::new(
+    let notify_service = NotifyService::from_deps(
       not_cached_books.clone(),
       settings.clone(),
       db.clone(),
       books_state.clone(),
     )?;
-    let scan_service = ScanService::new(
-      settings,
+    let scan_service = ScanService::from_deps(
+      settings.clone(),
       db.clone(),
-      not_cached_books.clone(),
+      not_cached_books,
       app_dirs.clone(),
       books_state.clone(),
     );
@@ -97,12 +106,14 @@ impl Services {
       notify_service,
       scan_service,
       data_extraction_service_working_status: WorkStatus::NotWorking,
-      not_cached_books,
+      extraction_rx: Some(rx),
+      settings,
       db,
       app_dirs,
       books_state,
     })
   }
+
   pub async fn run(&mut self) -> Result<()> {
     // Start extraction service FIRST so it's already running when books arrive
     self.run_data_extraction_service();
@@ -114,19 +125,19 @@ impl Services {
   }
 
   pub fn run_data_extraction_service(&mut self) {
-    if self.data_extraction_service_working_status == WorkStatus::NotWorking {
+    if self.data_extraction_service_working_status == WorkStatus::NotWorking
+      && let Some(rx) = self.extraction_rx.take()
+    {
       let db = self.db.clone();
       let app_dirs = self.app_dirs.clone();
       let books_state = self.books_state.clone();
-      let settings = self.scan_service.settings().clone();
+      let settings = self.settings.clone();
 
-      if let Some(rx) = self.not_cached_books.take_rx() {
-        tokio::spawn(async move {
-          data_extraction_service::run(db, app_dirs, rx, books_state, settings).await;
-        });
+      tokio::spawn(async move {
+        data_extraction_service::run(db, app_dirs, rx, books_state, settings).await;
+      });
 
-        self.data_extraction_service_working_status = WorkStatus::Working;
-      }
+      self.data_extraction_service_working_status = WorkStatus::Working;
     }
   }
 

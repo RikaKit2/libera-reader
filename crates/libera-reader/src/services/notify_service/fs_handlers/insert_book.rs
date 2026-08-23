@@ -1,12 +1,12 @@
+use crate::utils::debug;
 use native_db::transaction::RwTransaction;
-use utils::debug;
 
 use crate::{
   db::models::books::{
     book::{Book, BookPath},
     book_sizes::BookSizes,
   },
-  services::NotCachedBooks,
+  not_cached_books::NotCachedBooks,
   types::MUPDF_EXTENSIONS,
 };
 

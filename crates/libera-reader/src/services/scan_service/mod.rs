@@ -14,9 +14,9 @@ use std::{path::PathBuf, time::Instant};
 use jwalk::WalkDir;
 
 use crate::types::HashSet;
+use crate::utils::debug;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::time::{self, Duration};
-use utils::debug;
 
 #[derive(Clone)]
 pub struct ScanService {
@@ -28,18 +28,22 @@ pub struct ScanService {
 }
 
 impl ScanService {
-  pub(crate) fn new(
+  pub fn new(cx: &gpui::App) -> Self {
+    use crate::app_ext::AppExt;
+    Self::from_deps(
+      cx.settings().clone(),
+      cx.db().clone(),
+      cx.not_cached_books().clone(),
+      cx.app_dirs().clone(),
+      cx.books_state().clone(),
+    )
+  }
+
+  pub fn from_deps(
     settings: SETTINGS, db: DB, not_cached_books: NotCachedBooks, app_dirs: AppDirs,
     books_state: BooksState,
   ) -> Self {
     Self { settings, db, books_state, not_cached_books, app_dirs }
-  }
-
-  pub fn books_state(&self) -> &BooksState {
-    &self.books_state
-  }
-  pub fn settings(&self) -> &SETTINGS {
-    &self.settings
   }
 
   fn get_books_from_disk(path_to_scan: PathBuf) -> UnboundedReceiver<BookPath> {
@@ -72,21 +76,22 @@ impl ScanService {
         debug!("Path to scan is not set. Please set it in the settings.");
       }
       Some(path_to_scan) => {
-        // Collect all existing book IDs from DB into a HashSet for O(1) lookup
-        let db_books = self.db.scan_all_books()?;
-        let mut existing_ids: HashSet<String> = db_books.iter().map(|b| b.id.clone()).collect();
+        // Collect all existing book paths from DB into a HashSet for O(1) lookup
+        let db_books = Book::scan_all(&self.db)?;
+        let mut existing_paths: HashSet<BookPath> =
+          db_books.into_iter().map(|b| b.book_path).collect();
 
         let rx = Self::get_books_from_disk(path_to_scan);
 
-        self.run_event_loop(rx, &mut existing_ids).await;
+        self.run_event_loop(rx, &mut existing_paths).await;
 
-        // After scanning, remaining IDs are books that no longer exist on disk
-        let removed_count = self.remove_outdated_books(existing_ids).await;
+        // After scanning, remaining paths are books that no longer exist on disk
+        let removed_count = self.remove_outdated_books(existing_paths).await;
 
         // Send only books without thumbnails to extraction queue in alphabetical order.
         // We re-check the filesystem for each book because `Book` no longer
         // carries a `has_thumbnail` cache field (it could desync from reality).
-        let all_books = self.db.scan_all_books()?;
+        let all_books = Book::scan_all(&self.db)?;
         let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
         let mut books_to_extract: Vec<Book> = all_books
           .into_iter()
@@ -107,7 +112,7 @@ impl ScanService {
   }
 
   async fn run_event_loop(
-    &self, mut rx: UnboundedReceiver<BookPath>, existing_ids: &mut HashSet<String>,
+    &self, mut rx: UnboundedReceiver<BookPath>, existing_paths: &mut HashSet<BookPath>,
   ) {
     let mut total_new_books = 0;
     let total_insert_start = Instant::now();
@@ -143,7 +148,7 @@ impl ScanService {
       }
 
       if !buffer.is_empty() {
-        let new_count = self.insert_books(buffer, existing_ids);
+        let new_count = self.insert_books(buffer, existing_paths);
         total_new_books += new_count;
         eprint!(
           "\rAdding books: {} (elapsed: {:?})",
@@ -161,22 +166,19 @@ impl ScanService {
     }
   }
 
-  fn insert_books(&self, buffer: Vec<BookPath>, existing_ids: &mut HashSet<String>) -> usize {
+  fn insert_books(&self, buffer: Vec<BookPath>, existing_paths: &mut HashSet<BookPath>) -> usize {
     let mut new_books = 0;
     let mut inserted_books: Vec<Book> = Vec::new();
 
     let _ = self.db.rw_t(|rw_t| {
       for book_path in buffer {
-        let id = book_path.full_path_string().to_string();
-
         // Mark as found on disk so it is not considered outdated and deleted!
-        existing_ids.swap_remove(&id);
+        existing_paths.swap_remove(&book_path);
 
         // Check if already in DB
-        if rw_t.get().primary::<Book>(id.clone())?.is_some() {
+        if rw_t.get().primary::<Book>(book_path.clone())?.is_some() {
           continue;
         }
-
         new_books += 1;
         if let Ok(new_book) = Book::new(book_path) {
           // Insert into BookSizes first
@@ -196,7 +198,7 @@ impl ScanService {
     new_books
   }
 
-  async fn remove_outdated_books(&self, remaining_ids: HashSet<String>) -> usize {
+  async fn remove_outdated_books(&self, remaining_paths: HashSet<BookPath>) -> usize {
     let mut removed_count = 0;
 
     // Collect updated books inside the transaction; build snapshots afterwards so
@@ -205,8 +207,8 @@ impl ScanService {
     let mut removed_paths: Vec<BookPath> = Vec::new();
 
     let _ = self.db.rw_t(|rw_t| {
-      for id in remaining_ids {
-        if let Some(book) = rw_t.get().primary::<Book>(id.clone())? {
+      for book_path in remaining_paths {
+        if let Some(book) = rw_t.get().primary::<Book>(book_path.clone())? {
           let can_delete = book.can_delete();
           let book_path = book.book_path.clone();
 

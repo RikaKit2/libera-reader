@@ -84,19 +84,20 @@ impl BooksState {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::books_state::BooksMap;
   use crate::books_state::thumbnails::ThumbnailCache;
   use crate::db::models::UserData;
   use crate::db::models::books::book::{Book, BookPath, BookSize};
-  use std::collections::HashMap as StdHashMap;
+  use crate::types::HashMap;
   use std::path::PathBuf;
 
-  fn make_dummy_book(id: &str, name: &str, ext_str: &str, size: u64, last_opened: u64) -> Book {
+  fn make_dummy_book(name: &str, ext_str: &str, size: u64, last_opened: u64) -> Book {
     let path_str = format!("{}/{}.{}", "/dummy", name, ext_str);
     let mut book_path = BookPath::new(std::path::Path::new(&path_str)).unwrap();
     book_path.name = name.into();
+    let parent_dir = book_path.parent_dir.clone();
     Book {
-      id: id.to_string(),
-      parent_dir: "/dummy".to_string(),
+      parent_dir,
       book_path,
       book_size: BookSize::BYTES(size),
       user_data: UserData { favorite: false, last_opened },
@@ -106,10 +107,10 @@ mod tests {
 
   #[test]
   fn test_sorting_by_name_and_reverse() {
-    let mut books_map = StdHashMap::new();
-    let b1 = make_dummy_book("1", "Beta", "pdf", 100, 10);
-    let b2 = make_dummy_book("2", "Alpha", "epub", 200, 20);
-    let b3 = make_dummy_book("3", "Gamma", "pdf", 50, 5);
+    let mut books_map = BooksMap::default();
+    let b1 = make_dummy_book("Beta", "pdf", 100, 10);
+    let b2 = make_dummy_book("Alpha", "epub", 200, 20);
+    let b3 = make_dummy_book("Gamma", "pdf", 50, 5);
 
     books_map.insert("1".into(), b1);
     books_map.insert("2".into(), b2);
@@ -130,7 +131,7 @@ mod tests {
       favorites_search: "".into(),
       history_search: "".into(),
       bookmarks_search: "".into(),
-      search_generation: StdHashMap::new(),
+      search_generation: HashMap::default(),
     };
 
     state.apply_sorting_to(TargetList::Library);
@@ -145,10 +146,10 @@ mod tests {
 
   #[test]
   fn test_sorting_by_size() {
-    let mut books_map = StdHashMap::new();
-    let b1 = make_dummy_book("1", "B", "pdf", 300, 10);
-    let b2 = make_dummy_book("2", "A", "epub", 100, 20);
-    let b3 = make_dummy_book("3", "C", "pdf", 200, 5);
+    let mut books_map = BooksMap::default();
+    let b1 = make_dummy_book("B", "pdf", 300, 10);
+    let b2 = make_dummy_book("A", "epub", 100, 20);
+    let b3 = make_dummy_book("C", "pdf", 200, 5);
 
     books_map.insert("1".into(), b1);
     books_map.insert("2".into(), b2);
@@ -169,7 +170,7 @@ mod tests {
       favorites_search: "".into(),
       history_search: "".into(),
       bookmarks_search: "".into(),
-      search_generation: StdHashMap::new(),
+      search_generation: HashMap::default(),
     };
 
     state.apply_sorting_to(TargetList::Library);

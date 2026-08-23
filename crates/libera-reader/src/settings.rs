@@ -20,6 +20,34 @@ pub fn apply_language(cx: &mut gpui::App) {
   cx.refresh_windows();
 }
 
+/// Adjust color lightness by a multiplication factor.
+pub fn adjust_brightness(color: gpui::Hsla, factor: f32) -> gpui::Hsla {
+  gpui::Hsla { h: color.h, s: color.s, l: (color.l * factor).clamp(0.0, 1.0), a: color.a }
+}
+
+pub fn set_app_theme(cx: &mut gpui::App, theme: String) {
+  let theme_name = gpui::SharedString::from(theme);
+  match gpui_component::ThemeRegistry::global(cx).themes().get(&theme_name).cloned() {
+    Some(theme_config) => {
+      gpui_component::Theme::global_mut(cx).apply_config(&theme_config);
+    }
+    None => {
+      crate::utils::error!("Theme not found: {:?}", theme_name);
+    }
+  };
+}
+
+pub fn init_theme(themes_dir: PathBuf, cx: &mut gpui::App) {
+  match gpui_component::ThemeRegistry::watch_dir(themes_dir, cx, move |cx| {
+    let theme = cx.global::<SETTINGS>().read().theme.to_string();
+    set_app_theme(cx, theme);
+  }) {
+    Ok(_) => {}
+    Err(err) => {
+      crate::utils::error!("Failed to watch themes directory: {:?}", err);
+    }
+  };
+}
 impl SETTINGS {
   pub fn new(db: DB) -> Result<Self> {
     Ok(Self { inn: Arc::new(RwLock::new(Settings::get_or_create(1u32, &db)?)), db })

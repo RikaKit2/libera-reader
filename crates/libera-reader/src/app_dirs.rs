@@ -1,8 +1,8 @@
+use crate::utils::{error, title};
 use directories::ProjectDirs;
 use std::io::Error;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
-use utils::{error, title};
 
 #[derive(Clone)]
 pub struct AppDirs {

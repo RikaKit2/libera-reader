@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 use super::WorkStatus;
+use crate::utils::{debug, error};
 use crate::{
   books_state::BooksState,
   db::{
@@ -17,7 +18,6 @@ use notify::{
   event::{CreateKind, ModifyKind, RemoveKind, RenameMode},
 };
 use tokio::sync::mpsc::UnboundedReceiver;
-use utils::{debug, error};
 
 pub(crate) mod fs_handlers;
 
@@ -86,7 +86,17 @@ pub struct NotifyService {
 }
 
 impl NotifyService {
-  pub(crate) fn new(
+  pub fn new(cx: &gpui::App) -> Result<Self> {
+    use crate::app_ext::AppExt;
+    Self::from_deps(
+      cx.not_cached_books().clone(),
+      cx.settings().clone(),
+      cx.db().clone(),
+      cx.books_state().clone(),
+    )
+  }
+
+  pub fn from_deps(
     not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, books_state: BooksState,
   ) -> Result<Self> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
@@ -210,9 +220,7 @@ async fn process_batch(
               && let Ok(_) = fs_handlers::insert_book(book_path.clone(), rw_t, &not_cached_books)
             {
               let _ = not_cached_books.tx().send(book_path.clone());
-              if let Ok(Some(book)) =
-                rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
-              {
+              if let Ok(Some(book)) = rw_t.get().primary::<Book>(book_path.clone()) {
                 added_books.push(book);
               }
             }
@@ -227,9 +235,7 @@ async fn process_batch(
                 }
                 Ok(RemoveStatus::MarkedAsDeleted) => {
                   // Fetch updated book from DB and send BookUpdated
-                  if let Ok(Some(updated_book)) =
-                    rw_t.get().primary::<Book>(book_path.full_path_string().to_string())
-                  {
+                  if let Ok(Some(updated_book)) = rw_t.get().primary::<Book>(book_path.clone()) {
                     updated_books.push(updated_book);
                   }
                 }
@@ -259,11 +265,11 @@ async fn process_batch(
               debug!("Error updating book dir: {:?}", err);
             } else {
               // Queue BookUpdated for every book in the renamed directory.
-              let new_dir_path = BookDir::new(new_path.clone()).full_path().to_string();
+              let new_dir = BookDir::new(new_path.clone());
               if let Ok(all_books) = rw_t.scan().primary::<Book>() {
                 for item in all_books.all().unwrap() {
                   if let Ok(book) = item
-                    && book.parent_dir == new_dir_path
+                    && book.parent_dir == new_dir
                   {
                     updated_books.push(book);
                   }

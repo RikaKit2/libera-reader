@@ -19,16 +19,14 @@ impl History {
     let books_state = cx.books_state_entity().clone();
     let top_bar = cx.new(|cx| TopBar::new(window, cx, TargetList::History));
 
-    let db = cx.db().clone();
     let keys = books_state.read(cx).history_keys();
-    let paths = books_state.read(cx).collect_thumbnail_paths(&keys, &db);
+    let paths = books_state.read(cx).collect_thumbnail_paths(&keys, cx.db());
     let book_grid = cx.new(|cx| BooksGrid::new(TargetList::History, "history-grid".into(), cx));
     book_grid.update(cx, |grid, cx| grid.set_thumbnail_paths(paths, cx));
 
     let _subscriptions = vec![cx.observe(&books_state, move |this, state, cx| {
-      let db = cx.db().clone();
       let keys = state.read(cx).history_keys();
-      let paths = state.read(cx).collect_thumbnail_paths(&keys, &db);
+      let paths = state.read(cx).collect_thumbnail_paths(&keys, cx.db());
       this.book_grid.update(cx, |grid, cx| grid.set_thumbnail_paths(paths, cx));
       cx.notify();
     })];

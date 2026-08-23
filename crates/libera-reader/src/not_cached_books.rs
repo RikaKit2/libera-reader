@@ -1,33 +1,40 @@
-use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use crate::db::models::books::book::BookPath;
 
+/// Sender channel type for not-cached books queue.
+pub type NotCachedBooksTx = mpsc::UnboundedSender<BookPath>;
+
+/// Receiver channel type for not-cached books queue.
+pub type NotCachedBooksRx = mpsc::UnboundedReceiver<BookPath>;
+
+/// Lightweight, cloneable wrapper around the channel sender for notifying
+/// the background thumbnail extraction service about new or updated books.
 #[derive(Clone)]
 pub struct NotCachedBooks {
-  tx: mpsc::UnboundedSender<BookPath>,
-  rx: Arc<Mutex<Option<mpsc::UnboundedReceiver<BookPath>>>>,
+  tx: NotCachedBooksTx,
 }
 
 impl gpui::Global for NotCachedBooks {}
 
-impl Default for NotCachedBooks {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
 impl NotCachedBooks {
-  pub fn new() -> Self {
+  pub fn new(tx: NotCachedBooksTx) -> Self {
+    Self { tx }
+  }
+
+  /// Create a new unbounded channel pair (sender wrapper + receiver).
+  pub fn channel() -> (Self, NotCachedBooksRx) {
     let (tx, rx) = mpsc::unbounded_channel();
-    Self { tx, rx: Arc::new(Mutex::new(Some(rx))) }
+    (Self { tx }, rx)
   }
 
-  pub fn take_rx(&self) -> Option<mpsc::UnboundedReceiver<BookPath>> {
-    self.rx.lock().unwrap().take()
-  }
-
-  pub fn tx(&self) -> &mpsc::UnboundedSender<BookPath> {
+  #[inline(always)]
+  pub fn tx(&self) -> &NotCachedBooksTx {
     &self.tx
+  }
+
+  #[inline(always)]
+  pub fn send(&self, path: BookPath) -> Result<(), mpsc::error::SendError<BookPath>> {
+    self.tx.send(path)
   }
 }

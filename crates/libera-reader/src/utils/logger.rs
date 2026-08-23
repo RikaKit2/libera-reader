@@ -67,7 +67,7 @@ macro_rules! title {
 
 #[macro_export]
 macro_rules! timing {
-    ($($arg:tt)*) => { tracing::warning!(target: "timing", $($arg)*) };
+    ($($arg:tt)*) => { tracing::warn!(target: "timing", $($arg)*) };
 }
 
 #[macro_export]
@@ -79,3 +79,5 @@ macro_rules! debug {
 macro_rules! error {
     ($($arg:tt)*) => { tracing::error!(target: "error", $($arg)*) };
 }
+
+pub use {debug, error, timing, title};

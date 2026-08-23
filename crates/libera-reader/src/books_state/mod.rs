@@ -5,17 +5,19 @@ pub mod thumbnails;
 
 use crate::db::DB;
 use crate::db::models::books::book::{Book, BookDir, BookPath};
+use crate::types::HashMap;
 use gpui::{AsyncApp, Context, SharedString, WeakEntity};
-use std::collections::HashMap as StdHashMap;
+pub use models::{SortConfig, SortField, TargetList};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use thumbnails::ThumbnailCache;
+use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use thumbnails::{ThumbnailCache, ThumbnailPath};
 use tokio::sync::mpsc::{UnboundedSender, unbounded_channel};
 
-pub use models::{SortConfig, SortField, TargetList};
+/// Map of book full path to its loaded Book entity.
+pub type BooksMap = HashMap<SharedString, Book>;
 
-pub static BOOKS_STATE: OnceLock<BooksState> = OnceLock::new();
-
+/// List of book full paths representing an ordered collection (e.g. library, history, favorites).
+pub type BookKeys = Vec<SharedString>;
 /// Thread-safe in-memory state for all books.
 /// Wraps `BooksStateData` in an `Arc<RwLock<...>>` for safe multi-threaded access
 /// by background Tokio tasks (scanner, notify watcher, extractor) and GPUI UI.
@@ -33,15 +35,15 @@ pub struct BooksStateEntity(pub gpui::Entity<BooksState>);
 impl gpui::Global for BooksStateEntity {}
 pub struct BooksStateData {
   /// Map from book id (full path string) to Book
-  pub books_map: StdHashMap<SharedString, Book>,
+  pub books_map: BooksMap,
 
   /// Single source of truth for which book currently has a usable PNG on disk.
   pub thumbnails: ThumbnailCache,
 
-  pub library_keys: Vec<SharedString>,
-  pub favorites_keys: Vec<SharedString>,
-  pub history_keys: Vec<SharedString>,
-  pub bookmarks_keys: Vec<SharedString>,
+  pub library_keys: BookKeys,
+  pub favorites_keys: BookKeys,
+  pub history_keys: BookKeys,
+  pub bookmarks_keys: BookKeys,
 
   pub library_sort: SortConfig,
   pub favorites_sort: SortConfig,
@@ -53,20 +55,20 @@ pub struct BooksStateData {
   pub history_search: SharedString,
   pub bookmarks_search: SharedString,
 
-  pub search_generation: StdHashMap<TargetList, u64>,
+  pub search_generation: HashMap<TargetList, u64>,
 }
 
 impl BooksStateData {
-  pub fn from_db(thumbnails_dir: PathBuf, db: &DB) -> Self {
+  pub fn load(thumbnails_dir: PathBuf, db: &DB) -> Self {
     let mut thumbnails = ThumbnailCache::new(thumbnails_dir);
-    let mut books_map = StdHashMap::new();
+    let mut books_map = BooksMap::default();
 
     let thumbnails_dir_ref = thumbnails.thumbnails_dir().to_path_buf();
-    let _ = db.for_each_book(|book| {
-      let id: SharedString = book.id.clone().into();
-      let path = ThumbnailCache::resolve_for(db, &thumbnails_dir_ref, &book.id);
-      thumbnails.insert_resolved(id.clone(), path);
-      books_map.insert(id, book);
+    let _ = Book::for_each(db, |book| {
+      let path_key = book.book_path.full_path_string();
+      let path = ThumbnailCache::resolve_for(db, &thumbnails_dir_ref, &book.book_path);
+      thumbnails.insert_resolved(path_key.clone(), path);
+      books_map.insert(path_key, book);
       Ok(())
     });
 
@@ -85,7 +87,7 @@ impl BooksStateData {
       favorites_search: "".into(),
       history_search: "".into(),
       bookmarks_search: "".into(),
-      search_generation: StdHashMap::new(),
+      search_generation: HashMap::default(),
     };
 
     data.rebuild_all();
@@ -100,55 +102,60 @@ impl BooksStateData {
   }
 
   pub fn upsert_book(&mut self, book: Book) {
-    let id: SharedString = book.id.clone().into();
-    self.books_map.insert(id, book);
+    let path_key = book.book_path.full_path_string();
+    self.books_map.insert(path_key, book);
   }
 
   pub fn remove_book(&mut self, path: &BookPath) {
-    let id: SharedString = path.full_path_string();
-    self.books_map.remove(&id);
-    self.thumbnails.remove(&id);
+    let path_key = path.full_path_string();
+    self.books_map.swap_remove(&path_key);
+    self.thumbnails.remove(&path_key);
   }
 
   pub fn update_book_path(&mut self, old_path: &BookPath, new_path: &BookPath) {
-    let old_id: SharedString = old_path.full_path_string();
-    let new_id: SharedString = new_path.full_path_string();
-    if let Some(book) = self.books_map.remove(&old_id) {
+    let old_key = old_path.full_path_string();
+    let new_key = new_path.full_path_string();
+    if let Some(book) = self.books_map.swap_remove(&old_key) {
       let mut updated = book;
-      updated.id = new_id.to_string();
-      updated.parent_dir = new_path.parent_dir.full_path().to_string();
+      updated.parent_dir = new_path.parent_dir.clone();
       updated.book_path = new_path.clone();
-      self.books_map.insert(new_id.clone(), updated);
+      self.books_map.insert(new_key.clone(), updated);
     }
-    self.thumbnails.rename(&old_id, new_id);
+    self.thumbnails.rename(&old_key, new_key);
   }
 
   pub fn remove_dir(&mut self, dir: &BookDir) {
-    let dir_path = dir.full_path().to_string();
-    self.books_map.retain(|_id, book| book.parent_dir != dir_path);
-    self.thumbnails.remove_by_parent_dir(&dir_path);
+    self.books_map.retain(|path_key, book| {
+      let keep = &book.parent_dir != dir;
+      if !keep {
+        self.thumbnails.remove(path_key);
+      }
+      keep
+    });
   }
 
   pub fn mark_thumbnail_extracted(&mut self, path: &BookPath) {
-    let id: SharedString = path.full_path_string();
-    self.thumbnails.mark_extracted(&id);
+    let path_key = path.full_path_string();
+    self.thumbnails.remove(&path_key);
   }
 }
 
 impl BooksState {
-  pub fn new(thumbnails_dir: PathBuf, db: &DB) -> Self {
-    let state = Self {
-      inn: Arc::new(RwLock::new(BooksStateData::from_db(thumbnails_dir, db))),
+  /// Create `BooksState` by pulling required dependencies directly from GPUI `App`.
+  pub fn new(cx: &gpui::App) -> Self {
+    use crate::app_ext::AppExt;
+    let thumbnails_dir = cx.app_dirs().read().thumbnails_dir.clone();
+    let db = cx.db();
+    Self::from_deps(thumbnails_dir, db)
+  }
+
+  /// Create `BooksState` directly from explicit dependencies (used in tests and benchmarks).
+  pub fn from_deps(thumbnails_dir: PathBuf, db: &DB) -> Self {
+    Self {
+      inn: Arc::new(RwLock::new(BooksStateData::load(thumbnails_dir, db))),
       notify_tx: Arc::new(Mutex::new(None)),
-    };
-    let _ = BOOKS_STATE.set(state.clone());
-    state
+    }
   }
-
-  pub fn global() -> Option<&'static BooksState> {
-    BOOKS_STATE.get()
-  }
-
   pub fn read(&self) -> RwLockReadGuard<'_, BooksStateData> {
     self.inn.read().unwrap()
   }
@@ -271,19 +278,19 @@ impl BooksState {
 
   // --- Convenience helper methods for UI ---
 
-  pub fn library_keys(&self) -> Vec<SharedString> {
+  pub fn library_keys(&self) -> BookKeys {
     self.read().library_keys.clone()
   }
 
-  pub fn favorites_keys(&self) -> Vec<SharedString> {
+  pub fn favorites_keys(&self) -> BookKeys {
     self.read().favorites_keys.clone()
   }
 
-  pub fn history_keys(&self) -> Vec<SharedString> {
+  pub fn history_keys(&self) -> BookKeys {
     self.read().history_keys.clone()
   }
 
-  pub fn bookmarks_keys(&self) -> Vec<SharedString> {
+  pub fn bookmarks_keys(&self) -> BookKeys {
     self.read().bookmarks_keys.clone()
   }
 
@@ -305,7 +312,7 @@ impl BooksState {
     self.read().sort_config(target).is_reversed
   }
 
-  pub fn collect_thumbnail_paths(&self, keys: &[SharedString], db: &DB) -> Vec<Option<PathBuf>> {
+  pub fn collect_thumbnail_paths(&self, keys: &[SharedString], db: &DB) -> Vec<ThumbnailPath> {
     self.write().thumbnails.collect_paths(keys, db)
   }
 }
@@ -317,7 +324,7 @@ mod tests {
   fn make_test_state() -> BooksState {
     BooksState {
       inn: Arc::new(RwLock::new(BooksStateData {
-        books_map: StdHashMap::new(),
+        books_map: BooksMap::default(),
         thumbnails: ThumbnailCache::new(PathBuf::from("/tmp")),
         library_keys: Vec::new(),
         favorites_keys: Vec::new(),
@@ -331,7 +338,7 @@ mod tests {
         favorites_search: "".into(),
         history_search: "".into(),
         bookmarks_search: "".into(),
-        search_generation: StdHashMap::new(),
+        search_generation: HashMap::default(),
       })),
       notify_tx: Arc::new(Mutex::new(None)),
     }
@@ -343,19 +350,19 @@ mod tests {
     use crate::db::models::UserData;
     use crate::db::models::books::book::BookSize;
 
+    let bp1 = BookPath::new(std::path::Path::new("/path/to/book1.pdf")).unwrap();
     let book1 = Book {
-      id: "/path/to/book1.pdf".to_string(),
-      parent_dir: "/path/to".to_string(),
-      book_path: BookPath::new(std::path::Path::new("/path/to/book1.pdf")).unwrap(),
+      parent_dir: bp1.parent_dir.clone(),
+      book_path: bp1.clone(),
       book_size: BookSize::BYTES(1024),
       user_data: UserData { favorite: false, last_opened: 0 },
       bookmark_count: 0,
     };
 
+    let bp2 = BookPath::new(std::path::Path::new("/path/to/book2.epub")).unwrap();
     let book2 = Book {
-      id: "/path/to/book2.epub".to_string(),
-      parent_dir: "/path/to".to_string(),
-      book_path: BookPath::new(std::path::Path::new("/path/to/book2.epub")).unwrap(),
+      parent_dir: bp2.parent_dir.clone(),
+      book_path: bp2.clone(),
       book_size: BookSize::BYTES(2048),
       user_data: UserData { favorite: true, last_opened: 100 },
       bookmark_count: 1,

@@ -7,7 +7,7 @@ use gpui::{
 use gpui::{Stateful, prelude::*};
 use gpui_component::ActiveTheme;
 
-use crate::theme::adjust_brightness;
+use crate::settings::adjust_brightness;
 
 type ClickHandler = Box<dyn Fn(&ClickEvent, &mut Window, &mut App) + 'static>;
 

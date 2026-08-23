@@ -6,12 +6,10 @@ use native_db::transaction::RwTransaction;
 pub(crate) fn remove_books_in_dir(
   book_dir: BookDir, rw_t: &RwTransaction<'_>,
 ) -> anyhow::Result<()> {
-  let dir_path = book_dir.full_path().to_string();
-
-  // Scan ALL books and filter by parent_dir (native_db secondary keys are internal types)
+  // Scan ALL books and filter by parent_dir
   let all_books: Vec<Book> = rw_t.scan().primary::<Book>()?.all()?.try_collect()?;
   let books_to_process: Vec<Book> =
-    all_books.into_iter().filter(|b| b.parent_dir == dir_path).collect();
+    all_books.into_iter().filter(|b| b.parent_dir == book_dir).collect();
 
   for book in books_to_process {
     let can_delete = book.can_delete();

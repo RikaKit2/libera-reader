@@ -29,10 +29,10 @@ pub fn push_at_history(path: BookPath, cx: &mut App) {
 
   if should_persist {
     let db = cx.db().clone();
-    if let Ok(Some(book)) = db.get_book(path.clone()) {
+    if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path.clone()) {
       let mut updated = book.clone();
       updated.user_data.last_opened = now;
-      let _ = db.update_book(updated);
+      let _ = crate::db::models::books::book::Book::update(&db, updated);
     }
   }
 }
@@ -56,10 +56,10 @@ pub fn toggle_favorite(path: BookPath, cx: &mut App) {
 
   if let Some(is_favorite) = new_state {
     let db = cx.db().clone();
-    if let Ok(Some(book)) = db.get_book(path.clone()) {
+    if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path.clone()) {
       let mut updated = book.clone();
       updated.user_data.favorite = is_favorite;
-      let _ = db.update_book(updated);
+      let _ = crate::db::models::books::book::Book::update(&db, updated);
     }
   }
 }

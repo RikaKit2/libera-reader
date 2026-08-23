@@ -10,22 +10,24 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 use anyhow::Result;
-use gpui::AppContext;
-use gpui::{App, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size};
+use gpui::{
+  App, AppContext, Bounds, Entity, TitlebarOptions, Window, WindowBounds, WindowOptions, px, size,
+};
 use gpui_component::Root;
-use libera_reader::TOKIO;
-use libera_reader::app_dirs::AppDirs;
-use libera_reader::app_ext::AppExt;
-use libera_reader::books_state::{BooksState, BooksStateEntity};
-use libera_reader::db::DB;
-use libera_reader::not_cached_books::NotCachedBooks;
-use libera_reader::services::{Services, start_services};
-use libera_reader::settings::{SETTINGS, apply_language};
-use libera_reader::theme::init_theme;
-use libera_reader::ui::{assets::Assets, pages::Pages};
+use libera_reader::{
+  TOKIO,
+  app_dirs::AppDirs,
+  app_ext::AppExt,
+  books_state::{BooksState, BooksStateEntity},
+  db::DB,
+  not_cached_books::NotCachedBooks,
+  services::{Services, start_services},
+  settings::{SETTINGS, apply_language, init_theme},
+  ui::{assets::Assets, pages::Pages},
+  utils::create_subscriber,
+};
 use std::path::PathBuf;
 use tokio::runtime::Runtime;
-use utils::create_subscriber;
 
 fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
   let books_state = cx.books_state().clone();
@@ -57,16 +59,16 @@ fn main() -> Result<()> {
     let path_to_db = app_dirs.read().path_to_db.clone();
     let db = DB::new(path_to_db).unwrap();
     let settings = SETTINGS::new(db.clone()).unwrap();
-    let not_cached_books = NotCachedBooks::new();
-    let books_state = BooksState::new(app_dirs.read().thumbnails_dir.clone(), &db);
+    let (not_cached_books, rx) = NotCachedBooks::channel();
 
     cx.set_global(app_dirs);
     cx.set_global(db);
     cx.set_global(settings);
     cx.set_global(not_cached_books);
-    cx.set_global(books_state);
 
-    let services = Services::new(cx).unwrap();
+    let books_state = BooksState::new(cx);
+    cx.set_global(books_state);
+    let services = Services::new(cx, rx).unwrap();
     cx.set_global(services);
     gpui_component::init(cx);
     init_theme(themes_dir, cx);

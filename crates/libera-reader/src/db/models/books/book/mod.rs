@@ -4,9 +4,13 @@ use std::{
 };
 
 use gpui::SharedString;
+use mutool::mutool_error::MuToolError;
 use serde::{Deserialize, Serialize};
 
-use crate::db::models::UserData;
+use crate::db::models::{
+  UserData,
+  books::{BookType, DuplicateBookData, book_hashes::BookHashes, book_sizes::BookSizes},
+};
 use native_db::*;
 #[allow(unused_imports)]
 use native_model::{Model, native_model};
@@ -27,11 +31,10 @@ pub use book_size::BookSize;
 #[native_db]
 pub struct Book {
   #[primary_key]
-  pub id: String, // book_path.full_path_string()
-  #[secondary_key]
-  pub parent_dir: String, // book_path.parent_dir.full_path()
-
   pub book_path: BookPath,
+  #[secondary_key]
+  pub parent_dir: BookDir,
+
   pub book_size: BookSize,
   pub user_data: UserData,
   #[serde(default)]
@@ -41,16 +44,67 @@ pub struct Book {
 impl Book {
   pub(crate) fn new(book_path: BookPath) -> anyhow::Result<Self> {
     let book_size = book_path.get_book_size().unwrap();
-    Ok(Self {
-      id: book_path.full_path_string().to_string(),
-      parent_dir: book_path.parent_dir.full_path().to_string(),
-      book_path,
-      book_size,
-      user_data: UserData::default(),
-      bookmark_count: 0,
+    let parent_dir = book_path.parent_dir.clone();
+    Ok(Self { book_path, parent_dir, book_size, user_data: UserData::default(), bookmark_count: 0 })
+  }
+
+  #[inline]
+  pub fn full_path_string(&self) -> SharedString {
+    self.book_path.full_path_string()
+  }
+
+  #[inline]
+  pub fn parent_dir(&self) -> &BookDir {
+    &self.parent_dir
+  }
+
+  #[inline]
+  pub fn parent_dir_str(&self) -> SharedString {
+    self.parent_dir.full_path()
+  }
+
+  /// Fetch a book by its BookPath from the database
+  pub fn get(db: &crate::db::DB, book_path: BookPath) -> anyhow::Result<Option<Self>> {
+    db.get_primary::<Self>(book_path)
+  }
+
+  /// Update an existing book in the database
+  pub fn update(db: &crate::db::DB, updated_book: Self) -> anyhow::Result<()> {
+    db.rw_t(|rw_t| {
+      let old_book = rw_t
+        .get()
+        .primary::<Self>(updated_book.book_path.clone())?
+        .ok_or_else(|| anyhow::anyhow!("Book not found: {:?}", updated_book.full_path_string()))?;
+      rw_t.update::<Self>(old_book, updated_book)?;
+      Ok(())
     })
   }
 
+  /// Scan ALL books in the database (flat)
+  pub fn scan_all(db: &crate::db::DB) -> anyhow::Result<Vec<Self>> {
+    db.rt(crate::db::scan_primary::<Self>)
+  }
+
+  /// Stream every book in the database to a callback without materializing
+  /// the full `Vec<Book>` in memory at once.
+  pub fn for_each<F>(db: &crate::db::DB, mut f: F) -> anyhow::Result<()>
+  where
+    F: FnMut(Self) -> anyhow::Result<()>,
+  {
+    db.rt(|r_txn| {
+      let scan = r_txn.scan().primary()?;
+      for item in scan.all()? {
+        f(item?)?;
+      }
+      Ok(())
+    })
+  }
+
+  /// Scan books filtered by parent directory
+  pub fn scan_by_parent_dir(db: &crate::db::DB, parent_dir: &str) -> anyhow::Result<Vec<Self>> {
+    let all = Self::scan_all(db)?;
+    Ok(all.into_iter().filter(|b| b.parent_dir_str().as_ref() == parent_dir).collect())
+  }
   pub fn exists_on_disk(&self) -> bool {
     self.book_path.exists_on_disk()
   }
@@ -117,11 +171,11 @@ impl Book {
   }
 
   pub fn cover_btn_id(&self) -> SharedString {
-    format!("cover_{}", self.id).into()
+    format!("cover_{}", self.full_path_string()).into()
   }
 
   pub fn fav_btn_id(&self) -> SharedString {
-    format!("fav_{}", self.id).into()
+    format!("fav_{}", self.full_path_string()).into()
   }
   pub(crate) fn mark_as_deleted(&mut self) {
     self.book_path.mark_as_deleted();
@@ -135,26 +189,24 @@ impl Book {
     let crate::db::models::books::book::BookSize::BYTES(size_bytes) = self.book_size;
     let unhashed_path = thumbnails_dir.join("unhashed_books").join(format!("{}.png", size_bytes));
 
-    if let Some(book_sizes) =
-      db.get_primary::<crate::db::models::books::book_sizes::BookSizes>(self.book_size)?
-    {
+    if let Some(book_sizes) = db.get_primary::<BookSizes>(self.book_size)? {
       match &book_sizes.book_type {
-        crate::db::models::books::BookType::UniqueSize { .. } => {
+        BookType::UniqueSize { .. } => {
           if unhashed_path.exists() {
             return Ok(Some(unhashed_path));
           }
         }
-        crate::db::models::books::BookType::DuplicateSize(map) => {
+        BookType::DuplicateSize(map) => {
           if let Some(dup_data) = map.get(&self.book_path) {
             match dup_data {
-              crate::db::models::books::DuplicateBookData::BookHash(hash) => {
+              DuplicateBookData::BookHash(hash) => {
                 let hashed_path =
                   thumbnails_dir.join("hashed_books").join(format!("{}.png", hash.0));
                 if hashed_path.exists() {
                   return Ok(Some(hashed_path));
                 }
               }
-              crate::db::models::books::DuplicateBookData::MutoolData(_) => {
+              DuplicateBookData::MutoolData(_) => {
                 // No hash computed yet — might still have the unhashed PNG
                 if unhashed_path.exists() {
                   return Ok(Some(unhashed_path));
@@ -180,28 +232,21 @@ impl Book {
   }
 
   /// Retrieve mutool error from the database if extraction failed
-  pub fn get_mutool_error(
-    &self, db: &crate::db::DB,
-  ) -> anyhow::Result<Option<mutool::mutool_error::MuToolError>> {
+  pub fn get_mutool_error(&self, db: &crate::db::DB) -> anyhow::Result<Option<MuToolError>> {
     db.rt(|r| {
-      if let Some(book_sizes) =
-        r.get().primary::<crate::db::models::books::book_sizes::BookSizes>(self.book_size)?
-      {
+      if let Some(book_sizes) = r.get().primary::<BookSizes>(self.book_size)? {
         match &book_sizes.book_type {
-          crate::db::models::books::BookType::UniqueSize { mutool_data, .. } => {
+          BookType::UniqueSize { mutool_data, .. } => {
             return Ok(mutool_data.as_ref().and_then(|m| m.mutool_err.clone()));
           }
-          crate::db::models::books::BookType::DuplicateSize(map) => {
+          BookType::DuplicateSize(map) => {
             if let Some(dup_data) = map.get(&self.book_path) {
               match dup_data {
-                crate::db::models::books::DuplicateBookData::MutoolData(m) => {
+                DuplicateBookData::MutoolData(m) => {
                   return Ok(m.as_ref().and_then(|m| m.mutool_err.clone()));
                 }
-                crate::db::models::books::DuplicateBookData::BookHash(hash) => {
-                  if let Some(book_hashes) =
-                    r.get()
-                      .primary::<crate::db::models::books::book_hashes::BookHashes>(hash.clone())?
-                  {
+                DuplicateBookData::BookHash(hash) => {
+                  if let Some(book_hashes) = r.get().primary::<BookHashes>(hash.clone())? {
                     return Ok(book_hashes.mutool_data.mutool_err.clone());
                   }
                 }
@@ -217,6 +262,6 @@ impl Book {
 
 impl Hash for Book {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    self.id.hash(state);
+    self.book_path.hash(state);
   }
 }

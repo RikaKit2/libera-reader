@@ -20,7 +20,9 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 unicode-segmentation = { workspace = true }
 mutool = { version = "0.1.0", path = "../mutool" }
-utils = { version = "0.1.0", path = "../utils" }
+data-encoding = { workspace = true }
+tracing-subscriber = { workspace = true }
+colored = { workspace = true }
 mimalloc = { workspace = true }
 better-panic = { workspace = true }
 tracing = { workspace = true }

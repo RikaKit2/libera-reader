@@ -1,8 +1,8 @@
 use native_db::transaction::RwTransaction;
 use std::path::PathBuf;
 
+use crate::utils::debug;
 use itertools::Itertools;
-use utils::debug;
 
 use crate::db::models::books::{
   book::{Book, BookDir},
@@ -15,25 +15,18 @@ pub(crate) fn update_book_dir(
   let start_time = std::time::Instant::now();
   let old_book_dir = BookDir::new(old_dir);
   let new_book_dir = BookDir::new(new_dir);
-  let old_dir_path = old_book_dir.full_path().to_string();
-  let new_dir_path = new_book_dir.full_path().to_string();
-
   // Scan ALL books and filter by parent_dir
   let all_books: Vec<Book> = rw_t.scan().primary::<Book>()?.all()?.try_collect()?;
   let books_in_dir: Vec<Book> =
-    all_books.into_iter().filter(|b| b.parent_dir == old_dir_path).collect();
+    all_books.into_iter().filter(|b| b.parent_dir == old_book_dir).collect();
 
   for book in books_in_dir {
     let old_book_path = book.book_path.clone();
     let mut updated_book = book.clone();
 
-    // Update parent_dir in Book
-    updated_book.parent_dir = new_dir_path.clone();
+    // Update parent_dir in Book and BookPath
+    updated_book.parent_dir = new_book_dir.clone();
     updated_book.book_path.parent_dir = new_book_dir.clone();
-
-    // Update parent_dir in the id (full path string)
-    let new_full_path = updated_book.book_path.as_pathbuf();
-    updated_book.id = new_full_path.to_string_lossy().to_string();
 
     // Update BookSizes path
     BookSizes::update_book_path(

@@ -16,6 +16,7 @@ pub enum AppTheme {
   AyuDark,
   EverforestDark,
 }
+
 impl AppTheme {
   pub fn all() -> Vec<Self> {
     vec![

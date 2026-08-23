@@ -1,30 +1,28 @@
-#![forbid(unsafe_code)]
 use anyhow::Result;
 use std::hash::{BuildHasher, Hasher};
 use std::path::Path;
 use tracing::Level;
 
-use crate::logger::Formatter;
+use crate::utils::logger::Formatter;
 pub mod logger;
+pub use logger::{debug, error, timing, title};
 
-#[rustfmt::skip]
 pub fn create_subscriber() -> Result<()> {
-    let subscriber = tracing_subscriber::fmt()
-      .event_format(Formatter { show_location: false })
-      .with_max_level(Level::DEBUG)
-      .finish();
-    tracing::subscriber::set_global_default(subscriber)?;
-    Ok(())
+  let subscriber = tracing_subscriber::fmt()
+    .event_format(Formatter { show_location: false })
+    .with_max_level(Level::DEBUG)
+    .finish();
+  tracing::subscriber::set_global_default(subscriber)?;
+  Ok(())
 }
 
-#[rustfmt::skip]
 pub fn create_debug_subscriber() -> Result<()> {
-    let subscriber = tracing_subscriber::fmt()
-      .event_format(Formatter { show_location: true })
-      .with_max_level(Level::DEBUG)
-      .finish();
-    tracing::subscriber::set_global_default(subscriber)?;
-    Ok(())
+  let subscriber = tracing_subscriber::fmt()
+    .event_format(Formatter { show_location: true })
+    .with_max_level(Level::DEBUG)
+    .finish();
+  tracing::subscriber::set_global_default(subscriber)?;
+  Ok(())
 }
 
 pub async fn calc_file_hash<P: AsRef<Path>>(path_to_file: P) -> Result<String> {

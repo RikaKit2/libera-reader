@@ -13,12 +13,10 @@ pub(crate) fn remove_book_by_path(
   let Some(book_path) = BookPath::new(file_path) else {
     return Ok(RemoveStatus::FullyDeleted);
   };
-  let id = book_path.full_path_string().to_string();
 
-  let Some(book) = rw_t.get().primary::<Book>(id.clone())? else {
+  let Some(book) = rw_t.get().primary::<Book>(book_path.clone())? else {
     return Ok(RemoveStatus::FullyDeleted);
   };
-
   let can_delete = book.can_delete();
 
   // Remove from BookSizes first

@@ -1,6 +1,6 @@
 use crate::app_ext::AppExt;
 use crate::db::models::AppTheme;
-use crate::theme::set_app_theme;
+use crate::settings::set_app_theme;
 use gpui::*;
 use gpui::{App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window};
 use gpui_component::{select::*, *};

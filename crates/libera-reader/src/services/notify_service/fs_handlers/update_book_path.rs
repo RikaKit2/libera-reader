@@ -1,8 +1,8 @@
 use native_db::transaction::RwTransaction;
 use std::path::PathBuf;
 
+use crate::utils::debug;
 use anyhow::Ok;
-use utils::debug;
 
 use crate::db::models::books::{
   book::{Book, BookPath},
@@ -19,13 +19,10 @@ pub(crate) fn update_book_path(
   match old_book_path {
     Some(old_book_path) => match new_book_path {
       Some(new_book_path) => {
-        let old_id = old_book_path.full_path_string().to_string();
-
-        if let Some(book) = rw_t.get().primary::<Book>(old_id)? {
+        if let Some(book) = rw_t.get().primary::<Book>(old_book_path.clone())? {
           let mut updated_book = book.clone();
           updated_book.book_path = new_book_path.clone();
-          updated_book.id = new_book_path.full_path_string().to_string();
-          updated_book.parent_dir = new_book_path.parent_dir.full_path().to_string();
+          updated_book.parent_dir = new_book_path.parent_dir.clone();
 
           BookSizes::update_book_path(book.book_size, &old_book_path, new_book_path, rw_t)?;
 

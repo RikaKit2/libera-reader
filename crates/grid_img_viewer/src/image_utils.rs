@@ -3,8 +3,8 @@ use image::Frame;
 use image::ImageReader;
 use image::imageops::FilterType;
 use smallvec::smallvec;
+use std::fs::File;
 use std::io::BufReader;
-use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -21,9 +21,7 @@ pub fn is_image(path: &Path) -> bool {
 
 /// Decodes image directly into GPU-compatible RenderImage.
 pub fn load_thumbnail(path: &Path) -> Option<Arc<RenderImage>> {
-  let file = std::fs::File::open(path).ok()?;
-  let fd = file.as_raw_fd();
-
+  let file = File::open(path).ok()?;
   let img = ImageReader::new(BufReader::new(&file)).with_guessed_format().ok()?.decode().ok()?;
 
   let resized = if img.width() > THUMB_MAX_PX || img.height() > THUMB_MAX_PX {
@@ -40,14 +38,35 @@ pub fn load_thumbnail(path: &Path) -> Option<Arc<RenderImage>> {
     px.swap(0, 2);
   }
 
-  // Clear NixOS disk cache (Page Cache)
-  unsafe {
-    libc::posix_fadvise(fd, 0, 0, libc::POSIX_FADV_DONTNEED);
-  }
+  evict_file_page_cache(&file);
 
   // Assemble raw frame and pack into RenderImage
   let frame = Frame::new(rgba_img);
   let render_image = Arc::new(RenderImage::new(smallvec![frame]));
 
   Some(render_image)
+}
+
+#[inline]
+fn evict_file_page_cache(file: &File) {
+  #[cfg(target_os = "linux")]
+  {
+    use std::os::unix::io::AsRawFd;
+    unsafe {
+      libc::posix_fadvise(file.as_raw_fd(), 0, 0, libc::POSIX_FADV_DONTNEED);
+    }
+  }
+
+  #[cfg(target_os = "macos")]
+  {
+    use std::os::unix::io::AsRawFd;
+    unsafe {
+      libc::fcntl(file.as_raw_fd(), libc::F_NOCACHE, 1);
+    }
+  }
+
+  #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+  {
+    let _ = file;
+  }
 }

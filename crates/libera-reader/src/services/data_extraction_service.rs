@@ -41,7 +41,7 @@ pub async fn run(
     let books_state = books_state.clone();
 
     tokio::spawn(async move {
-      if let Ok(Some(book)) = db.get_book(path.clone()) {
+      if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path.clone()) {
         // 1. Check if book size is 0 bytes
         let BookSize::BYTES(book_size_bytes) = book.book_size;
         if book_size_bytes == 0 {
@@ -102,7 +102,8 @@ pub async fn run(
                       path_to_thumbnail = Some(fallback_path.clone());
                     } else {
                       // Compute file hash on demand
-                      if let Ok(hash_str) = utils::calc_file_hash(book.book_path.as_pathbuf()).await
+                      if let Ok(hash_str) =
+                        crate::utils::calc_file_hash(book.book_path.as_pathbuf()).await
                       {
                         let hash = crate::db::models::books::BookHash(hash_str.into());
                         let hashed_path = app_dirs

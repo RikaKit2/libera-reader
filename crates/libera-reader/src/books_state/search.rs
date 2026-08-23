@@ -35,7 +35,7 @@ impl BooksStateData {
 
       let matches_search = query.is_empty()
         || book.book_path.name.to_lowercase().contains(&query)
-        || book.parent_dir.to_lowercase().contains(&query);
+        || book.parent_dir.full_path().to_lowercase().contains(&query);
       if matches_search {
         keys.push(id.clone());
       }

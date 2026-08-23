@@ -7,9 +7,9 @@ pub use books::{
 };
 use native_db::ToInput;
 use native_db::ToKey;
+pub use settings::AppTheme;
 pub use settings::Settings;
 pub use settings::lang::*;
-pub use settings::theme::AppTheme;
 pub use settings::{CardDisplayMode, RootRoute, Route};
 
 use crate::db::DB;
