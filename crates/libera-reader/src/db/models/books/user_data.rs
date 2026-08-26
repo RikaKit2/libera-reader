@@ -6,9 +6,3 @@ pub struct UserData {
   #[serde(default)]
   pub last_opened: u64,
 }
-
-impl UserData {
-  pub fn new(favorite: bool) -> Self {
-    UserData { favorite, last_opened: 0 }
-  }
-}

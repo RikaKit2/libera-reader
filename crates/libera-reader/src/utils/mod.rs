@@ -16,15 +16,6 @@ pub fn create_subscriber() -> Result<()> {
   Ok(())
 }
 
-pub fn create_debug_subscriber() -> Result<()> {
-  let subscriber = tracing_subscriber::fmt()
-    .event_format(Formatter { show_location: true })
-    .with_max_level(Level::DEBUG)
-    .finish();
-  tracing::subscriber::set_global_default(subscriber)?;
-  Ok(())
-}
-
 pub async fn calc_file_hash<P: AsRef<Path>>(path_to_file: P) -> Result<String> {
   use tokio::io::AsyncReadExt;
   let mut hasher = gxhash::GxBuildHasher::with_seed(0).build_hasher();

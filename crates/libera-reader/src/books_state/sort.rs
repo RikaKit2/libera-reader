@@ -60,7 +60,6 @@ impl BooksStateData {
 }
 
 impl BooksState {
-  #[allow(dead_code)]
   pub fn set_sort_field(&self, field: SortField, target: TargetList, cx: &mut Context<Self>) {
     let mut data = self.write();
     if data.sort_config(target).field != field {
@@ -71,7 +70,6 @@ impl BooksState {
     }
   }
 
-  #[allow(dead_code)]
   pub fn toggle_reverse(&self, target: TargetList, cx: &mut Context<Self>) {
     let mut data = self.write();
     data.sort_config_mut(target).is_reversed = !data.sort_config(target).is_reversed;

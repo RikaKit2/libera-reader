@@ -2,7 +2,6 @@ use super::{BooksState, BooksStateData, TargetList};
 use gpui::{AsyncApp, Context, WeakEntity};
 use std::time::Duration;
 
-#[allow(dead_code)]
 const DEBOUNCE_DELAY_MS: u64 = 600;
 
 impl BooksStateData {
@@ -53,7 +52,6 @@ impl BooksStateData {
 }
 
 impl BooksState {
-  #[allow(dead_code)]
   pub fn set_search_query(&self, query: String, target: TargetList, cx: &mut Context<Self>) {
     let mut data = self.write();
     let current_query = match target {

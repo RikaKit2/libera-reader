@@ -92,7 +92,7 @@ impl ScanService {
         // We re-check the filesystem for each book because `Book` no longer
         // carries a `has_thumbnail` cache field (it could desync from reality).
         let all_books = Book::scan_all(&self.db)?;
-        let thumbnails_dir = self.app_dirs.read().thumbnails_dir.clone();
+        let thumbnails_dir = self.app_dirs.thumbnails_dir.clone();
         let mut books_to_extract: Vec<Book> = all_books
           .into_iter()
           .filter(|b| !b.has_thumbnail_on_disk(&self.db, &thumbnails_dir))

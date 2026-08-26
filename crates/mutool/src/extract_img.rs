@@ -60,10 +60,6 @@ pub async fn save_thumbnail(path_to_thumbnail: &PathBuf) {
   tokio::fs::write(path_to_thumbnail.with_extension("jpeg"), data).await.unwrap();
 }
 
-pub fn imp_to_jpeg_public(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, anyhow::Error> {
-  imp_to_jpeg(path_to_thumbnail)
-}
-
 fn imp_to_jpeg(path_to_thumbnail: &PathBuf) -> Result<Vec<u8>, anyhow::Error> {
   let reader = BufReader::new(File::open(path_to_thumbnail)?);
   let image = image::load(reader, ImageFormat::Png)?;

@@ -10,8 +10,6 @@ use std::hash::Hash;
 use crate::db::models::MutoolData;
 
 use native_db::{Key, ToKey};
-#[allow(unused_imports)]
-use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Hash)]

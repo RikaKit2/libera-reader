@@ -1,23 +1,33 @@
 use crate::utils::{error, title};
 use directories::ProjectDirs;
 use std::io::Error;
+use std::ops::Deref;
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::Arc;
+
+pub const UNHASHED_BOOKS_DIR: &str = "unhashed_books";
+pub const HASHED_BOOKS_DIR: &str = "hashed_books";
 
 #[derive(Clone)]
 pub struct AppDirs {
-  inn: Arc<RwLock<Dirs>>,
+  inn: Arc<Dirs>,
 }
 
 impl gpui::Global for AppDirs {}
 
+impl Deref for AppDirs {
+  type Target = Dirs;
+
+  #[inline(always)]
+  fn deref(&self) -> &Self::Target {
+    &self.inn
+  }
+}
+
 impl AppDirs {
   pub fn new(path_to_data_dir: PathBuf) -> Result<Self, Vec<Error>> {
     let dirs = Dirs::new(path_to_data_dir)?;
-    Ok(Self { inn: Arc::new(RwLock::new(dirs)) })
-  }
-  pub fn read(&self) -> RwLockReadGuard<'_, Dirs> {
-    self.inn.read().unwrap()
+    Ok(Self { inn: Arc::new(dirs) })
   }
   pub fn new_with_default_data_dir() -> Result<AppDirs, Vec<Error>> {
     let proj_dirs = ProjectDirs::from("com", "RikaKit", "libera-reader").unwrap();
@@ -45,10 +55,9 @@ impl Dirs {
     }
     let path_to_db = data_dir.join("libera-reader").with_extension("redb");
     let thumbnails_dir = data_dir.join("thumbnails");
-    let dir_of_unhashed_books = thumbnails_dir.join("unhashed_books");
-    let dir_of_hashed_books = thumbnails_dir.join("hashed_books");
+    let dir_of_unhashed_books = thumbnails_dir.join(UNHASHED_BOOKS_DIR);
+    let dir_of_hashed_books = thumbnails_dir.join(HASHED_BOOKS_DIR);
     let tts_models = data_dir.join("tts_models");
-
     let necessary_dirs =
       vec![&data_dir, &tts_models, &thumbnails_dir, &dir_of_unhashed_books, &dir_of_hashed_books];
     let poss_errors = Self::create_necessary_dirs(necessary_dirs);

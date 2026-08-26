@@ -15,15 +15,12 @@ pub enum TargetList {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SortField {
   Name,
-  #[allow(dead_code)]
   Size,
-  #[allow(dead_code)]
   Type,
   LastOpened,
 }
 
 impl SortField {
-  #[allow(dead_code)]
   pub fn available_for(target: TargetList) -> Vec<Self> {
     match target {
       TargetList::History => vec![Self::Name, Self::Size, Self::Type, Self::LastOpened],
@@ -71,11 +68,9 @@ impl Default for SortConfig {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-#[allow(dead_code)]
 pub struct DisplayModeOption(pub CardDisplayMode);
 
 impl DisplayModeOption {
-  #[allow(dead_code)]
   pub fn all() -> Vec<Self> {
     vec![
       Self(CardDisplayMode::Compact),

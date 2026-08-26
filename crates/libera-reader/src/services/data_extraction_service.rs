@@ -51,11 +51,7 @@ pub async fn run(
 
         // 2. Compute fallback thumbnail path and check if PNG already exists on disk
         // This handles the case where DB was deleted but PNG files are still on disk.
-        let fallback_path = app_dirs
-          .read()
-          .thumbnails_dir
-          .join("unhashed_books")
-          .join(format!("{}.png", book_size_bytes));
+        let fallback_path = app_dirs.dir_of_unhashed_books.join(format!("{}.png", book_size_bytes));
         if fallback_path.exists() {
           // PNG already on disk — the next `has_thumbnail_on_disk` check
           // (here or in the UI's `ThumbnailCache`) will pick it up via
@@ -68,7 +64,7 @@ pub async fn run(
         // 3. Skip if a usable thumbnail already exists on disk. This used to
         //    consult a `Book.has_thumbnail: bool` cache field, which could
         //    desync from reality; we now check the filesystem directly.
-        if book.has_thumbnail_on_disk(&db, &app_dirs.read().thumbnails_dir) {
+        if book.has_thumbnail_on_disk(&db, &app_dirs.thumbnails_dir) {
           books_state.mark_thumbnail_extracted(&book.book_path);
           drop(permit);
           return;
@@ -87,13 +83,8 @@ pub async fn run(
               if let Some(dup_data) = map.get(&book.book_path) {
                 match dup_data {
                   BookHash(hash) => {
-                    path_to_thumbnail = Some(
-                      app_dirs
-                        .read()
-                        .thumbnails_dir
-                        .join("hashed_books")
-                        .join(format!("{}.png", hash.0)),
-                    );
+                    path_to_thumbnail =
+                      Some(app_dirs.dir_of_hashed_books.join(format!("{}.png", hash.0)));
                     computed_hash = Some(hash.clone());
                   }
                   MutoolData(_) => {
@@ -106,11 +97,8 @@ pub async fn run(
                         crate::utils::calc_file_hash(book.book_path.as_pathbuf()).await
                       {
                         let hash = crate::db::models::books::BookHash(hash_str.into());
-                        let hashed_path = app_dirs
-                          .read()
-                          .thumbnails_dir
-                          .join("hashed_books")
-                          .join(format!("{}.png", hash.0));
+                        let hashed_path =
+                          app_dirs.dir_of_hashed_books.join(format!("{}.png", hash.0));
                         if hashed_path.exists() {
                           path_to_thumbnail = Some(hashed_path);
                         } else {

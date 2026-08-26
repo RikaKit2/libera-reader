@@ -69,14 +69,6 @@ impl DB {
     rw_conn.commit().map_err(Box::new)
   }
 
-  #[allow(dead_code)]
-  pub(crate) fn remove<T: ToInput>(&self, item: T) -> Result<(), Box<db_type::Error>> {
-    let lock = self.db.write().unwrap();
-    let rw_conn = lock.rw_transaction().map_err(Box::new)?;
-    rw_conn.remove(item).map_err(Box::new)?;
-    rw_conn.commit().map_err(Box::new)
-  }
-
   pub fn rw_t<F, T>(&self, func: F) -> Result<T>
   where
     F: FnOnce(&RwTransaction) -> Result<T>,

@@ -1,5 +1,4 @@
 use native_db::*;
-#[allow(unused_imports)]
 use serde::{Deserialize, Serialize};
 use std::{fs, path::PathBuf};
 

@@ -6,7 +6,6 @@ use crate::{
 
 use native_db::transaction::RwTransaction;
 use native_db::*;
-#[allow(unused_imports)]
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 

@@ -56,3 +56,6 @@ dhat = "0.3"
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[patch.crates-io]
+proc-macro-error2 = { git = "https://github.com/GnomedDev/proc-macro-error-2", rev = "53ff94b61c678593158db1a3d50269c6f0de0db7" }

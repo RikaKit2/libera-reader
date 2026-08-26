@@ -10,7 +10,6 @@ fn default_cache_size() -> u32 {
   80
 }
 use native_db::*;
-#[allow(unused_imports)]
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
 

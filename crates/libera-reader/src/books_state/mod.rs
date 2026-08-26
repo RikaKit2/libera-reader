@@ -144,7 +144,7 @@ impl BooksState {
   /// Create `BooksState` by pulling required dependencies directly from GPUI `App`.
   pub fn new(cx: &gpui::App) -> Self {
     use crate::app_ext::AppExt;
-    let thumbnails_dir = cx.app_dirs().read().thumbnails_dir.clone();
+    let thumbnails_dir = cx.app_dirs().thumbnails_dir.clone();
     let db = cx.db();
     Self::from_deps(thumbnails_dir, db)
   }

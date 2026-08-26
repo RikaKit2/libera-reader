@@ -56,7 +56,7 @@ fn main() -> Result<()> {
   let app = gpui_platform::application().with_assets(Assets);
   app.run(move |cx| {
     let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
-    let path_to_db = app_dirs.read().path_to_db.clone();
+    let path_to_db = app_dirs.path_to_db.clone();
     let db = DB::new(path_to_db).unwrap();
     let settings = SETTINGS::new(db.clone()).unwrap();
     let (not_cached_books, rx) = NotCachedBooks::channel();

@@ -49,11 +49,11 @@ impl TestLib {
     Self::drop_files(&tmp_dir).await;
 
     let app_dirs = AppDirs::new(tmp_dir.clone()).unwrap();
-    let db = DB::new(app_dirs.read().path_to_db.clone()).unwrap();
+    let db = DB::new(app_dirs.path_to_db.clone()).unwrap();
     let mut settings = SETTINGS::new(db.clone()).unwrap();
     settings.set_path_to_scan(tmp_dir.clone())?;
     let (not_cached_books, rx) = NotCachedBooks::channel();
-    let books_state = BooksState::from_deps(app_dirs.read().thumbnails_dir.clone(), &db);
+    let books_state = BooksState::from_deps(app_dirs.thumbnails_dir.clone(), &db);
     let services = Services::from_deps(
       settings.clone(),
       db.clone(),

@@ -12,7 +12,6 @@ use crate::db::models::{
   books::{BookType, DuplicateBookData, book_hashes::BookHashes, book_sizes::BookSizes},
 };
 use native_db::*;
-#[allow(unused_imports)]
 use native_model::{Model, native_model};
 
 pub(crate) type BookName = SharedString;
@@ -108,14 +107,6 @@ impl Book {
   pub fn exists_on_disk(&self) -> bool {
     self.book_path.exists_on_disk()
   }
-  #[allow(dead_code)]
-  pub(crate) fn pathbuf(&self) -> PathBuf {
-    self.book_path.as_pathbuf()
-  }
-  #[allow(dead_code)]
-  pub(crate) fn full_path_str(&self) -> SharedString {
-    self.pathbuf().to_str().unwrap().to_string().into()
-  }
   pub fn can_delete(&self) -> bool {
     !self.user_data.favorite && self.user_data.last_opened == 0 && self.bookmark_count == 0
   }
@@ -186,9 +177,9 @@ impl Book {
   pub fn get_thumbnail_png_path(
     &self, db: &crate::db::DB, thumbnails_dir: &Path,
   ) -> anyhow::Result<Option<PathBuf>> {
+    use crate::app_dirs::{HASHED_BOOKS_DIR, UNHASHED_BOOKS_DIR};
     let crate::db::models::books::book::BookSize::BYTES(size_bytes) = self.book_size;
-    let unhashed_path = thumbnails_dir.join("unhashed_books").join(format!("{}.png", size_bytes));
-
+    let unhashed_path = thumbnails_dir.join(UNHASHED_BOOKS_DIR).join(format!("{}.png", size_bytes));
     if let Some(book_sizes) = db.get_primary::<BookSizes>(self.book_size)? {
       match &book_sizes.book_type {
         BookType::UniqueSize { .. } => {
@@ -201,7 +192,7 @@ impl Book {
             match dup_data {
               DuplicateBookData::BookHash(hash) => {
                 let hashed_path =
-                  thumbnails_dir.join("hashed_books").join(format!("{}.png", hash.0));
+                  thumbnails_dir.join(HASHED_BOOKS_DIR).join(format!("{}.png", hash.0));
                 if hashed_path.exists() {
                   return Ok(Some(hashed_path));
                 }

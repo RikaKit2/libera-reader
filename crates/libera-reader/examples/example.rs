@@ -18,11 +18,11 @@ async fn main() -> Result<()> {
   better_panic::install();
   libera_reader::utils::create_subscriber()?;
   let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
-  let path_to_db = app_dirs.read().path_to_db.clone();
+  let path_to_db = app_dirs.path_to_db.clone();
   let db = DB::new(path_to_db)?;
   let mut settings = SETTINGS::new(db.clone())?;
   let (not_cached_books, rx) = NotCachedBooks::channel();
-  let books_state = BooksState::from_deps(app_dirs.read().thumbnails_dir.clone(), &db);
+  let books_state = BooksState::from_deps(app_dirs.thumbnails_dir.clone(), &db);
   let mut services = Services::from_deps(
     settings.clone(),
     db.clone(),
