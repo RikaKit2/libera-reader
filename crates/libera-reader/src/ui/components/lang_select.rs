@@ -43,7 +43,7 @@ impl Render for LangSelect {
       Select::new(&self.lang_select)
         .placeholder(t!("components.lang_select.placeholder"))
         .search_placeholder(t!("components.lang_select.search_placeholder"))
-        .w(px(210.0)),
+        .w(px(220.0)),
     )
   }
 }

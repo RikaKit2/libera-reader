@@ -49,15 +49,18 @@ impl Render for MainPage {
     div().w_full().h_full().flex().children([
       div().w_12().h_full().child(self.side_bar.clone()),
       match curr_route {
-        RootRoute::Main(route) => match route {
-          Route::Library => div().w_full().h_full().child(self.library.clone()),
-          Route::FileManager => div().w_full().h_full().child(self.file_manager.clone()),
-          Route::History => div().w_full().h_full().child(self.history.clone()),
-          Route::Favorite => div().w_full().h_full().child(self.favorite.clone()),
-          Route::BookMarks => div().w_full().h_full().child(self.bookmarks.clone()),
-          Route::Stats => div().w_full().h_full().child(self.stats.clone()),
-          Route::Settings => div().w_full().h_full().child(self.settings.clone()),
-        },
+        RootRoute::Main(route) => {
+          let content = match route {
+            Route::Library => self.library.clone().into_any_element(),
+            Route::FileManager => self.file_manager.clone().into_any_element(),
+            Route::History => self.history.clone().into_any_element(),
+            Route::Favorite => self.favorite.clone().into_any_element(),
+            Route::BookMarks => self.bookmarks.clone().into_any_element(),
+            Route::Stats => self.stats.clone().into_any_element(),
+            Route::Settings => self.settings.clone().into_any_element(),
+          };
+          div().size_full().child(content)
+        }
         _ => div(),
       },
     ])

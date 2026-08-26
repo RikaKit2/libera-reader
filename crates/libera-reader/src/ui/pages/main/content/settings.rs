@@ -6,8 +6,9 @@ use crate::ui::components::{
 };
 
 use gpui::{
-  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
+use gpui_component::{ActiveTheme, StyledExt};
 use rust_i18n::t;
 
 pub(crate) struct Settings {
@@ -33,19 +34,44 @@ impl Settings {
 }
 
 impl Render for Settings {
-  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-    div().flex().flex_col().mt_2().pl_1_4().gap_y_2().children([
-      div().child(t!("components.lang_select.header").to_string()),
-      div().child(self.lang_select.clone()),
-      div().child(t!("components.theme_select.header").to_string()),
-      div().child(self.theme_select.clone()),
-      div().child(self.path_select.clone()),
-      div().child(t!("components.columns_select.header").to_string()),
-      div().child(self.columns_select.clone()),
-      div().child(t!("components.workers_select.header").to_string()),
-      div().w(px(150.0)).child(self.workers_select.clone()),
-      div().child(t!("components.cache_size_select.header").to_string()),
-      div().w(px(150.0)).child(self.cache_size_select.clone()),
-    ])
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
+
+    let settings_list = div().flex().flex_col().gap_3().children([
+      div().flex().flex_col().gap_1().children([
+        div().text_sm().font_medium().child(t!("components.lang_select.header").to_string()),
+        div().child(self.lang_select.clone()),
+      ]),
+      div().flex().flex_col().gap_1().children([
+        div().text_sm().font_medium().child(t!("components.theme_select.header").to_string()),
+        div().child(self.theme_select.clone()),
+      ]),
+      div().flex().flex_col().gap_1().children([
+        div().text_sm().font_medium().child(t!("components.path_select.target_path").to_string()),
+        div().child(self.path_select.clone()),
+      ]),
+      div().flex().flex_col().gap_1().children([
+        div().text_sm().font_medium().child(t!("components.columns_select.header").to_string()),
+        div().child(self.columns_select.clone()),
+      ]),
+      div().flex().flex_col().gap_1().children([
+        div().text_sm().font_medium().child(t!("components.workers_select.header").to_string()),
+        div().child(self.workers_select.clone()),
+      ]),
+      div().flex().flex_col().gap_1().children([
+        div().text_sm().font_medium().child(t!("components.cache_size_select.header").to_string()),
+        div().child(self.cache_size_select.clone()),
+      ]),
+    ]);
+
+    div()
+      .size_full()
+      .bg(theme.background)
+      .text_color(theme.foreground)
+      .flex()
+      .flex_col()
+      .items_center()
+      .justify_center()
+      .child(settings_list)
   }
 }

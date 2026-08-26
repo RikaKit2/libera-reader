@@ -78,16 +78,18 @@ fn finish_btn() -> Div {
 impl Render for SetupPage {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     match cx.settings().read().route {
-      RootRoute::Main(_route) => div(),
-      RootRoute::BookViewer => div(),
-      RootRoute::Setup(setup_route) => match setup_route {
-        SetupRoute::Welcome => div().w_full().h_full().child(self.welcome_page.clone()),
-        SetupRoute::Appearance => div().w_full().h_full().child(self.appearance_page.clone()),
-        SetupRoute::Library => div().w_full().h_full().child(self.library_page.clone()),
-        SetupRoute::Sync => div().w_full().h_full().child(self.sync_page.clone()),
-        SetupRoute::TTS => div().w_full().h_full().child(self.tts_page.clone()),
-        SetupRoute::Finish => div().w_full().h_full().child(self.finish_page.clone()),
-      },
+      RootRoute::Setup(setup_route) => {
+        let page = match setup_route {
+          SetupRoute::Welcome => self.welcome_page.clone().into_any_element(),
+          SetupRoute::Appearance => self.appearance_page.clone().into_any_element(),
+          SetupRoute::Library => self.library_page.clone().into_any_element(),
+          SetupRoute::Sync => self.sync_page.clone().into_any_element(),
+          SetupRoute::TTS => self.tts_page.clone().into_any_element(),
+          SetupRoute::Finish => self.finish_page.clone().into_any_element(),
+        };
+        div().size_full().child(page)
+      }
+      _ => div(),
     }
   }
 }

@@ -75,7 +75,7 @@ impl Render for ColumnsSelect {
     div().child(
       Select::new(&self.columns_select)
         .placeholder(t!("components.columns_select.placeholder"))
-        .w(px(210.0)),
+        .w(px(220.0)),
     )
   }
 }

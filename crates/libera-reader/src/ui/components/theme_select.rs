@@ -43,7 +43,7 @@ impl Render for ThemeSelect {
       Select::new(&self.theme_select)
         .placeholder(t!("components.theme_select.placeholder"))
         .search_placeholder(t!("components.theme_select.search_placeholder"))
-        .w(px(210.0)),
+        .w(px(220.0)),
     )
   }
 }

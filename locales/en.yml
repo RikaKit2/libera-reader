@@ -40,6 +40,7 @@ pages:
         title: "You're all set!"
         description: "Click 'Finish' to instantly index your books and get started. Happy reading!"
   settings:
+    title: "Settings"
     used_formats: "Supported formats"
 
 components:
@@ -70,7 +71,7 @@ components:
     placeholder: "Cache size"
 
   path_select:
-    target_path: "Directory to scan:"
+    target_path: "Directory to scan"
     select_btn: "Select directory"
     path_not_selected: "Directory not selected"
 

@@ -40,6 +40,7 @@ pages:
         title: "Всё готово!"
         description: "Нажмите «Завершить», чтобы мгновенно индексировать свои книги и начать. Приятного чтения!"
   settings:
+    title: "Настройки"
     used_formats: "Используемые форматы"
 
 components:
@@ -70,7 +71,7 @@ components:
     placeholder: "Размер кэша"
 
   path_select:
-    target_path: "Директория для сканирования:"
+    target_path: "Директория для сканирования"
     select_btn: "Выбрать директорию"
     path_not_selected: "Директория не выбрана"
 
