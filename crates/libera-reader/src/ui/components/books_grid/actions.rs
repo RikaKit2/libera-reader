@@ -4,6 +4,12 @@ use crate::db::models::books::book::BookPath;
 use gpui::App;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Entry point when a user clicks on a book card in any view mode.
+/// Records the book in history and will trigger reading / viewer navigation.
+pub fn book_card_click(path: BookPath, cx: &mut App) {
+  push_at_history(path, cx);
+}
+
 /// Record that a book was opened: bump its `last_opened`, ensure it is in the
 /// history list, and persist the change to the database.
 pub fn push_at_history(path: BookPath, cx: &mut App) {

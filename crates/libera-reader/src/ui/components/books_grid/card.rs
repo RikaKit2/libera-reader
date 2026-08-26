@@ -1,5 +1,5 @@
 use super::FOOTER_HEIGHT_PX;
-use super::actions::{push_at_history, toggle_favorite};
+use super::actions::{book_card_click, toggle_favorite};
 use crate::app_ext::AppExt;
 use crate::db::models::books::book::Book;
 use crate::db::models::books::book::BookPath;
@@ -56,8 +56,8 @@ impl super::BooksGrid {
 
     let subtle_hover = ButtonCustomVariant::new(cx)
       .foreground(theme.foreground)
-      .hover(gpui::white().opacity(0.12))
-      .active(gpui::white().opacity(0.16));
+      .hover(theme.primary.opacity(0.10))
+      .active(theme.primary.opacity(0.22));
 
     cover.child(
       Button::new(id)
@@ -68,7 +68,7 @@ impl super::BooksGrid {
         .w_full()
         .h_full()
         .on_click(move |_ev, _window, cx| {
-          push_at_history(book_path.clone(), cx);
+          book_card_click(book_path.clone(), cx);
         }),
     )
   }
@@ -178,8 +178,10 @@ impl super::BooksGrid {
       .flex_row()
       .rounded_md()
       .bg(theme.background)
-      .border_1()
+      .border_2()
       .border_color(theme.border)
+      .hover(move |s| s.border_color(theme.primary).bg(theme.foreground.opacity(0.03)).shadow_lg())
+      .cursor_pointer()
       .overflow_hidden()
       .child(
         div()
@@ -224,8 +226,10 @@ impl super::BooksGrid {
       .flex_col()
       .rounded_md()
       .bg(theme.background)
-      .border_1()
+      .border_2()
       .border_color(theme.border)
+      .hover(move |s| s.border_color(theme.primary).shadow_lg())
+      .cursor_pointer()
       .overflow_hidden()
       .child(
         div()
