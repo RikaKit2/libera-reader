@@ -8,7 +8,7 @@ use crate::TOKIO;
 use crate::app_ext::AppExt;
 use crate::books_state::{BooksState, TargetList};
 use crate::db::models::CardDisplayMode;
-use crate::db::models::books::book::Book;
+use crate::db::models::books::book::{Book, BookPath};
 use crate::ui::components::books_grid::cache::{BoundedCache, CoverState};
 use crate::ui::components::books_grid::loader::spawn_background_loader;
 use crate::ui::constants as C;
@@ -96,15 +96,28 @@ impl BooksGrid {
 
   /// Trigger a card click: records history, prints to terminal, and kicks off
   /// a visual click animation on the clicked book card.
-  pub fn trigger_card_click(
-    &mut self, book_path: crate::db::models::books::book::BookPath, cx: &mut Context<Self>,
-  ) {
+  pub fn trigger_card_click(&mut self, book_path: BookPath, cx: &mut Context<Self>) {
     self.click_counter = self.click_counter.wrapping_add(1);
-    self.clicked_book = Some((book_path.full_path_string(), self.click_counter));
+    let counter = self.click_counter;
+    self.clicked_book = Some((book_path.full_path_string(), counter));
     actions::book_card_click(book_path, cx);
     cx.notify();
-  }
 
+    cx.spawn(move |this: gpui::WeakEntity<Self>, cx: &mut AsyncApp| {
+      let mut owned_cx = cx.clone();
+      async move {
+        owned_cx.background_executor().timer(std::time::Duration::from_millis(450)).await;
+        let _ = this.update(&mut owned_cx, |grid, _cx| {
+          if let Some((_, c)) = &grid.clicked_book
+            && *c == counter
+          {
+            grid.clicked_book = None;
+          }
+        });
+      }
+    })
+    .detach();
+  }
   /// Apply the dynamically computed layout (called from the page `render`).
   /// Mirrors the old `set_layout`: List mode halves the column count, Detailed
   /// mode reserves space for the footer.
