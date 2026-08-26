@@ -1,5 +1,5 @@
 use super::FOOTER_HEIGHT_PX;
-use super::actions::{book_card_click, toggle_favorite};
+use super::actions::toggle_favorite;
 use crate::app_ext::AppExt;
 use crate::db::models::books::book::Book;
 use crate::db::models::books::book::BookPath;
@@ -54,10 +54,33 @@ impl super::BooksGrid {
       );
     }
 
+    // Active click animation: when this card is clicked, run a smooth
+    // primary-color flash that runs for 400ms.
+    if let Some((clicked_id, counter)) = &self.clicked_book
+      && clicked_id == &book_path.full_path_string()
+    {
+      let anim_id: ElementId =
+        format!("click_anim_{}_{}", book_path.full_path_string(), counter).into();
+      let anim = Animation::new(std::time::Duration::from_millis(400)).with_easing(ease_in_out);
+      let primary = theme.primary;
+
+      cover = cover.child(div().absolute().inset_0().with_animation(
+        anim_id,
+        anim,
+        move |element, delta| {
+          let opacity = ((1.0 - delta) * std::f32::consts::PI * 0.5).sin().powi(2) * 0.55;
+          element.bg(primary.opacity(opacity))
+        },
+      ));
+    }
+
     let subtle_hover = ButtonCustomVariant::new(cx)
       .foreground(theme.foreground)
-      .hover(theme.primary.opacity(0.10))
-      .active(theme.primary.opacity(0.22));
+      .hover(theme.primary.opacity(0.12))
+      .active(theme.primary.opacity(0.35));
+
+    let entity = cx.entity().clone();
+    let bp = book_path.clone();
 
     cover.child(
       Button::new(id)
@@ -68,7 +91,9 @@ impl super::BooksGrid {
         .w_full()
         .h_full()
         .on_click(move |_ev, _window, cx| {
-          book_card_click(book_path.clone(), cx);
+          entity.update(cx, |grid, cx| {
+            grid.trigger_card_click(bp.clone(), cx);
+          });
         }),
     )
   }

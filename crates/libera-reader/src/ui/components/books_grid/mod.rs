@@ -35,6 +35,8 @@ pub struct BooksGrid {
   pub(crate) visible_start: Arc<AtomicUsize>,
   pub(crate) visible_end: Arc<AtomicUsize>,
   pub(crate) load_tx: tokio::sync::mpsc::UnboundedSender<(usize, gpui::SharedString, PathBuf)>,
+  pub(crate) clicked_book: Option<(gpui::SharedString, usize)>,
+  pub(crate) click_counter: usize,
 }
 
 impl BooksGrid {
@@ -87,7 +89,20 @@ impl BooksGrid {
       visible_start,
       visible_end,
       load_tx,
+      clicked_book: None,
+      click_counter: 0,
     }
+  }
+
+  /// Trigger a card click: records history, prints to terminal, and kicks off
+  /// a visual click animation on the clicked book card.
+  pub fn trigger_card_click(
+    &mut self, book_path: crate::db::models::books::book::BookPath, cx: &mut Context<Self>,
+  ) {
+    self.click_counter = self.click_counter.wrapping_add(1);
+    self.clicked_book = Some((book_path.full_path_string(), self.click_counter));
+    actions::book_card_click(book_path, cx);
+    cx.notify();
   }
 
   /// Apply the dynamically computed layout (called from the page `render`).
