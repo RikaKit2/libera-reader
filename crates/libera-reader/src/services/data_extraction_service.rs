@@ -7,7 +7,6 @@ use crate::db::models::books::book::{BookPath, BookSize};
 use crate::db::models::books::book_hashes::BookHashes;
 use crate::db::models::books::book_sizes::BookSizes;
 use crate::settings::SETTINGS;
-use crate::types::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::Semaphore;
@@ -191,16 +190,11 @@ pub async fn run(
                 rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
 
                 // Insert or update BookHashes record
-                let mut books_set = HashSet::default();
-                books_set.insert(book.book_path.clone());
-                let book_hashes = BookHashes::new(hash.clone(), books_set);
-                if let Some(old_hashes) = rw_t.get().primary::<BookHashes>(hash.clone())? {
-                  let mut updated_hashes = old_hashes.clone();
-                  updated_hashes.books.insert(book.book_path.clone());
-                  rw_t.update::<BookHashes>(old_hashes, updated_hashes)?;
-                } else {
-                  rw_t.insert::<BookHashes>(book_hashes)?;
-                }
+                crate::db::models::books::book_hashes::BookHashes::insert_book(
+                  hash.clone(),
+                  &book.book_path,
+                  rw_t,
+                )?;
               }
             }
             Ok(())

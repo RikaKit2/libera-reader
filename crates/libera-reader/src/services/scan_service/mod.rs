@@ -212,17 +212,20 @@ impl ScanService {
           let can_delete = book.can_delete();
           let book_path = book.book_path.clone();
 
-          // Remove from BookSizes
-          let _ = crate::db::models::books::book_sizes::BookSizes::remove_book(
-            book.book_size,
-            &book.book_path,
-            rw_t,
-          );
-
           if can_delete {
+            let _ = crate::db::models::books::book_sizes::BookSizes::remove_book(
+              book.book_size,
+              &book.book_path,
+              rw_t,
+            );
             rw_t.remove::<Book>(book)?;
             removed_paths.push(book_path);
           } else {
+            let _ = crate::db::models::books::book_sizes::BookSizes::mark_book_path_as_deleted(
+              book.book_size,
+              &book.book_path,
+              rw_t,
+            );
             let mut updated_book = book.clone();
             updated_book.mark_as_deleted();
             updated_books.push(updated_book.clone());

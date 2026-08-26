@@ -93,7 +93,6 @@ impl BookSizes {
     };
     Ok(())
   }
-  #[allow(dead_code)]
   pub(crate) fn mark_book_path_as_deleted(
     book_size: BookSize, target_book_path: &BookPath, rw_t: &RwTransaction<'_>,
   ) -> anyhow::Result<()> {
