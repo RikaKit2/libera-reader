@@ -1,6 +1,6 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-
+use rust_i18n::t;
 pub struct TtsResetBtn {
   state: Entity<BookViewerState>,
 }
@@ -16,6 +16,7 @@ impl Render for TtsResetBtn {
     let state = self.state.clone();
 
     div()
+      .id("tts-reset-btn")
       .w_full()
       .py(px(4.0))
       .px(px(8.0))
@@ -28,7 +29,7 @@ impl Render for TtsResetBtn {
       .cursor_pointer()
       .text_xs()
       .text_color(rgb(0xD4D4D5))
-      .child("Вернуть значения по умолчанию")
+      .child(t!("components.book_viewer.tts.reset_btn").to_string())
       .on_mouse_down(
         MouseButton::Left,
         cx.listener(move |_this, _, _window, cx| {

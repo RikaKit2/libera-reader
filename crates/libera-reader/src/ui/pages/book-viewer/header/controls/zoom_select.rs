@@ -48,15 +48,17 @@ impl ZoomSelect {
 impl Render for ZoomSelect {
   fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div()
-      .w(px(110.0))
+      .id("header-zoom-select")
+      .w(px(100.0))
       .h(px(28.0))
       .rounded(px(3.0))
       .border_1()
-      .border_color(rgb(0xB3B4B7))
+      .border_color(rgb(0x5F6265))
       .bg(rgb(0x4A4A4F))
-      .hover(|s| s.bg(rgb(0x666667)))
+      .hover(|s| s.bg(rgb(0x666667)).border_color(rgb(0xB3B4B7)))
       .flex()
       .items_center()
-      .child(Select::new(&self.select_state).small().bg(gpui::transparent_black()).w_full())
+      .px(px(2.0))
+      .child(Select::new(&self.select_state).appearance(false).small().w_full())
   }
 }

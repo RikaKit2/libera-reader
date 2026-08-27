@@ -1,11 +1,10 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use gpui_component::ActiveTheme;
+use rust_i18n::t;
 
 pub struct SearchCounter {
   state: Entity<BookViewerState>,
 }
-
 impl SearchCounter {
   pub fn new(state: Entity<BookViewerState>) -> Self {
     Self { state }
@@ -21,11 +20,10 @@ impl Render for SearchCounter {
     let text = if state_ref.search_query.is_empty() {
       "".to_string()
     } else if count == 0 {
-      "Не найдено".to_string()
+      t!("components.book_viewer.search.not_found").to_string()
     } else {
-      format!("{} из {}", current, count)
+      t!("components.book_viewer.search.match_count", current = current, total = count).to_string()
     };
-
-    div().text_sm().text_color(cx.theme().muted_foreground).px_2().child(text)
+    div().text_xs().text_color(rgb(0xB3B4B7)).px(px(6.0)).whitespace_nowrap().child(text)
   }
 }

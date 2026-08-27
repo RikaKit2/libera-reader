@@ -1,6 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-
+use gpui_component::tooltip::Tooltip;
+use rust_i18n::t;
 pub struct TtsNextBtn {
   state: Entity<BookViewerState>,
 }
@@ -16,6 +17,7 @@ impl Render for TtsNextBtn {
     let state = self.state.clone();
 
     div()
+      .id("tts-next-btn")
       .w(px(28.0))
       .h(px(28.0))
       .flex()
@@ -23,6 +25,9 @@ impl Render for TtsNextBtn {
       .justify_center()
       .rounded(px(3.0))
       .hover(|s| s.bg(rgb(0x666667)))
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.tts_next").to_string()).build(window, cx)
+      })
       .cursor_pointer()
       .on_mouse_down(
         MouseButton::Left,

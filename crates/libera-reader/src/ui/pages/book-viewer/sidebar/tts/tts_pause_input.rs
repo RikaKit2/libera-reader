@@ -1,10 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use gpui_component::{
-  ActiveTheme,
-  input::{Input, InputEvent, InputState},
-};
-
+use gpui_component::input::{Input, InputEvent, InputState};
+use rust_i18n::t;
 pub struct TtsPauseInput {
   state: Entity<BookViewerState>,
   input_state: Entity<InputState>,
@@ -43,26 +40,49 @@ impl TtsPauseInput {
 }
 
 impl Render for TtsPauseInput {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div()
       .w_full()
       .flex()
-      .items_center()
-      .justify_between()
+      .flex_col()
+      .gap_y(px(4.0))
       .child(
-        div().text_xs().text_color(cx.theme().muted_foreground).child("Пауза между предложениями:"),
+        div()
+          .text_xs()
+          .text_color(rgb(0xD4D4D5))
+          .child(t!("components.book_viewer.tts.pause_label").to_string()),
       )
       .child(
         div()
           .flex()
           .items_center()
-          .gap_x_1()
+          .gap_x(px(6.0))
           .child(
             div()
-              .w(px(50.0))
-              .child(Input::new(&self.input_state).text_sm().bg(cx.theme().input).rounded_md()),
+              .w(px(64.0))
+              .h(px(26.0))
+              .border_1()
+              .border_color(rgb(0x5F6265))
+              .hover(|s| s.border_color(rgb(0xB3B4B7)))
+              .rounded(px(3.0))
+              .bg(rgb(0x2A2A2E))
+              .flex()
+              .items_center()
+              .px(px(4.0))
+              .child(
+                Input::new(&self.input_state)
+                  .appearance(false)
+                  .text_sm()
+                  .text_color(rgb(0xD4D4D5))
+                  .w_full(),
+              ),
           )
-          .child(div().text_xs().text_color(cx.theme().muted_foreground).child("мс")),
+          .child(
+            div()
+              .text_xs()
+              .text_color(rgb(0x9E9EA4))
+              .child(t!("components.book_viewer.tts.pause_unit").to_string()),
+          ),
       )
   }
 }

@@ -1,12 +1,10 @@
 pub mod outline_tree_item;
 
-pub use outline_tree_item::OutlineTreeItem;
-
+use crate::ui::pages::book_viewer::sidebar::outline::outline_tree_item::OutlineTreeItem;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use gpui_component::ActiveTheme;
-use gpui_component::scroll::ScrollableElement;
-
+use gpui_component::{ActiveTheme, scroll::ScrollableElement};
+use rust_i18n::t;
 pub struct OutlineView {
   state: Entity<BookViewerState>,
 }
@@ -31,7 +29,7 @@ impl Render for OutlineView {
         .p_4()
         .text_sm()
         .text_color(cx.theme().muted_foreground)
-        .child("Оглавление отсутствует в этом документе")
+        .child(t!("components.book_viewer.outline.empty").to_string())
         .into_any_element();
     }
 

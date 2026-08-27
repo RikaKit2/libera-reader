@@ -1,6 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, StyledExt, button::*};
+use rust_i18n::t;
 
 pub struct TtsSpeedSlider {
   state: Entity<BookViewerState>,
@@ -27,7 +28,12 @@ impl Render for TtsSpeedSlider {
           .flex()
           .justify_between()
           .items_center()
-          .child(div().text_xs().text_color(cx.theme().muted_foreground).child("Скорость речи:"))
+          .child(
+            div()
+              .text_xs()
+              .text_color(cx.theme().muted_foreground)
+              .child(t!("components.book_viewer.tts.speed_label").to_string()),
+          )
           .child(
             div()
               .text_xs()

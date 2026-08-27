@@ -32,17 +32,18 @@ impl Render for BookmarksView {
   fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div()
       .size_full()
-      .p_3()
+      .p(px(10.0))
       .flex()
       .flex_col()
-      .gap_y_3()
+      .gap_y(px(10.0))
       .child(
         div()
+          .w_full()
           .flex()
           .items_center()
-          .gap_x_2()
-          .child(self.add_btn.clone())
-          .child(self.quick_btn.clone()),
+          .gap_x(px(8.0))
+          .child(div().flex_1().child(self.add_btn.clone()))
+          .child(div().flex_1().child(self.quick_btn.clone())),
       )
       .child(div().flex_1().overflow_y_scrollbar().child(self.list.clone()))
   }

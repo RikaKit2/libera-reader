@@ -1,6 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-
+use gpui_component::tooltip::Tooltip;
+use rust_i18n::t;
 pub struct NextPageBtn {
   state: Entity<BookViewerState>,
 }
@@ -18,6 +19,7 @@ impl Render for NextPageBtn {
     let state = self.state.clone();
 
     div()
+      .id("header-next-page-btn")
       .w(px(28.0))
       .h(px(28.0))
       .flex()
@@ -25,8 +27,10 @@ impl Render for NextPageBtn {
       .justify_center()
       .rounded(px(3.0))
       .cursor_pointer()
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.next_page").to_string()).build(window, cx)
+      })
       .hover(|s| s.bg(rgb(0x666667)))
-      .opacity(if can_go_next { 1.0 } else { 0.4 })
       .on_mouse_down(
         MouseButton::Left,
         cx.listener(move |_this, _, _window, cx| {
@@ -36,6 +40,10 @@ impl Render for NextPageBtn {
           });
         }),
       )
-      .child(svg().path("heroicons--chevron-down.svg").size(px(18.0)).text_color(rgb(0xD4D4D5)))
+      .child(svg().path("heroicons--chevron-down.svg").size(px(18.0)).text_color(if can_go_next {
+        rgb(0xD4D4D5)
+      } else {
+        rgb(0x808085)
+      }))
   }
 }

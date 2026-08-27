@@ -1,6 +1,6 @@
 use gpui::*;
 use gpui_component::ActiveTheme;
-
+use rust_i18n::t;
 pub struct PageCanvas {
   page_number: usize,
   invert_colors: bool,
@@ -31,6 +31,8 @@ impl Render for PageCanvas {
       .flex_col()
       .items_center()
       .justify_center()
-      .child(div().text_sm().text_color(text_color).child(format!("Страница {}", self.page_number)))
+      .child(div().text_sm().text_color(text_color).child(
+        t!("components.book_viewer.bookmarks.page_label", page = self.page_number).to_string(),
+      ))
   }
 }

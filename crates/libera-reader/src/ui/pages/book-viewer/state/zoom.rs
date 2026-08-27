@@ -1,8 +1,7 @@
 use gpui::SharedString;
 use gpui_component::select::SelectItem;
+use rust_i18n::t;
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
 pub enum ZoomMode {
   Fixed(f32),
   FitWidth,
@@ -35,16 +34,16 @@ impl ZoomPreset {
     ]
   }
 
-  pub fn label(&self) -> &'static str {
+  pub fn label(&self) -> String {
     match self {
-      Self::Percent50 => "50%",
-      Self::Percent75 => "75%",
-      Self::Percent100 => "100%",
-      Self::Percent125 => "125%",
-      Self::Percent150 => "150%",
-      Self::Percent200 => "200%",
-      Self::FitWidth => "По ширине",
-      Self::FitPage => "По странице",
+      Self::Percent50 => "50%".to_string(),
+      Self::Percent75 => "75%".to_string(),
+      Self::Percent100 => "100%".to_string(),
+      Self::Percent125 => "125%".to_string(),
+      Self::Percent150 => "150%".to_string(),
+      Self::Percent200 => "200%".to_string(),
+      Self::FitWidth => t!("components.book_viewer.zoom.fit_width").to_string(),
+      Self::FitPage => t!("components.book_viewer.zoom.fit_page").to_string(),
     }
   }
 

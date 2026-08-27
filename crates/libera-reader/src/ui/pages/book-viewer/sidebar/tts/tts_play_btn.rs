@@ -1,6 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-
+use gpui_component::tooltip::Tooltip;
+use rust_i18n::t;
 pub struct TtsPlayBtn {
   state: Entity<BookViewerState>,
 }
@@ -17,6 +18,7 @@ impl Render for TtsPlayBtn {
     let state = self.state.clone();
 
     div()
+      .id("tts-play-btn")
       .w(px(32.0))
       .h(px(32.0))
       .flex()
@@ -25,6 +27,9 @@ impl Render for TtsPlayBtn {
       .rounded(px(4.0))
       .bg(rgb(0x4A4A4F))
       .hover(|s| s.bg(rgb(0x666667)))
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.tts_play").to_string()).build(window, cx)
+      })
       .cursor_pointer()
       .on_mouse_down(
         MouseButton::Left,
@@ -37,7 +42,7 @@ impl Render for TtsPlayBtn {
       )
       .child(
         svg()
-          .path(if playing { "heroicons--moon.svg" } else { "ri--play-fill.svg" })
+          .path(if playing { "ri--pause-fill.svg" } else { "ri--play-fill.svg" })
           .size(px(20.0))
           .text_color(rgb(0xD4D4D5)),
       )

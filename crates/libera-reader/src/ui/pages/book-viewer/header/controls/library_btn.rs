@@ -1,7 +1,8 @@
 use crate::app_ext::AppExt;
 use crate::db::models::{RootRoute, Route};
 use gpui::*;
-
+use gpui_component::tooltip::Tooltip;
+use rust_i18n::t;
 pub struct LibraryBtn {}
 
 impl LibraryBtn {
@@ -13,6 +14,7 @@ impl LibraryBtn {
 impl Render for LibraryBtn {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     div()
+      .id("header-library-btn")
       .w(px(28.0))
       .h(px(28.0))
       .flex()
@@ -20,6 +22,9 @@ impl Render for LibraryBtn {
       .justify_center()
       .rounded(px(3.0))
       .cursor_pointer()
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.library").to_string()).build(window, cx)
+      })
       .hover(|s| s.bg(rgb(0x666667)))
       .on_mouse_down(
         MouseButton::Left,

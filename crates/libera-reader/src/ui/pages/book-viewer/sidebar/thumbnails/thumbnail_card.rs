@@ -1,7 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::ActiveTheme;
-
+use rust_i18n::t;
 pub struct ThumbnailCard {
   page_number: usize,
   state: Entity<BookViewerState>,
@@ -52,7 +52,9 @@ impl Render for ThumbnailCard {
           .justify_center()
           .text_xs()
           .text_color(cx.theme().muted_foreground)
-          .child(format!("Стр. {}", self.page_number)),
+          .child(
+            t!("components.book_viewer.thumbnails.page_label", page = self.page_number).to_string(),
+          ),
       )
       .child(
         div()

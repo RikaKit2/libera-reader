@@ -1,7 +1,8 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
-
+use gpui_component::tooltip::Tooltip;
+use rust_i18n::t;
 pub struct InvertColorsBtn {
   state: Entity<BookViewerState>,
 }
@@ -18,6 +19,7 @@ impl Render for InvertColorsBtn {
     let state = self.state.clone();
 
     div()
+      .id("header-invert-colors-btn")
       .w(px(28.0))
       .h(px(28.0))
       .flex()
@@ -25,6 +27,10 @@ impl Render for InvertColorsBtn {
       .justify_center()
       .rounded(px(3.0))
       .cursor_pointer()
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.invert_colors").to_string())
+          .build(window, cx)
+      })
       .when(inverted, |s| s.bg(rgb(0x4A4A4F)))
       .hover(|s| s.bg(rgb(0x666667)))
       .on_mouse_down(

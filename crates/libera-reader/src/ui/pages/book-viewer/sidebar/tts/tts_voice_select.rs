@@ -4,7 +4,7 @@ use gpui_component::{
   ActiveTheme, IndexPath, Sizable,
   select::{SearchableVec, Select, SelectEvent, SelectState},
 };
-
+use rust_i18n::t;
 pub struct TtsVoiceSelect {
   state: Entity<BookViewerState>,
   select_state: Entity<SelectState<SearchableVec<TtsVoiceConfig>>>,
@@ -56,7 +56,12 @@ impl Render for TtsVoiceSelect {
       .flex()
       .flex_col()
       .gap_y_1()
-      .child(div().text_xs().text_color(rgb(0xD4D4D5)).child("Модель / Голос:"))
+      .child(
+        div()
+          .text_xs()
+          .text_color(rgb(0xD4D4D5))
+          .child(t!("components.book_viewer.tts.voice_label").to_string()),
+      )
       .child(Select::new(&self.select_state).small().bg(cx.theme().input).w_full())
   }
 }

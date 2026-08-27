@@ -42,15 +42,24 @@ impl PageNumberInput {
 impl Render for PageNumberInput {
   fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div()
-      .w(px(56.0))
+      .id("header-page-number-input")
+      .w(px(52.0))
       .h(px(28.0))
       .border_1()
-      .border_color(rgb(0xB3B4B7))
+      .border_color(rgb(0x5F6265))
+      .hover(|s| s.border_color(rgb(0xB3B4B7)))
       .rounded(px(3.0))
-      .bg(gpui::transparent_black())
+      .bg(rgb(0x2A2A2E))
       .flex()
       .items_center()
+      .justify_center()
       .px(px(4.0))
-      .child(Input::new(&self.input_state).text_sm().text_color(rgb(0xD4D4D5)).w_full())
+      .child(
+        Input::new(&self.input_state)
+          .appearance(false)
+          .text_sm()
+          .text_color(rgb(0xD4D4D5))
+          .w_full(),
+      )
   }
 }

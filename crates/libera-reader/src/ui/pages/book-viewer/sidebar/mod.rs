@@ -59,6 +59,6 @@ impl Render for SideBar {
       .flex()
       .flex_col()
       .child(self.header.clone())
-      .child(div().flex_1().overflow_hidden().child(content))
+      .child(div().w_full().flex_1().overflow_hidden().child(content))
   }
 }

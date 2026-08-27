@@ -89,7 +89,64 @@ components:
       detailed: "Detailed"
     card:
       format_label: "Format"
-
+  book_viewer:
+    tooltips:
+      outline: "Table of Contents"
+      scroll_mode: "Continuous scroll mode"
+      tts: "Text-to-Speech (TTS)"
+      prev_page: "Previous page"
+      next_page: "Next page"
+      invert_colors: "Invert colors"
+      bookmarks: "Bookmarks"
+      thumbnails: "Page thumbnails"
+      library: "Return to library"
+      search: "Search in document"
+      fullscreen: "Full screen mode"
+      close: "Close book"
+      search_close: "Close search"
+      search_next: "Next match"
+      search_prev: "Previous match"
+      tts_play: "Play / Pause"
+      tts_prev: "Previous page"
+      tts_next: "Next page"
+      tts_reset: "Reset settings"
+      delete_bookmark: "Delete bookmark"
+    search:
+      placeholder: "Search in document..."
+      next_btn: "Next"
+      prev_btn: "Previous"
+      not_found: "Not found"
+      match_count: "%{current} of %{total}"
+    sidebar:
+      outline_title: "Table of Contents"
+      bookmarks_title: "Bookmarks"
+      thumbnails_title: "Page Thumbnails"
+      tts_title: "Text-to-Speech (TTS)"
+    bookmarks:
+      add_btn: "Add"
+      quick_btn: "Quick"
+      default_title: "Bookmark on page %{page}"
+      quick_title: "Page %{page}"
+      empty_title: "No bookmarks"
+      empty_description: "Add bookmarks to important pages"
+      page_label: "Page %{page}"
+    outline:
+      empty: "Table of contents is not available for this document"
+    thumbnails:
+      page_label: "Page %{page}"
+    tts:
+      engine_label: "Speech engine:"
+      voice_label: "Model / Voice:"
+      speed_label: "Speech speed:"
+      pause_label: "Pause between sentences:"
+      pause_unit: "ms"
+      auto_turn_label: "Auto turn page at the end"
+      reset_btn: "Reset to defaults"
+    zoom:
+      fit_width: "Fit width"
+      fit_page: "Fit page"
+    pagination:
+      page_of: "(%{current} of %{total})"
 lang:
   ru: "Russian"
   en: "English"

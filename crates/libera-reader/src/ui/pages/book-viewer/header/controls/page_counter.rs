@@ -1,6 +1,6 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-
+use rust_i18n::t;
 pub struct PageCounter {
   state: Entity<BookViewerState>,
 }
@@ -17,6 +17,8 @@ impl Render for PageCounter {
     let current = state_ref.current_page;
     let total = state_ref.total_pages;
 
-    div().text_sm().text_color(rgb(0xD4D4D5)).child(format!("({} of {})", current, total))
+    div().text_sm().text_color(rgb(0xD4D4D5)).child(
+      t!("components.book_viewer.pagination.page_of", current = current, total = total).to_string(),
+    )
   }
 }

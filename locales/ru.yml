@@ -89,7 +89,64 @@ components:
       detailed: "Детальный"
   card:
     format_label: "Формат"
-
+  book_viewer:
+    tooltips:
+      outline: "Содержание"
+      scroll_mode: "Режим прокрутки"
+      tts: "Озвучивание текста (TTS)"
+      prev_page: "Предыдущая страница"
+      next_page: "Следующая страница"
+      invert_colors: "Инвертировать цвета"
+      bookmarks: "Закладки"
+      thumbnails: "Обзор страниц"
+      library: "Вернуться в библиотеку"
+      search: "Поиск в документе"
+      fullscreen: "Полноэкранный режим"
+      close: "Закрыть книгу"
+      search_close: "Закрыть поиск"
+      search_next: "Следующее совпадение"
+      search_prev: "Предыдущее совпадение"
+      tts_play: "Воспроизведение / Пауза"
+      tts_prev: "Предыдущая страница"
+      tts_next: "Следующая страница"
+      tts_reset: "Сбросить настройки"
+      delete_bookmark: "Удалить закладку"
+    search:
+      placeholder: "Поиск в документе..."
+      next_btn: "Вперёд"
+      prev_btn: "Назад"
+      not_found: "Не найдено"
+      match_count: "%{current} из %{total}"
+    sidebar:
+      outline_title: "Содержание"
+      bookmarks_title: "Закладки"
+      thumbnails_title: "Обзор страниц"
+      tts_title: "Озвучивание текста (TTS)"
+    bookmarks:
+      add_btn: "Добавить"
+      quick_btn: "Быстрая"
+      default_title: "Закладка на стр. %{page}"
+      quick_title: "Стр. %{page}"
+      empty_title: "Нет закладок"
+      empty_description: "Добавляйте закладки на важных страницах"
+      page_label: "Страница %{page}"
+    outline:
+      empty: "Оглавление отсутствует в этом документе"
+    thumbnails:
+      page_label: "Стр. %{page}"
+    tts:
+      engine_label: "Голосовой движок:"
+      voice_label: "Модель / Голос:"
+      speed_label: "Скорость речи:"
+      pause_label: "Пауза между предложениями:"
+      pause_unit: "мс"
+      auto_turn_label: "Перелистывать страницу в конце"
+      reset_btn: "Вернуть значения по умолчанию"
+    zoom:
+      fit_width: "По ширине"
+      fit_page: "По странице"
+    pagination:
+      page_of: "(%{current} из %{total})"
 lang:
   ru: "Русский"
   en: "Английский"

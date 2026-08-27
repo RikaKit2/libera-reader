@@ -1,7 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::{ActiveTheme, checkbox::*};
-
+use rust_i18n::t;
 pub struct TtsAutoTurnToggle {
   state: Entity<BookViewerState>,
 }
@@ -34,7 +34,10 @@ impl Render for TtsAutoTurnToggle {
       )
       .child(Checkbox::new("tts-auto-turn-check").checked(auto_turn))
       .child(
-        div().text_xs().text_color(cx.theme().foreground).child("Перелистывать страницу в конце"),
+        div()
+          .text_xs()
+          .text_color(cx.theme().foreground)
+          .child(t!("components.book_viewer.tts.auto_turn_label").to_string()),
       )
   }
 }

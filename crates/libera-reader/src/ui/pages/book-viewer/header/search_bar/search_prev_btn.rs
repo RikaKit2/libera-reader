@@ -1,6 +1,8 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-
+use gpui_component::StyledExt;
+use gpui_component::tooltip::Tooltip;
+use rust_i18n::t;
 pub struct SearchPrevBtn {
   state: Entity<BookViewerState>,
 }
@@ -18,16 +20,20 @@ impl Render for SearchPrevBtn {
     let state = self.state.clone();
 
     div()
-      .h(px(28.0))
-      .px(px(6.0))
+      .id("search-prev-btn")
+      .h(px(26.0))
+      .px(px(8.0))
       .bg(rgb(0x4A4A4F))
       .hover(|s| s.bg(rgb(0x666667)))
       .rounded(px(3.0))
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.search_prev").to_string())
+          .build(window, cx)
+      })
       .flex()
       .items_center()
       .gap_x(px(4.0))
       .cursor_pointer()
-      .opacity(if has_results { 1.0 } else { 0.5 })
       .on_mouse_down(
         MouseButton::Left,
         cx.listener(move |_this, _, _window, cx| {
@@ -45,7 +51,17 @@ impl Render for SearchPrevBtn {
           });
         }),
       )
-      .child(svg().path("heroicons--chevron-up.svg").size(px(16.0)).text_color(rgb(0xD4D4D5)))
-      .child(div().text_xs().text_color(rgb(0xD4D4D5)).child("Previous"))
+      .child(svg().path("heroicons--chevron-up.svg").size(px(16.0)).text_color(if has_results {
+        rgb(0xD4D4D5)
+      } else {
+        rgb(0x909095)
+      }))
+      .child(
+        div()
+          .text_xs()
+          .font_medium()
+          .text_color(if has_results { rgb(0xD4D4D5) } else { rgb(0x909095) })
+          .child(t!("components.book_viewer.search.prev_btn").to_string()),
+      )
   }
 }

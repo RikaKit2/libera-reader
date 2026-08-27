@@ -1,7 +1,8 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
-
+use gpui_component::tooltip::Tooltip;
+use rust_i18n::t;
 pub struct FullscreenBtn {
   state: Entity<BookViewerState>,
 }
@@ -18,6 +19,7 @@ impl Render for FullscreenBtn {
     let state = self.state.clone();
 
     div()
+      .id("header-fullscreen-btn")
       .w(px(28.0))
       .h(px(28.0))
       .flex()
@@ -25,6 +27,9 @@ impl Render for FullscreenBtn {
       .justify_center()
       .rounded(px(3.0))
       .cursor_pointer()
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.fullscreen").to_string()).build(window, cx)
+      })
       .when(is_fullscreen, |s| s.bg(rgb(0x4A4A4F)))
       .hover(|s| s.bg(rgb(0x666667)))
       .on_mouse_down(

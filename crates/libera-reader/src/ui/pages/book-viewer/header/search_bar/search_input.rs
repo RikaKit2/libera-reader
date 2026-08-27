@@ -1,10 +1,7 @@
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use gpui_component::{
-  ActiveTheme,
-  input::{Input, InputEvent, InputState},
-};
-
+use gpui_component::input::{Input, InputEvent, InputState};
+use rust_i18n::t;
 pub struct SearchInput {
   state: Entity<BookViewerState>,
   input_state: Entity<InputState>,
@@ -13,7 +10,9 @@ pub struct SearchInput {
 
 impl SearchInput {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
-    let input_state = cx.new(|cx| InputState::new(window, cx).placeholder("Поиск в документе..."));
+    let input_state = cx.new(|cx| {
+      InputState::new(window, cx).placeholder(t!("components.book_viewer.search.placeholder"))
+    });
 
     let state_clone = state.clone();
     cx.new(|cx: &mut Context<Self>| {
@@ -47,9 +46,24 @@ impl SearchInput {
 }
 
 impl Render for SearchInput {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div()
       .flex_1()
-      .child(Input::new(&self.input_state).text_sm().bg(cx.theme().input).rounded_md().w_full())
+      .h(px(26.0))
+      .border_1()
+      .border_color(rgb(0x5F6265))
+      .hover(|s| s.border_color(rgb(0xB3B4B7)))
+      .rounded(px(3.0))
+      .bg(rgb(0x2A2A2E))
+      .flex()
+      .items_center()
+      .px(px(6.0))
+      .child(
+        Input::new(&self.input_state)
+          .appearance(false)
+          .text_sm()
+          .text_color(rgb(0xD4D4D5))
+          .w_full(),
+      )
   }
 }
