@@ -10,8 +10,10 @@ pub use search_input::SearchInput;
 pub use search_next_btn::SearchNextBtn;
 pub use search_prev_btn::SearchPrevBtn;
 
+use crate::ui::pages::book_viewer::constants::search_bar;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
+use gpui_component::ActiveTheme;
 
 pub struct SearchBar {
   state: Entity<BookViewerState>,
@@ -36,26 +38,31 @@ impl SearchBar {
 
 impl Render for SearchBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
     let is_open = self.state.read(cx).search_open;
 
     if !is_open {
       return div();
     }
 
-    div()
+    let has_query = !self.state.read(cx).search_query.is_empty();
+
+    let mut bar = div()
       .w_full()
-      .h(px(34.0))
-      .bg(rgb(0x2A2A2E))
+      .h(search_bar::HEIGHT)
+      .bg(theme.title_bar)
       .border_b_1()
-      .border_color(rgb(0x4A4A4F))
+      .border_color(theme.border)
       .flex()
       .items_center()
-      .px(px(6.0))
-      .gap_x(px(4.0))
-      .child(self.input.clone())
-      .child(self.counter.clone())
-      .child(self.next_btn.clone())
-      .child(self.prev_btn.clone())
-      .child(self.close_btn.clone())
+      .px(search_bar::PADDING_X)
+      .gap_x(search_bar::GAP_X)
+      .child(self.input.clone());
+
+    if has_query {
+      bar = bar.child(self.counter.clone());
+    }
+
+    bar.child(self.next_btn.clone()).child(self.prev_btn.clone()).child(self.close_btn.clone())
   }
 }

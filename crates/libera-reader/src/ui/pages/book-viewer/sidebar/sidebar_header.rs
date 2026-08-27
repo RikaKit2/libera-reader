@@ -1,7 +1,10 @@
+use crate::ui::pages::book_viewer::constants::sidebar;
 use crate::ui::pages::book_viewer::state::{BookViewerState, SidebarTab};
 use gpui::*;
+use gpui_component::ActiveTheme;
 use gpui_component::StyledExt;
 use rust_i18n::t;
+
 pub struct SidebarHeader {
   state: Entity<BookViewerState>,
 }
@@ -14,6 +17,7 @@ impl SidebarHeader {
 
 impl Render for SidebarHeader {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
     let tab = self.state.read(cx).active_sidebar_tab;
     let title = match tab {
       SidebarTab::Outline => t!("components.book_viewer.sidebar.outline_title").to_string(),
@@ -25,14 +29,14 @@ impl Render for SidebarHeader {
 
     div()
       .w_full()
-      .h(px(32.0))
-      .px(px(8.0))
-      .bg(rgb(0x2A2A2E))
+      .h(sidebar::HEADER_HEIGHT)
+      .px(sidebar::HEADER_PADDING_X)
+      .bg(theme.title_bar)
       .border_b_1()
-      .border_color(rgb(0x4A4A4F))
+      .border_color(theme.border)
       .flex()
       .items_center()
       .justify_center()
-      .child(div().text_sm().font_medium().text_color(rgb(0xD4D4D5)).child(title))
+      .child(div().text_sm().font_medium().text_color(theme.foreground).child(title))
   }
 }

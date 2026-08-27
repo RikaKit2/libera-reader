@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum LayoutMode {
   #[default]
-  Continuous,
   PagedSingle,
+  Continuous,
   PagedDual,
 }
 

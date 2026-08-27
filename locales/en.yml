@@ -99,7 +99,6 @@ components:
       invert_colors: "Invert colors"
       bookmarks: "Bookmarks"
       thumbnails: "Page thumbnails"
-      library: "Return to library"
       search: "Search in document"
       fullscreen: "Full screen mode"
       close: "Close book"

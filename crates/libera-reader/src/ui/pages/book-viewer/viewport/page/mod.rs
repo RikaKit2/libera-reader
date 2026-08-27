@@ -60,7 +60,6 @@ impl Render for PageView {
       .flex_col()
       .items_center()
       .gap_y_2()
-      .my_4()
       .child(
         div()
           .relative()

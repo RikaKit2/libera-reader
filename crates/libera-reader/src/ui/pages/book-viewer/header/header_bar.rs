@@ -1,6 +1,8 @@
+use crate::ui::pages::book_viewer::constants::header;
 use crate::ui::pages::book_viewer::header::controls::*;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
+use gpui_component::ActiveTheme;
 
 pub struct HeaderBar {
   // Left controls
@@ -19,7 +21,6 @@ pub struct HeaderBar {
   invert_colors_btn: Entity<InvertColorsBtn>,
   bookmarks_btn: Entity<BookmarksBtn>,
   thumbnails_btn: Entity<ThumbnailsBtn>,
-  library_btn: Entity<LibraryBtn>,
   search_toggle_btn: Entity<SearchToggleBtn>,
   fullscreen_btn: Entity<FullscreenBtn>,
   exit_btn: Entity<ExitBtn>,
@@ -40,7 +41,6 @@ impl HeaderBar {
     let invert_colors_btn = cx.new(|_cx| InvertColorsBtn::new(state.clone()));
     let bookmarks_btn = cx.new(|_cx| BookmarksBtn::new(state.clone()));
     let thumbnails_btn = cx.new(|_cx| ThumbnailsBtn::new(state.clone()));
-    let library_btn = cx.new(|_cx| LibraryBtn::new());
     let search_toggle_btn = cx.new(|_cx| SearchToggleBtn::new(state.clone()));
     let fullscreen_btn = cx.new(|_cx| FullscreenBtn::new(state.clone()));
     let exit_btn = cx.new(|_cx| ExitBtn::new());
@@ -57,7 +57,6 @@ impl HeaderBar {
       invert_colors_btn,
       bookmarks_btn,
       thumbnails_btn,
-      library_btn,
       search_toggle_btn,
       fullscreen_btn,
       exit_btn,
@@ -66,21 +65,25 @@ impl HeaderBar {
 }
 
 impl Render for HeaderBar {
-  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
+
     div()
       .w_full()
-      .h(px(32.0))
-      .bg(rgb(0x38383D))
+      .h(header::HEIGHT)
+      .bg(theme.title_bar)
+      .border_b_1()
+      .border_color(theme.border)
       .flex()
       .items_center()
       .justify_between()
-      .px(px(4.0))
+      .px(header::PADDING_X)
       // Left section (3 buttons)
       .child(
         div()
           .flex()
           .items_center()
-          .gap_x(px(2.0))
+          .gap_x(header::GAP_TIGHT)
           .child(self.outline_btn.clone())
           .child(self.scroll_mode_btn.clone())
           .child(self.tts_btn.clone()),
@@ -90,7 +93,7 @@ impl Render for HeaderBar {
         div()
           .flex()
           .items_center()
-          .gap_x(px(4.0))
+          .gap_x(header::GAP_NORMAL)
           .child(self.prev_page_btn.clone())
           .child(self.next_page_btn.clone())
           .child(self.page_number_input.clone())
@@ -102,11 +105,10 @@ impl Render for HeaderBar {
         div()
           .flex()
           .items_center()
-          .gap_x(px(2.0))
+          .gap_x(header::GAP_TIGHT)
           .child(self.invert_colors_btn.clone())
           .child(self.bookmarks_btn.clone())
           .child(self.thumbnails_btn.clone())
-          .child(self.library_btn.clone())
           .child(self.search_toggle_btn.clone())
           .child(self.fullscreen_btn.clone())
           .child(self.exit_btn.clone()),

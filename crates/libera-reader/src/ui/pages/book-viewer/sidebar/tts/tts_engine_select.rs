@@ -5,6 +5,7 @@ use gpui_component::{
   select::{SearchableVec, Select, SelectEvent, SelectState},
 };
 use rust_i18n::t;
+
 pub struct TtsEngineSelect {
   state: Entity<BookViewerState>,
   select_state: Entity<SelectState<SearchableVec<TtsEngineConfig>>>,
@@ -50,6 +51,8 @@ impl TtsEngineSelect {
 
 impl Render for TtsEngineSelect {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
+
     div()
       .w_full()
       .flex()
@@ -58,9 +61,9 @@ impl Render for TtsEngineSelect {
       .child(
         div()
           .text_xs()
-          .text_color(rgb(0xD4D4D5))
+          .text_color(theme.foreground)
           .child(t!("components.book_viewer.tts.engine_label").to_string()),
       )
-      .child(Select::new(&self.select_state).small().bg(cx.theme().input).w_full())
+      .child(Select::new(&self.select_state).small().bg(theme.input).w_full())
   }
 }

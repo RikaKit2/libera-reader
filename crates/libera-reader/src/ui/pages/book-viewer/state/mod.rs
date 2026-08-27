@@ -64,7 +64,7 @@ impl Default for BookViewerState {
       total_pages: 1,
       title: SharedString::from(""),
       active_sidebar_tab: SidebarTab::None,
-      layout_mode: LayoutMode::Continuous,
+      layout_mode: LayoutMode::PagedSingle,
       zoom_preset: ZoomPreset::Percent100,
       zoom_factor: 1.0,
       invert_colors: false,

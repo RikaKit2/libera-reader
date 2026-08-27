@@ -1,3 +1,4 @@
+use crate::ui::pages::book_viewer::constants::thumbnails;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::ActiveTheme;
@@ -40,8 +41,8 @@ impl Render for ThumbnailCard {
       )
       .child(
         div()
-          .w(px(100.0))
-          .h(px(140.0))
+          .w(thumbnails::CARD_WIDTH)
+          .h(thumbnails::CARD_HEIGHT)
           .bg(cx.theme().secondary)
           .border_2()
           .border_color(border_color)

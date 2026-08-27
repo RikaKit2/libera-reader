@@ -1,8 +1,8 @@
+use crate::ui::pages::book_viewer::constants::tts;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, StyledExt, button::*};
 use rust_i18n::t;
-
 pub struct TtsSpeedSlider {
   state: Entity<BookViewerState>,
 }
@@ -60,9 +60,21 @@ impl Render for TtsSpeedSlider {
               },
             ),
           )
-          .child(div().flex_1().h(px(6.0)).bg(cx.theme().input).rounded_full().relative().child(
-            div().h_full().w(relative((speed - 0.5) / 2.5)).bg(cx.theme().primary).rounded_full(),
-          ))
+          .child(
+            div()
+              .flex_1()
+              .h(tts::SPEED_TRACK_HEIGHT)
+              .bg(cx.theme().input)
+              .rounded_full()
+              .relative()
+              .child(
+                div()
+                  .h_full()
+                  .w(relative((speed - 0.5) / 2.5))
+                  .bg(cx.theme().primary)
+                  .rounded_full(),
+              ),
+          )
           .child(
             Button::new("tts-speed-inc").icon(Icon::new(IconName::Plus)).small().ghost().on_click(
               cx.listener(move |_this, _, _window, cx| {

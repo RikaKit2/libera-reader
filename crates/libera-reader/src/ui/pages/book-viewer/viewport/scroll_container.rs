@@ -24,7 +24,8 @@ impl Render for ScrollContainer {
       .flex()
       .flex_col()
       .items_center()
-      .py_6()
+      .p_4()
+      .gap_y_4()
       .children((1..=total_pages).map(|p| PageView::new(p, state.clone(), cx)))
   }
 }

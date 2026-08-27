@@ -5,6 +5,7 @@ use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::{ActiveTheme, scroll::ScrollableElement};
 use rust_i18n::t;
+
 pub struct OutlineView {
   state: Entity<BookViewerState>,
 }
@@ -22,14 +23,21 @@ impl Render for OutlineView {
 
     if outline.is_empty() {
       return div()
-        .size_full()
         .flex()
+        .flex_col()
         .items_center()
         .justify_center()
         .p_4()
-        .text_sm()
-        .text_color(cx.theme().muted_foreground)
-        .child(t!("components.book_viewer.outline.empty").to_string())
+        .size_full()
+        .child(
+          div()
+            .w_full()
+            .text_center()
+            .text_sm()
+            .whitespace_normal()
+            .text_color(cx.theme().muted_foreground)
+            .child(t!("components.book_viewer.outline.empty").to_string()),
+        )
         .into_any_element();
     }
 

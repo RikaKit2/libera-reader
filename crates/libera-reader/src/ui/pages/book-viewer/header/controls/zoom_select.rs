@@ -1,3 +1,4 @@
+use crate::ui::pages::book_viewer::constants::header;
 use crate::ui::pages::book_viewer::state::{BookViewerState, ZoomPreset};
 use gpui::*;
 use gpui_component::{
@@ -49,16 +50,7 @@ impl Render for ZoomSelect {
   fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div()
       .id("header-zoom-select")
-      .w(px(100.0))
-      .h(px(28.0))
-      .rounded(px(3.0))
-      .border_1()
-      .border_color(rgb(0x5F6265))
-      .bg(rgb(0x4A4A4F))
-      .hover(|s| s.bg(rgb(0x666667)).border_color(rgb(0xB3B4B7)))
-      .flex()
-      .items_center()
-      .px(px(2.0))
-      .child(Select::new(&self.select_state).appearance(false).small().w_full())
+      .w(header::ZOOM_SELECT_WIDTH)
+      .child(Select::new(&self.select_state).small().w_full())
   }
 }

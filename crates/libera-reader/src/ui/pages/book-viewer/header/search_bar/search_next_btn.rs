@@ -1,8 +1,11 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, search_bar};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
+use gpui_component::ActiveTheme;
 use gpui_component::StyledExt;
 use gpui_component::tooltip::Tooltip;
 use rust_i18n::t;
+
 pub struct SearchNextBtn {
   state: Entity<BookViewerState>,
 }
@@ -15,24 +18,23 @@ impl SearchNextBtn {
 
 impl Render for SearchNextBtn {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let state_ref = self.state.read(cx);
-    let has_results = !state_ref.search_results.is_empty();
+    let theme = cx.theme();
     let state = self.state.clone();
 
     div()
       .id("search-next-btn")
-      .h(px(26.0))
-      .px(px(8.0))
-      .bg(rgb(0x4A4A4F))
-      .hover(|s| s.bg(rgb(0x666667)))
-      .rounded(px(3.0))
+      .h(search_bar::BTN_HEIGHT)
+      .px(search_bar::BTN_PADDING_X)
+      .hover(move |s| s.bg(theme.foreground.opacity(0.12)))
+      .rounded(RADIUS_SM)
       .tooltip(|window, cx| {
         Tooltip::new(t!("components.book_viewer.tooltips.search_next").to_string())
           .build(window, cx)
       })
       .flex()
       .items_center()
-      .gap_x(px(4.0))
+      .justify_center()
+      .gap_x(search_bar::BTN_GAP_X)
       .cursor_pointer()
       .on_mouse_down(
         MouseButton::Left,
@@ -47,16 +49,17 @@ impl Render for SearchNextBtn {
           });
         }),
       )
-      .child(svg().path("heroicons--chevron-down.svg").size(px(16.0)).text_color(if has_results {
-        rgb(0xD4D4D5)
-      } else {
-        rgb(0x909095)
-      }))
+      .child(
+        svg()
+          .path("heroicons--chevron-down.svg")
+          .size(search_bar::BTN_ICON_SIZE)
+          .text_color(theme.foreground),
+      )
       .child(
         div()
           .text_xs()
           .font_medium()
-          .text_color(if has_results { rgb(0xD4D4D5) } else { rgb(0x909095) })
+          .text_color(theme.foreground)
           .child(t!("components.book_viewer.search.next_btn").to_string()),
       )
   }

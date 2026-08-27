@@ -10,8 +10,10 @@ pub use sidebar_header::SidebarHeader;
 pub use thumbnails::ThumbnailsView;
 pub use tts::TtsView;
 
+use crate::ui::pages::book_viewer::constants::sidebar;
 use crate::ui::pages::book_viewer::state::{BookViewerState, SidebarTab};
 use gpui::*;
+use gpui_component::ActiveTheme;
 
 pub struct SideBar {
   state: Entity<BookViewerState>,
@@ -36,6 +38,7 @@ impl SideBar {
 
 impl Render for SideBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
     let active_tab = self.state.read(cx).active_sidebar_tab;
 
     if active_tab == SidebarTab::None {
@@ -51,11 +54,11 @@ impl Render for SideBar {
     };
 
     div()
-      .w(px(250.0))
+      .w(sidebar::WIDTH)
       .h_full()
-      .bg(rgb(0x2A2A2E))
+      .bg(theme.background)
       .border_r_1()
-      .border_color(rgb(0x4A4A4F))
+      .border_color(theme.border)
       .flex()
       .flex_col()
       .child(self.header.clone())

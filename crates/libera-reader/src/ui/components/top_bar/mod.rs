@@ -1,3 +1,4 @@
+pub(crate) mod constants;
 pub(crate) mod reverse_btn;
 pub(crate) mod sort_controls;
 
@@ -5,7 +6,7 @@ pub(crate) use sort_controls::SortControls;
 
 use crate::app_ext::AppExt;
 use crate::books_state::TargetList;
-use crate::ui::constants as C;
+use crate::ui::components::top_bar::constants as C;
 use gpui::*;
 use gpui_component::{
   ActiveTheme,

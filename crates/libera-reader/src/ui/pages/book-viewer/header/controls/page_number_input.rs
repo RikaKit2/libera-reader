@@ -1,5 +1,7 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, header};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
+use gpui_component::ActiveTheme;
 use gpui_component::input::{Input, InputEvent, InputState};
 
 pub struct PageNumberInput {
@@ -40,25 +42,27 @@ impl PageNumberInput {
 }
 
 impl Render for PageNumberInput {
-  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
+
     div()
       .id("header-page-number-input")
-      .w(px(52.0))
-      .h(px(28.0))
+      .w(header::PAGE_INPUT_WIDTH)
+      .h(header::PAGE_INPUT_HEIGHT)
       .border_1()
-      .border_color(rgb(0x5F6265))
-      .hover(|s| s.border_color(rgb(0xB3B4B7)))
-      .rounded(px(3.0))
-      .bg(rgb(0x2A2A2E))
+      .border_color(theme.border)
+      .hover(move |s| s.border_color(theme.primary))
+      .rounded(RADIUS_SM)
+      .bg(theme.background)
       .flex()
       .items_center()
       .justify_center()
-      .px(px(4.0))
+      .px(header::PAGE_INPUT_PADDING_X)
       .child(
         Input::new(&self.input_state)
           .appearance(false)
           .text_sm()
-          .text_color(rgb(0xD4D4D5))
+          .text_color(theme.foreground)
           .w_full(),
       )
   }

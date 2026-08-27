@@ -16,6 +16,7 @@ use crate::ui::pages::setup::{
 };
 
 mod appearance;
+pub(crate) mod constants;
 mod finish;
 mod library;
 mod sync;

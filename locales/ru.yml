@@ -99,7 +99,6 @@ components:
       invert_colors: "Инвертировать цвета"
       bookmarks: "Закладки"
       thumbnails: "Обзор страниц"
-      library: "Вернуться в библиотеку"
       search: "Поиск в документе"
       fullscreen: "Полноэкранный режим"
       close: "Закрыть книгу"

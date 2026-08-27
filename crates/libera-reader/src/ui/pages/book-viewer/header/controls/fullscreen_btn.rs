@@ -1,8 +1,11 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, header};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
+use gpui_component::ActiveTheme;
 use gpui_component::tooltip::Tooltip;
 use rust_i18n::t;
+
 pub struct FullscreenBtn {
   state: Entity<BookViewerState>,
 }
@@ -15,23 +18,24 @@ impl FullscreenBtn {
 
 impl Render for FullscreenBtn {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
     let is_fullscreen = self.state.read(cx).is_fullscreen;
     let state = self.state.clone();
 
     div()
       .id("header-fullscreen-btn")
-      .w(px(28.0))
-      .h(px(28.0))
+      .w(header::BTN_SIZE)
+      .h(header::BTN_SIZE)
       .flex()
       .items_center()
       .justify_center()
-      .rounded(px(3.0))
+      .rounded(RADIUS_SM)
       .cursor_pointer()
       .tooltip(|window, cx| {
         Tooltip::new(t!("components.book_viewer.tooltips.fullscreen").to_string()).build(window, cx)
       })
-      .when(is_fullscreen, |s| s.bg(rgb(0x4A4A4F)))
-      .hover(|s| s.bg(rgb(0x666667)))
+      .when(is_fullscreen, |s| s.bg(theme.primary.opacity(0.2)))
+      .hover(move |s| s.bg(theme.foreground.opacity(0.08)))
       .on_mouse_down(
         MouseButton::Left,
         cx.listener(move |_this, _, window, cx| {
@@ -49,8 +53,8 @@ impl Render for FullscreenBtn {
           } else {
             "gridicons--fullscreen.svg"
           })
-          .size(px(20.0))
-          .text_color(rgb(0xD4D4D5)),
+          .size(header::ICON_SIZE_MD)
+          .text_color(if is_fullscreen { theme.primary } else { theme.foreground }),
       )
   }
 }

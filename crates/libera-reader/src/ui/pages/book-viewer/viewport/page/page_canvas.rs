@@ -1,6 +1,8 @@
+use crate::ui::pages::book_viewer::constants::viewport;
 use gpui::*;
 use gpui_component::ActiveTheme;
 use rust_i18n::t;
+
 pub struct PageCanvas {
   page_number: usize,
   invert_colors: bool,
@@ -15,13 +17,12 @@ impl PageCanvas {
 
 impl Render for PageCanvas {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let bg = if self.invert_colors { cx.theme().background } else { hsla(0.0, 0.0, 1.0, 1.0) };
+    let theme = cx.theme();
+    let bg = if self.invert_colors { theme.foreground } else { theme.background };
+    let text_color = if self.invert_colors { theme.background } else { theme.foreground };
 
-    let text_color =
-      if self.invert_colors { cx.theme().foreground } else { hsla(0.0, 0.0, 0.1, 1.0) };
-
-    let base_width = 595.0 * self.zoom_factor;
-    let base_height = 842.0 * self.zoom_factor;
+    let base_width = viewport::PAGE_BASE_WIDTH * self.zoom_factor;
+    let base_height = viewport::PAGE_BASE_HEIGHT * self.zoom_factor;
 
     div()
       .w(px(base_width))

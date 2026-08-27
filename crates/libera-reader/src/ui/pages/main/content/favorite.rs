@@ -1,7 +1,7 @@
 use crate::app_ext::AppExt;
 use crate::books_state::TargetList;
 use crate::ui::components::{BooksGrid, TopBar};
-use crate::ui::constants as C;
+use crate::ui::pages::main::constants as C;
 use gpui::{
   AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Subscription, Window,
   div, px,

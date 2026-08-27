@@ -1,8 +1,10 @@
 use crate::app_ext::AppExt;
 use crate::db::models::books::bookmark::{BookBookmarks, BookMark};
+use crate::ui::pages::book_viewer::constants::{RADIUS_MD, bookmarks};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use chrono::Local;
 use gpui::*;
+use gpui_component::ActiveTheme;
 use gpui_component::StyledExt;
 use rust_i18n::t;
 
@@ -18,21 +20,23 @@ impl QuickBookmarkBtn {
 
 impl Render for QuickBookmarkBtn {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
     let state = self.state.clone();
+
     div()
       .id("quick-bookmark-btn")
       .w_full()
-      .h(px(30.0))
-      .bg(rgb(0x38383D))
+      .h(bookmarks::ACTION_BTN_HEIGHT)
+      .bg(theme.foreground.opacity(0.06))
       .border_1()
-      .border_color(rgb(0x4A4A4F))
-      .hover(|s| s.bg(rgb(0x4A4A4F)).border_color(rgb(0x666667)))
-      .rounded(px(4.0))
+      .border_color(theme.border)
+      .hover(move |s| s.bg(theme.primary.opacity(0.15)).border_color(theme.primary))
+      .rounded(RADIUS_MD)
       .cursor_pointer()
       .flex()
       .items_center()
       .justify_center()
-      .gap_x(px(6.0))
+      .gap_x(bookmarks::ACTION_BTN_GAP_X)
       .on_mouse_down(
         MouseButton::Left,
         cx.listener(move |_this, _, _window, cx| {
@@ -62,7 +66,7 @@ impl Render for QuickBookmarkBtn {
         div()
           .text_xs()
           .font_medium()
-          .text_color(rgb(0xD4D4D5))
+          .text_color(theme.foreground)
           .child(t!("components.book_viewer.bookmarks.quick_btn").to_string()),
       )
   }

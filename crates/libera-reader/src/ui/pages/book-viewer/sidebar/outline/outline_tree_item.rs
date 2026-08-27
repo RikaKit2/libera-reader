@@ -1,6 +1,8 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, outline};
 use crate::ui::pages::book_viewer::state::{BookViewerState, OutlineItem};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
+use gpui_component::ActiveTheme;
 
 pub struct OutlineTreeItem {
   item: OutlineItem,
@@ -16,6 +18,7 @@ impl OutlineTreeItem {
 
 impl Render for OutlineTreeItem {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
     let has_children = !self.item.children.is_empty();
     let current_page = self.state.read(cx).current_page;
     let is_active = self.item.page == current_page;
@@ -32,37 +35,45 @@ impl Render for OutlineTreeItem {
           .w_full()
           .flex()
           .items_center()
-          .py(px(2.0))
-          .px(px(4.0))
-          .rounded(px(3.0))
+          .py(outline::ITEM_PY)
+          .px(outline::ITEM_PX)
+          .rounded(RADIUS_SM)
           .cursor_pointer()
-          .hover(|s| s.bg(rgb(0x4A4A4D)))
-          .when(is_active, |s| s.bg(rgb(0x4A4A4F)))
-          .gap_x(px(4.0))
-          .child(div().w(px(16.0)).flex().items_center().justify_center().when(has_children, |s| {
-            s.child(
-              div()
-                .w(px(16.0))
-                .h(px(16.0))
-                .flex()
-                .items_center()
-                .justify_center()
-                .cursor_pointer()
-                .on_mouse_down(
-                  MouseButton::Left,
-                  cx.listener(|this, _, _window, cx| {
-                    this.is_expanded = !this.is_expanded;
-                    cx.notify();
-                  }),
-                )
-                .child(svg().path("ri--play-fill.svg").size(px(12.0)).text_color(rgb(0xD4D4D5))),
-            )
-          }))
+          .hover(move |s| s.bg(theme.foreground.opacity(0.08)))
+          .when(is_active, |s| s.bg(theme.primary.opacity(0.15)))
+          .gap_x(outline::ITEM_GAP_X)
+          .child(div().w(outline::TOGGLE_SIZE).flex().items_center().justify_center().when(
+            has_children,
+            |s| {
+              s.child(
+                div()
+                  .w(outline::TOGGLE_SIZE)
+                  .h(outline::TOGGLE_SIZE)
+                  .flex()
+                  .items_center()
+                  .justify_center()
+                  .cursor_pointer()
+                  .on_mouse_down(
+                    MouseButton::Left,
+                    cx.listener(|this, _, _window, cx| {
+                      this.is_expanded = !this.is_expanded;
+                      cx.notify();
+                    }),
+                  )
+                  .child(
+                    svg()
+                      .path("ri--play-fill.svg")
+                      .size(outline::TOGGLE_ICON_SIZE)
+                      .text_color(if is_active { theme.primary } else { theme.foreground }),
+                  ),
+              )
+            },
+          ))
           .child(
             div()
               .flex_1()
               .text_sm()
-              .text_color(rgb(0xD4D4D5))
+              .text_color(if is_active { theme.primary } else { theme.foreground })
               .truncate()
               .child(self.item.title.clone())
               .on_mouse_down(
@@ -79,7 +90,7 @@ impl Render for OutlineTreeItem {
       .when(has_children && is_expanded, |s| {
         let children = self.item.children.clone();
         let state = self.state.clone();
-        s.child(div().pl(px(16.0)).children(
+        s.child(div().pl(outline::CHILDREN_INDENT).children(
           children.into_iter().map(|child| OutlineTreeItem::new(child, state.clone(), cx)),
         ))
       })

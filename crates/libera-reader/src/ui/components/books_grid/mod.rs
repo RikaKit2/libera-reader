@@ -1,6 +1,7 @@
 mod actions;
 pub(crate) mod cache;
 mod card;
+pub(crate) mod constants;
 pub(crate) mod image_utils;
 pub(crate) mod loader;
 
@@ -10,8 +11,8 @@ use crate::books_state::{BooksState, TargetList};
 use crate::db::models::CardDisplayMode;
 use crate::db::models::books::book::{Book, BookPath};
 use crate::ui::components::books_grid::cache::{BoundedCache, CoverState};
+use crate::ui::components::books_grid::constants as C;
 use crate::ui::components::books_grid::loader::spawn_background_loader;
-use crate::ui::constants as C;
 use gpui::{
   AsyncApp, Context, Div, IntoElement, ParentElement, Pixels, Render, Styled, Window, div, px, size,
 };
@@ -126,7 +127,7 @@ impl BooksGrid {
     self.columns =
       if mode == CardDisplayMode::List { (columns / 2).max(1) } else { columns.max(1) };
     self.row_height = if mode == CardDisplayMode::Detailed {
-      row_height + px(crate::ui::components::books_grid::FOOTER_HEIGHT_PX)
+      row_height + px(C::FOOTER_HEIGHT_PX)
     } else {
       row_height
     };
@@ -148,8 +149,7 @@ impl BooksGrid {
   }
 }
 
-/// Footer height reserved in `Detailed` card mode.
-pub(crate) const FOOTER_HEIGHT_PX: f32 = 52.0;
+pub(crate) use constants::FOOTER_HEIGHT_PX;
 
 /// Per-cell data collected in pass 1 (with borrows held) and consumed in pass 2
 /// (with a clean mutable view) to avoid borrow conflicts.

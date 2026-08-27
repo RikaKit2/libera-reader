@@ -1,10 +1,12 @@
-use gpui::{
-  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div, px,
+use crate::ui::pages::setup::constants::{
+  APPEARANCE_SELECT_WIDTH, SETUP_ICON_SIZE, SETUP_PAGE_PADDING,
 };
-
 use crate::ui::{
   components::{LangSelect, ThemeSelect},
   pages::setup::{back_btn, next_btn},
+};
+use gpui::{
+  App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, StyledExt};
 use rust_i18n::t;
@@ -27,20 +29,20 @@ impl Render for Appearance {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     let theme = cx.theme();
     let page = div().flex().flex_col().items_center().justify_center().children([
-      div().child(Icon::new(IconName::Palette).with_size(px(48.0))),
+      div().child(Icon::new(IconName::Palette).with_size(SETUP_ICON_SIZE)),
       div()
         .mt_3()
         .text_lg()
         .font_bold()
         .child(t!("pages.setup.pages.appearance.title").to_string()),
-      div().mt_4().w(px(240.0)).flex().flex_col().gap_1().children([
+      div().mt_4().w(APPEARANCE_SELECT_WIDTH).flex().flex_col().gap_1().children([
         div().flex().items_center().gap_1().text_sm().children([
           div().child(Icon::new(IconName::Globe).small()),
           div().child(t!("pages.setup.pages.appearance.language_label").to_string()),
         ]),
         div().child(self.lang_select.clone()),
       ]),
-      div().mt_3().w(px(240.0)).flex().flex_col().gap_1().children([
+      div().mt_3().w(APPEARANCE_SELECT_WIDTH).flex().flex_col().gap_1().children([
         div().flex().items_center().gap_1().text_sm().children([
           div().child(Icon::new(IconName::Palette).small()),
           div().child(t!("pages.setup.pages.appearance.theme_label").to_string()),
@@ -49,7 +51,7 @@ impl Render for Appearance {
       ]),
       div()
         .mt_3()
-        .w(px(240.0))
+        .w(APPEARANCE_SELECT_WIDTH)
         .text_center()
         .text_xs()
         .text_color(theme.foreground.opacity(0.6))
@@ -60,7 +62,7 @@ impl Render for Appearance {
       .bg(theme.background)
       .w_full()
       .h_full()
-      .p_6()
+      .p(SETUP_PAGE_PADDING)
       .flex()
       .flex_col()
       .justify_between()

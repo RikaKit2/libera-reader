@@ -8,6 +8,7 @@ use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
 
+pub(crate) mod constants;
 pub(crate) mod content;
 pub(crate) mod side_bar;
 

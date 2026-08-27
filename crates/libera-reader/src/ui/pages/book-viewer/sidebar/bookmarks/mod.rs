@@ -7,6 +7,7 @@ pub use add_bookmark_btn::AddBookmarkBtn;
 pub use bookmarks_list::BookmarksList;
 pub use quick_bookmark_btn::QuickBookmarkBtn;
 
+use crate::ui::pages::book_viewer::constants::bookmarks;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::scroll::ScrollableElement;
@@ -32,16 +33,16 @@ impl Render for BookmarksView {
   fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
     div()
       .size_full()
-      .p(px(10.0))
+      .p(bookmarks::CONTAINER_PADDING)
       .flex()
       .flex_col()
-      .gap_y(px(10.0))
+      .gap_y(bookmarks::CONTAINER_GAP_Y)
       .child(
         div()
           .w_full()
           .flex()
           .items_center()
-          .gap_x(px(8.0))
+          .gap_x(bookmarks::CONTAINER_HEADER_GAP_X)
           .child(div().flex_1().child(self.add_btn.clone()))
           .child(div().flex_1().child(self.quick_btn.clone())),
       )

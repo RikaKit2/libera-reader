@@ -1,7 +1,10 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, search_bar};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
+use gpui_component::ActiveTheme;
 use gpui_component::input::{Input, InputEvent, InputState};
 use rust_i18n::t;
+
 pub struct SearchInput {
   state: Entity<BookViewerState>,
   input_state: Entity<InputState>,
@@ -46,23 +49,25 @@ impl SearchInput {
 }
 
 impl Render for SearchInput {
-  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let theme = cx.theme();
+
     div()
       .flex_1()
-      .h(px(26.0))
+      .h(search_bar::INPUT_HEIGHT)
       .border_1()
-      .border_color(rgb(0x5F6265))
-      .hover(|s| s.border_color(rgb(0xB3B4B7)))
-      .rounded(px(3.0))
-      .bg(rgb(0x2A2A2E))
+      .border_color(theme.border)
+      .hover(move |s| s.border_color(theme.primary))
+      .rounded(RADIUS_SM)
+      .bg(theme.background)
       .flex()
       .items_center()
-      .px(px(6.0))
+      .px(search_bar::INPUT_PADDING_X)
       .child(
         Input::new(&self.input_state)
           .appearance(false)
           .text_sm()
-          .text_color(rgb(0xD4D4D5))
+          .text_color(theme.foreground)
           .w_full(),
       )
   }
