@@ -76,7 +76,7 @@ impl Render for SortControls {
     let bg = cx.theme().background;
 
     div().flex().gap_x_2().mr_2().items_center().children([
-      div().child(Select::new(&self.sort_select).bg(bg).w(px(140.0))),
+      div().child(Select::new(&self.sort_select).bg(bg).w(px(190.0))),
       div().child(self.reverse_btn.clone()),
       div().child(Select::new(&self.mode_select).bg(bg).w(px(64.0)).menu_width(px(64.0))),
     ])
