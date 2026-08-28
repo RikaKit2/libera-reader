@@ -1,9 +1,11 @@
 pub mod add_bookmark_btn;
 pub mod bookmark_item;
+pub mod bookmark_search_input;
 pub mod bookmarks_list;
 pub mod quick_bookmark_btn;
 
 pub use add_bookmark_btn::AddBookmarkBtn;
+pub use bookmark_search_input::BookmarkSearchInput;
 pub use bookmarks_list::BookmarksList;
 pub use quick_bookmark_btn::QuickBookmarkBtn;
 
@@ -16,16 +18,18 @@ pub struct BookmarksView {
   state: Entity<BookViewerState>,
   add_btn: Entity<AddBookmarkBtn>,
   quick_btn: Entity<QuickBookmarkBtn>,
+  search_input: Entity<BookmarkSearchInput>,
   list: Entity<BookmarksList>,
 }
 
 impl BookmarksView {
-  pub fn new(state: Entity<BookViewerState>, cx: &mut App) -> Entity<Self> {
+  pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
     let add_btn = cx.new(|_cx| AddBookmarkBtn::new(state.clone()));
     let quick_btn = cx.new(|_cx| QuickBookmarkBtn::new(state.clone()));
+    let search_input = BookmarkSearchInput::new(window, cx, state.clone());
     let list = cx.new(|_cx| BookmarksList::new(state.clone()));
 
-    cx.new(|_cx| Self { state, add_btn, quick_btn, list })
+    cx.new(|_cx| Self { state, add_btn, quick_btn, search_input, list })
   }
 }
 
@@ -37,6 +41,7 @@ impl Render for BookmarksView {
       .flex()
       .flex_col()
       .gap_y(bookmarks::CONTAINER_GAP_Y)
+      .child(self.search_input.clone())
       .child(
         div()
           .w_full()

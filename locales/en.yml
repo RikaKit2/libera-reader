@@ -129,6 +129,9 @@ components:
       empty_title: "No bookmarks"
       empty_description: "Add bookmarks to important pages"
       page_label: "Page %{page}"
+      search_placeholder: "Search bookmarks..."
+      not_found_title: "No bookmarks found"
+      not_found_description: "Try changing your search query"
     outline:
       empty: "Table of contents is not available for this document"
     thumbnails:

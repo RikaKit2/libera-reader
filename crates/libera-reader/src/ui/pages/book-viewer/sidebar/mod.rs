@@ -28,7 +28,7 @@ impl SideBar {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
     let header = cx.new(|_cx| SidebarHeader::new(state.clone()));
     let outline = cx.new(|_cx| OutlineView::new(state.clone()));
-    let bookmarks = BookmarksView::new(state.clone(), cx);
+    let bookmarks = BookmarksView::new(window, cx, state.clone());
     let thumbnails = cx.new(|_cx| ThumbnailsView::new(state.clone()));
     let tts = TtsView::new(window, cx, state.clone());
 

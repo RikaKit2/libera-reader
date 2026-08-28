@@ -4,7 +4,9 @@ use std::path::Path;
 use tracing::Level;
 
 use crate::utils::logger::Formatter;
+pub mod debounce;
 pub mod logger;
+pub use debounce::Debouncer;
 pub use logger::{debug, error, timing, title};
 
 pub fn create_subscriber() -> Result<()> {

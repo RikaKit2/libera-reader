@@ -123,9 +123,10 @@ pub mod bookmarks {
   /// Bookmark action button icon size (14px).
   pub const ACTION_BTN_ICON_SIZE: Pixels = px(14.0);
 
+  /// Search input height (26px).
+  pub const SEARCH_INPUT_HEIGHT: Pixels = px(26.0);
   /// Gap between items in the bookmarks list (6px).
   pub const LIST_GAP_Y: Pixels = px(6.0);
-
   /// Empty state vertical padding (36px).
   pub const EMPTY_PY: Pixels = px(36.0);
   /// Empty state horizontal padding (8px).

@@ -44,6 +44,8 @@ pub struct BookViewerState {
   pub search_results: Vec<SearchHit>,
   pub current_search_idx: usize,
 
+  // Bookmark search state
+  pub bookmark_search_query: String,
   // Document outline
   pub outline: Vec<OutlineItem>,
 
@@ -75,6 +77,7 @@ impl Default for BookViewerState {
       search_results: Vec::new(),
       current_search_idx: 0,
 
+      bookmark_search_query: String::new(),
       outline: Vec::new(),
 
       tts_playing: false,
@@ -137,5 +140,26 @@ impl BookViewerState {
     if let Some(factor) = preset.factor() {
       self.zoom_factor = factor;
     }
+  }
+
+  pub fn set_bookmark_search_query(&mut self, query: String) {
+    self.bookmark_search_query = query;
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_bookmark_search_query() {
+    let mut state = BookViewerState::new();
+    assert_eq!(state.bookmark_search_query, "");
+
+    state.set_bookmark_search_query("chapter 1".to_string());
+    assert_eq!(state.bookmark_search_query, "chapter 1");
+
+    state.set_bookmark_search_query("".to_string());
+    assert_eq!(state.bookmark_search_query, "");
   }
 }

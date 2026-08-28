@@ -28,12 +28,7 @@ pub struct PageView {
 
 impl PageView {
   pub fn new(page_number: usize, state: Entity<BookViewerState>, cx: &mut App) -> Entity<Self> {
-    let (invert, zoom) = {
-      let s = state.read(cx);
-      (s.invert_colors, s.zoom_factor)
-    };
-
-    let canvas = cx.new(|_cx| PageCanvas::new(page_number, invert, zoom));
+    let canvas = cx.new(|_cx| PageCanvas::new(page_number, state.clone()));
     let text_layer = cx.new(|_cx| PageTextLayer::new(page_number));
     let links_layer = cx.new(|_cx| PageLinksLayer::new(page_number));
     let search_layer = cx.new(|_cx| PageSearchLayer::new(page_number, state.clone()));

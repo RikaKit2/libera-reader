@@ -129,6 +129,9 @@ components:
       empty_title: "Нет закладок"
       empty_description: "Добавляйте закладки на важных страницах"
       page_label: "Страница %{page}"
+      search_placeholder: "Поиск по закладкам..."
+      not_found_title: "Ничего не найдено"
+      not_found_description: "Попробуйте изменить поисковый запрос"
     outline:
       empty: "Оглавление отсутствует в этом документе"
     thumbnails:
