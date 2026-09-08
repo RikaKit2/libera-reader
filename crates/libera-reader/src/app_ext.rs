@@ -4,8 +4,14 @@ use crate::db::DB;
 use crate::not_cached_books::NotCachedBooks;
 use crate::services::Services;
 use crate::settings::SETTINGS;
+use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::App;
 use gpui::Entity;
+
+#[derive(Clone)]
+pub struct BookViewerStateEntity(pub Entity<BookViewerState>);
+
+impl gpui::Global for BookViewerStateEntity {}
 
 /// Extension trait providing convenient access to global services and state from `App` and `Context`.
 pub trait AppExt {
@@ -16,10 +22,12 @@ pub trait AppExt {
   fn books_state(&self) -> &BooksState;
   fn books_state_mut(&mut self) -> &mut BooksState;
   fn books_state_entity(&self) -> &Entity<BooksState>;
+  fn book_viewer_state(&self) -> &Entity<BookViewerState>;
   fn services(&self) -> &Services;
   fn services_mut(&mut self) -> &mut Services;
   fn not_cached_books(&self) -> &NotCachedBooks;
 }
+
 impl AppExt for App {
   #[inline(always)]
   fn settings(&self) -> &SETTINGS {
@@ -50,9 +58,15 @@ impl AppExt for App {
   fn books_state_mut(&mut self) -> &mut BooksState {
     self.global_mut::<BooksState>()
   }
+
   #[inline(always)]
   fn books_state_entity(&self) -> &Entity<BooksState> {
     &self.global::<BooksStateEntity>().0
+  }
+
+  #[inline(always)]
+  fn book_viewer_state(&self) -> &Entity<BookViewerState> {
+    &self.global::<BookViewerStateEntity>().0
   }
 
   #[inline(always)]

@@ -17,13 +17,13 @@ use gpui_component::Root;
 use libera_reader::{
   TOKIO,
   app_dirs::AppDirs,
-  app_ext::AppExt,
+  app_ext::{AppExt, BookViewerStateEntity},
   books_state::{BooksState, BooksStateEntity},
   db::DB,
   not_cached_books::NotCachedBooks,
   services::{Services, start_services},
   settings::{SETTINGS, apply_language, init_theme},
-  ui::{assets::Assets, pages::Pages},
+  ui::{assets::Assets, pages::Pages, pages::book_viewer::state::BookViewerState},
   utils::create_subscriber,
 };
 use std::path::PathBuf;
@@ -33,6 +33,9 @@ fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
   let books_state = cx.books_state().clone();
   let books_state_entity = cx.new(|cx| books_state.attach_ui(cx));
   cx.set_global(BooksStateEntity(books_state_entity));
+
+  let book_viewer_state = cx.new(|_cx| BookViewerState::new());
+  cx.set_global(BookViewerStateEntity(book_viewer_state));
 
   if cx.settings().read().setup_is_done {
     start_services(cx);

@@ -227,8 +227,27 @@ pub mod tts {
 // ============================================================================
 
 pub mod viewport {
+  use gpui::{Pixels, px};
+
   /// Base standard page width in points (595.0 pt / A4 width).
   pub const PAGE_BASE_WIDTH: f32 = 595.0;
   /// Base standard page height in points (842.0 pt / A4 height).
   pub const PAGE_BASE_HEIGHT: f32 = 842.0;
+
+  /// Vertical gap between pages in continuous scroll mode.
+  pub const PAGE_GAP_Y: Pixels = px(16.0);
+  /// Container padding in continuous scroll mode.
+  pub const CONTAINER_PADDING: Pixels = px(16.0);
+
+  /// Page render resolution in DPI.
+  pub const PAGE_RENDER_DPI: u32 = 150;
+  /// Thumbnail render resolution in DPI.
+  pub const THUMBNAIL_DPI: u32 = 72;
+
+  /// Max number of rendered page bitmaps kept in memory LRU cache.
+  pub const MAX_CACHED_PAGE_IMAGES: usize = 20;
+  /// Max number of structured text layers kept in memory LRU cache.
+  pub const MAX_CACHED_TEXT_LAYERS: usize = 50;
+  /// Number of adjacent pages to prefetch around visible range.
+  pub const PREFETCH_DISTANCE: usize = 2;
 }

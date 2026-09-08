@@ -13,9 +13,11 @@ dhat-heap = ["dep:dhat"]
 [dependencies]
 gpui = { workspace = true }
 gpui_platform = { workspace = true }
+gpui-base = { workspace = true }
 gpui-component = { workspace = true }
 gpui-component-assets = { workspace = true }
 rfd = { workspace = true }
+parking_lot = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 unicode-segmentation = { workspace = true }

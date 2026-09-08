@@ -7,7 +7,7 @@ use gpui::{
   App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
 #[path = "book-viewer/mod.rs"]
-pub(crate) mod book_viewer;
+pub mod book_viewer;
 pub(crate) mod main;
 pub(crate) mod setup;
 

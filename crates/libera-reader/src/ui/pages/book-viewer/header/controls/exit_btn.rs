@@ -6,6 +6,7 @@ use gpui_component::ActiveTheme;
 use gpui_component::tooltip::Tooltip;
 use rust_i18n::t;
 
+#[derive(Default)]
 pub struct ExitBtn {}
 
 impl ExitBtn {

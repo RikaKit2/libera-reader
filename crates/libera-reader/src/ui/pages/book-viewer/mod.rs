@@ -1,16 +1,23 @@
 #![allow(dead_code)]
 
+pub mod cache;
 pub mod constants;
+pub mod document;
 pub mod header;
+pub mod image_utils;
+pub mod loader;
 pub mod sidebar;
 pub mod state;
 pub mod viewport;
 
+pub use cache::{BookViewerCache, PageImageState, PageLinksState, PageTextState};
+pub use document::DocumentData;
 pub use header::Header;
 pub use sidebar::SideBar;
 pub use state::BookViewerState;
 pub use viewport::Viewport;
 
+use crate::app_ext::AppExt;
 use gpui::prelude::*;
 use gpui::{App, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div};
 
@@ -23,7 +30,7 @@ pub(crate) struct BookViewer {
 
 impl BookViewer {
   pub(crate) fn new(window: &mut Window, cx: &mut App) -> Entity<Self> {
-    let state = cx.new(|_cx| BookViewerState::new());
+    let state = cx.book_viewer_state().clone();
     let header = Header::new(window, cx, state.clone());
     let sidebar = SideBar::new(window, cx, state.clone());
     let viewport = Viewport::new(state.clone(), cx);

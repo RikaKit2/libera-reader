@@ -6,15 +6,17 @@ members = [
 ]
 
 [workspace.dependencies]
-gpui = { git = "https://github.com/zed-industries/zed", rev = "9cb139fc385db58254296d984b05d49dbdfda683" }
-gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "9cb139fc385db58254296d984b05d49dbdfda683", features = ["font-kit", "wayland", "x11"] }
-gpui-component = { git = "https://github.com/RikaKit2/gpui-components" }
-gpui-component-assets = { git = "https://github.com/RikaKit2/gpui-components" }
-
+gpui = { git = "https://github.com/zed-industries/zed" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", features = ["font-kit", "wayland", "x11"] }
+gpui-base = { git = "https://github.com/longbridge/gpui-component" }
+gpui-component = { git = "https://github.com/longbridge/gpui-component" }
+gpui-component-assets = { git = "https://github.com/longbridge/gpui-component" }
 gxhash = "3.5"
 directories = "6.0.0"
 notify = "8.2.0"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+parking_lot = "0.12"
 tracing = "0.1"
 data-encoding = "2"
 native_db = { version = "0.8.2" }
@@ -55,6 +57,3 @@ dhat = "0.3"
 
 [profile.dev.package."*"]
 opt-level = 3
-
-[patch.crates-io]
-proc-macro-error2 = { git = "https://github.com/GnomedDev/proc-macro-error-2", rev = "53ff94b61c678593158db1a3d50269c6f0de0db7" }

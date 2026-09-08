@@ -17,10 +17,16 @@ pub struct Viewport {
 
 impl Viewport {
   pub fn new(state: Entity<BookViewerState>, cx: &mut App) -> Entity<Self> {
-    let scroll_container = cx.new(|_cx| ScrollContainer::new(state.clone()));
-    let paged_container = cx.new(|_cx| PagedContainer::new(state.clone()));
+    let scroll_container = ScrollContainer::new(state.clone(), cx);
+    let paged_container = PagedContainer::new(state.clone(), cx);
 
     cx.new(|_cx| Self { state, scroll_container, paged_container })
+  }
+
+  pub fn scroll_to_page(&self, page: usize, cx: &mut App) {
+    self.scroll_container.update(cx, |sc, _cx| {
+      sc.scroll_to_page(page);
+    });
   }
 }
 
@@ -29,10 +35,9 @@ impl Render for Viewport {
     let is_continuous = self.state.read(cx).layout_mode.is_continuous();
     let bg = cx.theme().background;
 
-    div().size_full().bg(bg).flex_1().overflow_hidden().child(if is_continuous {
-      self.scroll_container.clone().into_any_element()
-    } else {
-      self.paged_container.clone().into_any_element()
+    div().size_full().bg(bg).flex_1().overflow_hidden().child(match is_continuous {
+      true => self.scroll_container.clone().into_any_element(),
+      false => self.paged_container.clone().into_any_element(),
     })
   }
 }

@@ -7,6 +7,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 pub struct PageNumberInput {
   state: Entity<BookViewerState>,
   input_state: Entity<InputState>,
+  last_synced_page: usize,
   _subscription: Subscription,
 }
 
@@ -36,13 +37,24 @@ impl PageNumberInput {
         }
       });
 
-      Self { state, input_state, _subscription: subscription }
+      Self { state, input_state, last_synced_page: current_page, _subscription: subscription }
     })
   }
 }
 
 impl Render for PageNumberInput {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    let current_page = self.state.read(cx).current_page;
+
+    // Synchronize input text with reader scroll position if it changed externally
+    if self.last_synced_page != current_page {
+      let new_text = current_page.to_string();
+      self.input_state.update(cx, |input, cx| {
+        input.set_value(new_text, window, cx);
+      });
+      self.last_synced_page = current_page;
+    }
+
     let theme = cx.theme();
 
     div()

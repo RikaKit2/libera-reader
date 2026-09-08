@@ -30,7 +30,7 @@ impl AssetSource for Assets {
 
   fn list(&self, path: &str) -> Result<Vec<SharedString>> {
     let path = path.trim_start_matches('/');
-    let mut paths = std::collections::HashSet::new();
+    let mut paths = crate::types::HashSet::default();
 
     for p in Self::iter() {
       if p.starts_with(path) {

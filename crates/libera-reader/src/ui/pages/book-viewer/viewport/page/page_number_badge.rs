@@ -1,6 +1,7 @@
 use gpui::*;
 use gpui_component::ActiveTheme;
 
+#[derive(IntoElement)]
 pub struct PageNumberBadge {
   page_number: usize,
 }
@@ -11,8 +12,8 @@ impl PageNumberBadge {
   }
 }
 
-impl Render for PageNumberBadge {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl RenderOnce for PageNumberBadge {
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
     div()
       .py_1()
       .text_xs()

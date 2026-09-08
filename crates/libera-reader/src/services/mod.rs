@@ -1,4 +1,5 @@
 pub mod data_extraction_service;
+pub mod extraction_coordinator;
 pub mod notify_service;
 pub mod scan_service;
 
@@ -10,6 +11,7 @@ use crate::not_cached_books::{NotCachedBooks, NotCachedBooksRx};
 use crate::services::scan_service::ScanService;
 use crate::settings::SETTINGS;
 use anyhow::Result;
+pub use extraction_coordinator::{ExtractionCoordinator, ExtractionCoordinatorMode};
 use gpui::App;
 use notify_service::NotifyService;
 
@@ -22,6 +24,7 @@ pub enum WorkStatus {
 pub struct Services {
   pub notify_service: NotifyService,
   pub scan_service: ScanService,
+  pub extraction_coordinator: ExtractionCoordinator,
   pub data_extraction_service_working_status: WorkStatus,
   pub extraction_rx: Option<NotCachedBooksRx>,
   settings: SETTINGS,
@@ -70,10 +73,12 @@ impl Services {
   pub fn new(cx: &App, rx: NotCachedBooksRx) -> Result<Self> {
     let notify_service = NotifyService::new(cx)?;
     let scan_service = ScanService::new(cx);
+    let extraction_coordinator = ExtractionCoordinator::new();
 
     Ok(Self {
       notify_service,
       scan_service,
+      extraction_coordinator,
       data_extraction_service_working_status: WorkStatus::NotWorking,
       extraction_rx: Some(rx),
       settings: cx.settings().clone(),
@@ -101,10 +106,12 @@ impl Services {
       app_dirs.clone(),
       books_state.clone(),
     );
+    let extraction_coordinator = ExtractionCoordinator::new();
 
     Ok(Self {
       notify_service,
       scan_service,
+      extraction_coordinator,
       data_extraction_service_working_status: WorkStatus::NotWorking,
       extraction_rx: Some(rx),
       settings,
@@ -125,19 +132,24 @@ impl Services {
   }
 
   pub fn run_data_extraction_service(&mut self) {
-    if self.data_extraction_service_working_status == WorkStatus::NotWorking
-      && let Some(rx) = self.extraction_rx.take()
-    {
-      let db = self.db.clone();
-      let app_dirs = self.app_dirs.clone();
-      let books_state = self.books_state.clone();
-      let settings = self.settings.clone();
+    match self.data_extraction_service_working_status {
+      WorkStatus::Working => {}
+      WorkStatus::NotWorking => {
+        if let Some(rx) = self.extraction_rx.take() {
+          let db = self.db.clone();
+          let app_dirs = self.app_dirs.clone();
+          let books_state = self.books_state.clone();
+          let settings = self.settings.clone();
+          let coordinator_rx = self.extraction_coordinator.subscribe();
 
-      tokio::spawn(async move {
-        data_extraction_service::run(db, app_dirs, rx, books_state, settings).await;
-      });
+          tokio::spawn(async move {
+            data_extraction_service::run(db, app_dirs, rx, books_state, settings, coordinator_rx)
+              .await;
+          });
 
-      self.data_extraction_service_working_status = WorkStatus::Working;
+          self.data_extraction_service_working_status = WorkStatus::Working;
+        }
+      }
     }
   }
 

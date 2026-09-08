@@ -2,20 +2,49 @@ use crate::app_ext::AppExt;
 use crate::books_state::TargetList;
 use crate::db::models::RootRoute;
 use crate::db::models::books::book::BookPath;
-use gpui::App;
+use crate::ui::pages::book_viewer::DocumentData;
+use gpui::{App, AsyncApp, SharedString};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Entry point when a user clicks on a book card in any view mode.
-/// Records the book in history and triggers viewer navigation.
+/// Records the book in history and triggers viewer navigation and document loading.
 pub fn book_card_click(path: BookPath, cx: &mut App) {
-  push_at_history(path, cx);
+  push_at_history(path.clone(), cx);
   let _ = cx.settings_mut().set_route(RootRoute::BookViewer);
+
+  let title = path.display_name();
+
+  let viewer_state = cx.book_viewer_state().clone();
+  viewer_state.update(cx, |s, cx| {
+    s.set_book(path.clone(), 1, title.clone());
+    cx.notify();
+  });
+
+  let path_clone = path.clone();
+  let viewer_state_worker = viewer_state.clone();
+  let title_clone = title.clone();
+
+  cx.spawn(|async_app: &mut AsyncApp| {
+    let mut owned_app = async_app.clone();
+    async move {
+      let doc_res =
+        owned_app.background_executor().spawn(async move { DocumentData::load(path_clone) }).await;
+
+      if let Ok(doc) = doc_res {
+        viewer_state_worker.update(&mut owned_app, |s, cx| {
+          s.set_document(doc, title_clone);
+          cx.notify();
+        });
+      }
+    }
+  })
+  .detach();
 }
 
 /// Record that a book was opened: bump its `last_opened`, ensure it is in the
 /// history list, and persist the change to the database.
 pub fn push_at_history(path: BookPath, cx: &mut App) {
-  let id: gpui::SharedString = path.full_path_string();
+  let id: SharedString = path.full_path_string();
   let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64;
   let mut should_persist = false;
   let books_state = cx.books_state_entity().clone();
@@ -47,7 +76,7 @@ pub fn push_at_history(path: BookPath, cx: &mut App) {
 
 /// Toggle the favorite flag on a book, rebuild the favorites list, and persist.
 pub fn toggle_favorite(path: BookPath, cx: &mut App) {
-  let id: gpui::SharedString = path.full_path_string();
+  let id: SharedString = path.full_path_string();
   let mut new_state = None;
   let books_state = cx.books_state_entity().clone();
 
