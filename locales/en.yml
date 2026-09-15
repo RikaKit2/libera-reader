@@ -114,6 +114,7 @@ components:
       placeholder: "Search in document..."
       next_btn: "Next"
       prev_btn: "Previous"
+      searching: "Searching..."
       not_found: "Not found"
       match_count: "%{current} of %{total}"
     sidebar:

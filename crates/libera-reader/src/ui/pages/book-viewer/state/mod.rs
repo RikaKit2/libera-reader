@@ -62,7 +62,8 @@ pub struct BookViewerState {
   pub search_query: String,
   pub search_results: Vec<SearchHit>,
   pub current_search_idx: usize,
-
+  pub is_searching: bool,
+  pub has_searched: bool,
   // Bookmark search state
   pub bookmark_search_query: String,
   // Document outline
@@ -100,7 +101,8 @@ impl Default for BookViewerState {
       search_query: String::new(),
       search_results: Vec::new(),
       current_search_idx: 0,
-
+      is_searching: false,
+      has_searched: false,
       bookmark_search_query: String::new(),
       outline: Vec::new(),
 
@@ -134,7 +136,8 @@ impl std::fmt::Debug for BookViewerState {
       .field("search_query", &self.search_query)
       .field("search_results", &self.search_results)
       .field("current_search_idx", &self.current_search_idx)
-      .field("bookmark_search_query", &self.bookmark_search_query)
+      .field("is_searching", &self.is_searching)
+      .field("has_searched", &self.has_searched)
       .field("outline", &self.outline)
       .field("tts_playing", &self.tts_playing)
       .field("tts_engine", &self.tts_engine)
@@ -228,9 +231,50 @@ impl BookViewerState {
   pub fn toggle_search(&mut self) {
     self.search_open = !self.search_open;
     if !self.search_open {
-      self.search_query.clear();
-      self.search_results.clear();
+      self.clear_search();
+    }
+  }
+
+  pub fn clear_search(&mut self) {
+    self.search_query.clear();
+    self.search_results.clear();
+    self.current_search_idx = 0;
+    self.is_searching = false;
+    self.has_searched = false;
+  }
+
+  pub fn set_search_results(&mut self, results: Vec<SearchHit>) {
+    self.is_searching = false;
+    self.has_searched = true;
+    self.search_results = results;
+    if !self.search_results.is_empty() {
+      let start_idx =
+        self.search_results.iter().position(|hit| hit.page >= self.current_page).unwrap_or(0);
+      self.current_search_idx = start_idx;
+      let page = self.search_results[self.current_search_idx].page;
+      self.go_to_page(page);
+    } else {
       self.current_search_idx = 0;
+    }
+  }
+
+  pub fn next_search_match(&mut self) {
+    if !self.search_results.is_empty() {
+      self.current_search_idx = (self.current_search_idx + 1) % self.search_results.len();
+      let page = self.search_results[self.current_search_idx].page;
+      self.go_to_page(page);
+    }
+  }
+
+  pub fn prev_search_match(&mut self) {
+    if !self.search_results.is_empty() {
+      if self.current_search_idx == 0 {
+        self.current_search_idx = self.search_results.len().saturating_sub(1);
+      } else {
+        self.current_search_idx -= 1;
+      }
+      let page = self.search_results[self.current_search_idx].page;
+      self.go_to_page(page);
     }
   }
 
@@ -289,6 +333,39 @@ mod tests {
 
     state.set_zoom(ZoomPreset::Percent200);
     assert_eq!(state.zoom_factor, 2.0);
+  }
+
+  #[test]
+  fn test_search_results_navigation_and_cycling() {
+    let mut state = BookViewerState::new();
+    state.total_pages = 10;
+    state.current_page = 3;
+
+    let hits = vec![
+      SearchHit { page: 2, text: "hit on 2".into(), bbox: None },
+      SearchHit { page: 4, text: "hit on 4".into(), bbox: None },
+      SearchHit { page: 8, text: "hit on 8".into(), bbox: None },
+    ];
+
+    // Setting results from page 3 starts at the first match >= 3, which is hit on page 4 (idx 1)
+    state.set_search_results(hits);
+    assert_eq!(state.current_search_idx, 1);
+    assert_eq!(state.current_page, 4);
+
+    // Next match cycles forward to page 8
+    state.next_search_match();
+    assert_eq!(state.current_search_idx, 2);
+    assert_eq!(state.current_page, 8);
+
+    // Next match wraps around to page 2
+    state.next_search_match();
+    assert_eq!(state.current_search_idx, 0);
+    assert_eq!(state.current_page, 2);
+
+    // Prev match wraps backwards to page 8
+    state.prev_search_match();
+    assert_eq!(state.current_search_idx, 2);
+    assert_eq!(state.current_page, 8);
   }
 
   #[test]

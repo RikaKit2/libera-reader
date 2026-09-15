@@ -40,16 +40,8 @@ impl Render for SearchPrevBtn {
         MouseButton::Left,
         cx.listener(move |_this, _, _window, cx| {
           state.update(cx, |s, cx| {
-            if !s.search_results.is_empty() {
-              if s.current_search_idx == 0 {
-                s.current_search_idx = s.search_results.len() - 1;
-              } else {
-                s.current_search_idx -= 1;
-              }
-              let page = s.search_results[s.current_search_idx].page;
-              s.go_to_page(page);
-              cx.notify();
-            }
+            s.prev_search_match();
+            cx.notify();
           });
         }),
       )

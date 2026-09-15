@@ -1,9 +1,10 @@
+use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_base::{TextSelection, TextSelectionHandle, TextSelectionRegistration, TextSelectionRun};
-use mutool::PageStructuredText;
+use gpui_component::ActiveTheme;
+use mutool::{BBox, PageStructuredText};
 use std::ops::Range;
 use std::sync::Arc;
-
 pub struct PageTextLineData {
   pub bounds: Bounds<Pixels>,
   pub text: SharedString,
@@ -13,6 +14,7 @@ pub struct PageTextLineData {
 
 pub struct PageTextLayer {
   page_number: usize,
+  state: Entity<BookViewerState>,
   zoom_factor: f32,
   selection_handle: TextSelectionHandle,
   lines: Vec<PageTextLineData>,
@@ -22,9 +24,11 @@ pub struct PageTextLayer {
 
 impl PageTextLayer {
   pub fn new(
-    page_number: usize, zoom_factor: f32, selection_handle: TextSelectionHandle,
-    stext: Option<Arc<PageStructuredText>>, page_width: f32, page_height: f32, window: &mut Window,
+    page_number: usize, state: Entity<BookViewerState>, zoom_factor: f32,
+    selection_handle: TextSelectionHandle, stext: Option<Arc<PageStructuredText>>,
+    page_size: (f32, f32), window: &mut Window,
   ) -> Self {
+    let (page_width, page_height) = page_size;
     let mut lines = Vec::new();
 
     if let Some(stext) = stext {
@@ -58,7 +62,7 @@ impl PageTextLayer {
       }
     }
 
-    Self { page_number, zoom_factor, selection_handle, lines, page_width, page_height }
+    Self { page_number, state, zoom_factor, selection_handle, lines, page_width, page_height }
   }
 
   pub fn compute_line_selection_bounds(
@@ -196,7 +200,51 @@ impl Element for PageTextLayer {
       window.refresh();
     }
 
-    let highlight_color = gpui::hsla(0.58, 0.85, 0.62, 0.35);
+    // Search query and exact MuPDF search hits on this page
+    let (search_query, exact_page_hits) = {
+      let s = self.state.read(cx);
+      let page_num = self.page_number;
+      let active_idx = s.current_search_idx;
+
+      let hits: Vec<(BBox, bool)> = s
+        .search_results
+        .iter()
+        .enumerate()
+        .filter(|(_, hit)| hit.page == page_num)
+        .filter_map(|(global_idx, hit)| hit.bbox.map(|bbox| (bbox, global_idx == active_idx)))
+        .collect();
+
+      (s.search_query.trim().to_lowercase(), hits)
+    };
+
+    let primary = cx.theme().primary;
+    let selection_color = primary.opacity(0.35);
+
+    // 1. If exact MuPDF search hit bboxes exist, paint them with sub-pixel PDF font accuracy
+    if !exact_page_hits.is_empty() {
+      for (bbox, is_active) in &exact_page_hits {
+        let scaled = bbox.scaled(self.zoom_factor);
+        let hit_bounds = Bounds::new(
+          Point::new(bounds.origin.x + px(scaled.x), bounds.origin.y + px(scaled.y)),
+          size(px(scaled.w), px(scaled.h)),
+        );
+
+        let (bg_color, border_color) = if *is_active {
+          (primary.opacity(0.65), primary)
+        } else {
+          (primary.opacity(0.20), primary.opacity(0.40))
+        };
+
+        window.paint_quad(PaintQuad {
+          bounds: hit_bounds,
+          background: bg_color.into(),
+          corner_radii: Corners::all(px(2.0)),
+          border_widths: Edges::all(px(1.0)),
+          border_color,
+          border_style: BorderStyle::Solid,
+        });
+      }
+    }
 
     for (line_idx, line) in self.lines.iter_mut().enumerate() {
       let line_window_bounds = Bounds::new(
@@ -205,6 +253,34 @@ impl Element for PageTextLayer {
       );
       let layout = line.styled_text.layout().clone();
 
+      // Fallback live preview while typing (before Enter initiates full document search)
+      if exact_page_hits.is_empty() && !search_query.is_empty() {
+        let text_lower = line.text.to_lowercase();
+        let mut start_idx = 0;
+        while let Some(found_byte_pos) = text_lower[start_idx..].find(&search_query) {
+          let match_start = start_idx + found_byte_pos;
+          let match_end = match_start + search_query.len();
+          start_idx = match_end;
+
+          if let Some(hit_bounds) = Self::compute_line_selection_bounds(
+            &layout,
+            line.text.len(),
+            match_start..match_end,
+            line_window_bounds,
+          ) {
+            window.paint_quad(PaintQuad {
+              bounds: hit_bounds,
+              background: primary.opacity(0.25).into(),
+              corner_radii: Corners::all(px(2.0)),
+              border_widths: Edges::all(px(1.0)),
+              border_color: primary.opacity(0.50),
+              border_style: BorderStyle::Solid,
+            });
+          }
+        }
+      }
+
+      // 2. Mouse selection highlight
       if let Some(Some(range)) = projection.ranges().get(line_idx)
         && let Some(highlight_bounds) = Self::compute_line_selection_bounds(
           &layout,
@@ -215,7 +291,7 @@ impl Element for PageTextLayer {
       {
         window.paint_quad(PaintQuad {
           bounds: highlight_bounds,
-          background: highlight_color.into(),
+          background: selection_color.into(),
           corner_radii: Corners::default(),
           border_widths: Edges::default(),
           border_color: transparent_black(),
@@ -223,6 +299,7 @@ impl Element for PageTextLayer {
         });
       }
 
+      // 3. Transparent text glyphs for selection hit-testing
       line.styled_text.paint(id, inspector_id, line_window_bounds, &mut (), &mut (), window, cx);
     }
   }
@@ -261,7 +338,6 @@ mod tests {
   #[core::prelude::v1::test]
   fn test_compute_line_selection_bounds_full() {
     let line_bounds = Bounds::new(point(px(50.0), px(100.0)), size(px(200.0), px(20.0)));
-    // For full range (0..10), it covers left_bound to right_bound without layout
     let result = PageTextLayer::compute_line_selection_bounds(
       &gpui::TextLayout::default(),
       10,

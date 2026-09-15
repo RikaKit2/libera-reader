@@ -20,9 +20,21 @@ impl PageSearchLayer {
 
 impl RenderOnce for PageSearchLayer {
   fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-    let (zoom_factor, search_query) = {
+    let (zoom_factor, search_query, active_hit_on_this_page) = {
       let s = self.state.read(cx);
-      (s.zoom_factor, s.search_query.clone())
+      let active_idx = if !s.search_results.is_empty()
+        && s.search_results.get(s.current_search_idx).is_some_and(|h| h.page == self.page_number)
+      {
+        let count_before = s.search_results[..s.current_search_idx]
+          .iter()
+          .filter(|hit| hit.page == self.page_number)
+          .count();
+        Some(count_before)
+      } else {
+        None
+      };
+
+      (s.zoom_factor, s.search_query.clone(), active_idx)
     };
 
     let mut hit_elements = Vec::new();
@@ -31,6 +43,7 @@ impl RenderOnce for PageSearchLayer {
       && let Some(stext) = &self.stext
     {
       let query_lower = search_query.to_lowercase();
+      let mut hit_idx_on_page = 0;
 
       for block in &stext.blocks {
         for line in &block.lines {
@@ -52,15 +65,26 @@ impl RenderOnce for PageSearchLayer {
             let hit_x = scaled.x + (char_offset as f32) * char_width;
             let hit_w = (query_char_len as f32) * char_width;
 
+            let is_active = active_hit_on_this_page == Some(hit_idx_on_page);
+            hit_idx_on_page += 1;
+
+            let (bg_color, border_color) = if is_active {
+              // Vibrant orange highlight for active match under search focus
+              (gpui::rgba(0xff9800cc), gpui::rgba(0xff5722ff))
+            } else {
+              // Soft pink/yellow highlight for all other occurrences on page
+              (gpui::rgba(0xffb6c166), gpui::rgba(0xff69b4cc))
+            };
+
             let hit_el = div()
               .absolute()
               .left(px(hit_x))
               .top(px(scaled.y))
               .w(px(hit_w.max(char_width)))
               .h(px(scaled.h))
-              .bg(gpui::rgba(0xffb6c166))
+              .bg(bg_color)
               .border_1()
-              .border_color(gpui::rgba(0xff69b4cc))
+              .border_color(border_color)
               .rounded(px(2.0));
 
             hit_elements.push(hit_el);

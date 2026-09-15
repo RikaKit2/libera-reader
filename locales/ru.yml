@@ -114,6 +114,7 @@ components:
       placeholder: "Поиск в документе..."
       next_btn: "Вперёд"
       prev_btn: "Назад"
+      searching: "Поиск..."
       not_found: "Не найдено"
       match_count: "%{current} из %{total}"
     sidebar:

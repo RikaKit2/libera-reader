@@ -23,6 +23,10 @@ impl Render for SearchCounter {
 
     let text = if state_ref.search_query.is_empty() {
       "".to_string()
+    } else if state_ref.is_searching {
+      t!("components.book_viewer.search.searching").to_string()
+    } else if !state_ref.has_searched {
+      "".to_string()
     } else if count == 0 {
       t!("components.book_viewer.search.not_found").to_string()
     } else {

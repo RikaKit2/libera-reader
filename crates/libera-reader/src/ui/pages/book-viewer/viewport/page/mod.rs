@@ -53,15 +53,13 @@ impl RenderOnce for PageView {
       PageCanvas::new(self.page_number, self.state.clone(), self.image, self.is_image_loading);
     let shadow = PageShadow::new();
     let links_layer = PageLinksLayer::new(self.page_number, self.state.clone(), self.links);
-    let search_layer =
-      PageSearchLayer::new(self.page_number, self.state.clone(), self.stext.clone());
     let text_layer = PageTextLayer::new(
       self.page_number,
+      self.state.clone(),
       zoom_factor,
       self.selection_handle,
       self.stext,
-      width,
-      height,
+      (width, height),
       window,
     );
     let badge = PageNumberBadge::new(self.page_number);
@@ -77,7 +75,6 @@ impl RenderOnce for PageView {
           .h(px(height))
           .relative()
           .child(canvas)
-          .child(search_layer)
           .child(links_layer)
           .child(text_layer)
           .child(shadow),

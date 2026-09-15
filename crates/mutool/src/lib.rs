@@ -9,8 +9,8 @@ pub mod mutool_error;
 pub mod outline;
 pub mod page_info;
 pub mod render_page;
+pub mod search;
 pub mod stext;
-
 pub use constants::*;
 pub use create_book::create_empty_book;
 pub use download_mutool::{download_mutool, download_mutool_if_missing_blocking};
@@ -22,6 +22,7 @@ pub use page_info::{
   DocumentPageInfo, PageDimensions, get_document_page_info, get_page_count, get_page_size,
 };
 pub use render_page::{render_page_to_png, render_page_to_png_bytes};
+pub use search::{DocumentSearchMatch, search_document_text};
 pub use stext::{
   BBox, FontInfo, PageStructuredText, TextBlock, TextLine, get_page_structured_text,
 };

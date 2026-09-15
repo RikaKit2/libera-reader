@@ -6,6 +6,7 @@ pub const DEFAULT_A4_HEIGHT: f32 = 842.0;
 pub const FORMAT_PNG: &str = "png";
 pub const FORMAT_STEXT_JSON: &str = "stext.json";
 pub const FORMAT_TEXT: &str = "text";
+pub const FORMAT_TXT: &str = "txt";
 
 pub const CMD_DRAW: &str = "draw";
 pub const CMD_PAGES: &str = "pages";

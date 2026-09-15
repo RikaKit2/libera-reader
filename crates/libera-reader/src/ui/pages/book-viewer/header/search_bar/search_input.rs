@@ -26,18 +26,15 @@ impl SearchInput {
             let query = input.read(cx).text().to_string();
             state.update(cx, |s, cx| {
               s.search_query = query;
+              s.search_results.clear();
+              s.current_search_idx = 0;
+              s.is_searching = false;
+              s.has_searched = false;
               cx.notify();
             });
           }
           InputEvent::PressEnter { .. } => {
-            state.update(cx, |s, cx| {
-              if !s.search_results.is_empty() {
-                s.current_search_idx = (s.current_search_idx + 1) % s.search_results.len();
-                let page = s.search_results[s.current_search_idx].page;
-                s.go_to_page(page);
-                cx.notify();
-              }
-            });
+            super::execute_search(state.clone(), cx);
           }
           _ => {}
         }
