@@ -200,8 +200,8 @@ impl Element for PageTextLayer {
       window.refresh();
     }
 
-    // Search query and exact MuPDF search hits on this page
-    let (search_query, exact_page_hits) = {
+    // Exact MuPDF search hits on this page
+    let exact_page_hits = {
       let s = self.state.read(cx);
       let page_num = self.page_number;
       let active_idx = s.current_search_idx;
@@ -214,7 +214,7 @@ impl Element for PageTextLayer {
         .filter_map(|(global_idx, hit)| hit.bbox.map(|bbox| (bbox, global_idx == active_idx)))
         .collect();
 
-      (s.search_query.trim().to_lowercase(), hits)
+      hits
     };
 
     let primary = cx.theme().primary;
@@ -252,33 +252,6 @@ impl Element for PageTextLayer {
         line.bounds.size,
       );
       let layout = line.styled_text.layout().clone();
-
-      // Fallback live preview while typing (before Enter initiates full document search)
-      if exact_page_hits.is_empty() && !search_query.is_empty() {
-        let text_lower = line.text.to_lowercase();
-        let mut start_idx = 0;
-        while let Some(found_byte_pos) = text_lower[start_idx..].find(&search_query) {
-          let match_start = start_idx + found_byte_pos;
-          let match_end = match_start + search_query.len();
-          start_idx = match_end;
-
-          if let Some(hit_bounds) = Self::compute_line_selection_bounds(
-            &layout,
-            line.text.len(),
-            match_start..match_end,
-            line_window_bounds,
-          ) {
-            window.paint_quad(PaintQuad {
-              bounds: hit_bounds,
-              background: primary.opacity(0.25).into(),
-              corner_radii: Corners::all(px(2.0)),
-              border_widths: Edges::all(px(1.0)),
-              border_color: primary.opacity(0.50),
-              border_style: BorderStyle::Solid,
-            });
-          }
-        }
-      }
 
       // 2. Mouse selection highlight
       if let Some(Some(range)) = projection.ranges().get(line_idx)

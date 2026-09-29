@@ -13,7 +13,7 @@ pub fn decode_page_image_bytes(bytes: &[u8]) -> Option<Arc<RenderImage>> {
 
   // ⚡️ OPTIMIZATION: GPUI natively expects BGRA format.
   // Fast in-place swap of R and B channels.
-  for px in rgba_img.chunks_exact_mut(4) {
+  for px in rgba_img.as_chunks_mut::<4>().0 {
     px.swap(0, 2);
   }
 

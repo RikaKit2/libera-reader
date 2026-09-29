@@ -40,6 +40,7 @@ pub enum PageLinksState {
 /// In-memory LRU cache storing recently viewed page images, text layers, and links.
 pub struct BookViewerCache {
   images: LruCache<usize, PageImageState>,
+  image_dpis: LruCache<usize, u32>,
   texts: LruCache<usize, PageTextState>,
   links: LruCache<usize, PageLinksState>,
 }
@@ -58,6 +59,7 @@ impl BookViewerCache {
 
     Self {
       images: LruCache::new(img_cap),
+      image_dpis: LruCache::new(img_cap),
       texts: LruCache::new(text_cap),
       links: LruCache::new(links_cap),
     }
@@ -69,6 +71,13 @@ impl BookViewerCache {
 
   pub fn insert_image(&mut self, page: usize, state: PageImageState) {
     self.images.put(page, state);
+  }
+  pub fn get_image_dpi(&mut self, page: usize) -> Option<u32> {
+    self.image_dpis.get(&page).copied()
+  }
+
+  pub fn set_image_dpi(&mut self, page: usize, dpi: u32) {
+    self.image_dpis.put(page, dpi);
   }
 
   pub fn pop_image_loading(&mut self, page: usize) {
@@ -101,8 +110,14 @@ impl BookViewerCache {
 
   pub fn clear(&mut self) {
     self.images.clear();
+    self.image_dpis.clear();
     self.texts.clear();
     self.links.clear();
+  }
+
+  pub fn clear_images(&mut self) {
+    self.images.clear();
+    self.image_dpis.clear();
   }
 }
 

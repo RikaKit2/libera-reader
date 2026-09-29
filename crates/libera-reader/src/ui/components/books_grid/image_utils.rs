@@ -24,7 +24,7 @@ pub fn load_thumbnail(img_path: &Path) -> Option<Arc<RenderImage>> {
 
   // ⚡️ OPTIMIZATION: GPUI natively accepts BGRA format.
   // Fast swap R and B channels on CPU before sending.
-  for px in rgba_img.chunks_exact_mut(4) {
+  for px in rgba_img.as_chunks_mut::<4>().0 {
     px.swap(0, 2);
   }
 

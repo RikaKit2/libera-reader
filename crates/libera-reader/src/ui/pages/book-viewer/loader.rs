@@ -16,6 +16,15 @@ pub struct PageLoadRequest {
   pub book_path: PathBuf,
   pub dpi: u32,
 }
+pub const MIN_RENDER_DPI: u32 = 36;
+pub const MAX_RENDER_DPI: u32 = 300;
+pub const BASE_PDF_DPI: f32 = 72.0;
+
+/// Compute optimal raster render resolution based on user zoom factor and window scale factor.
+pub fn compute_target_dpi(zoom_factor: f32, scale_factor: f32) -> u32 {
+  let calculated = (BASE_PDF_DPI * zoom_factor * scale_factor).round() as u32;
+  calculated.clamp(MIN_RENDER_DPI, MAX_RENDER_DPI)
+}
 
 pub fn spawn_book_page_loader(
   runtime: &Runtime, cache: Arc<Mutex<BookViewerCache>>, visible_start: Arc<AtomicUsize>,
@@ -84,6 +93,7 @@ pub fn spawn_book_page_loader(
         {
           let mut lock = cache_worker.lock();
           lock.insert_image(page, img_state);
+          lock.set_image_dpi(page, dpi);
           lock.insert_text(page, text_state);
           lock.insert_links(page, links_state);
         }
@@ -96,4 +106,20 @@ pub fn spawn_book_page_loader(
       });
     }
   });
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn test_compute_target_dpi() {
+    assert_eq!(compute_target_dpi(1.0, 1.0), 72);
+    assert_eq!(compute_target_dpi(1.5, 1.0), 108);
+    assert_eq!(compute_target_dpi(2.0, 1.0), 144);
+    assert_eq!(compute_target_dpi(1.0, 2.0), 144);
+    assert_eq!(compute_target_dpi(1.5, 2.0), 216);
+    assert_eq!(compute_target_dpi(0.1, 1.0), 36);
+    assert_eq!(compute_target_dpi(5.0, 2.0), 300);
+  }
 }

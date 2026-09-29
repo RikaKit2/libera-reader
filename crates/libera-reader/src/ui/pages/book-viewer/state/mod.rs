@@ -285,6 +285,36 @@ impl BookViewerState {
     }
   }
 
+  pub fn zoom_in(&mut self) {
+    let presets = ZoomPreset::all();
+    let current_idx = presets.iter().position(|p| *p == self.zoom_preset).unwrap_or(2);
+    if current_idx + 1 < presets.len() && presets[current_idx + 1].factor().is_some() {
+      self.set_zoom(presets[current_idx + 1]);
+    } else {
+      self.adjust_zoom_by(0.15);
+    }
+  }
+
+  pub fn zoom_out(&mut self) {
+    let presets = ZoomPreset::all();
+    let current_idx = presets.iter().position(|p| *p == self.zoom_preset).unwrap_or(2);
+    if current_idx > 0 && presets[current_idx - 1].factor().is_some() {
+      self.set_zoom(presets[current_idx - 1]);
+    } else {
+      self.adjust_zoom_by(-0.15);
+    }
+  }
+
+  pub fn adjust_zoom_by(&mut self, delta: f32) {
+    let new_factor = (self.zoom_factor + delta).clamp(0.25, 4.0);
+    self.zoom_factor = new_factor;
+  }
+
+  pub fn toggle_fullscreen(&mut self, window: &gpui::Window) {
+    self.is_fullscreen = !self.is_fullscreen;
+    window.toggle_fullscreen();
+  }
+
   pub fn set_bookmark_search_query(&mut self, query: String) {
     self.bookmark_search_query = query;
   }
@@ -333,6 +363,28 @@ mod tests {
 
     state.set_zoom(ZoomPreset::Percent200);
     assert_eq!(state.zoom_factor, 2.0);
+  }
+
+  #[test]
+  fn test_zoom_in_and_out() {
+    let mut state = BookViewerState::new();
+    state.set_zoom(ZoomPreset::Percent100);
+    assert_eq!(state.zoom_factor, 1.0);
+
+    state.zoom_in();
+    assert_eq!(state.zoom_preset, ZoomPreset::Percent125);
+    assert_eq!(state.zoom_factor, 1.25);
+
+    state.zoom_in();
+    assert_eq!(state.zoom_preset, ZoomPreset::Percent150);
+    assert_eq!(state.zoom_factor, 1.5);
+
+    state.zoom_out();
+    assert_eq!(state.zoom_preset, ZoomPreset::Percent125);
+    assert_eq!(state.zoom_factor, 1.25);
+
+    state.adjust_zoom_by(0.10);
+    assert!((state.zoom_factor - 1.35).abs() < 0.001);
   }
 
   #[test]

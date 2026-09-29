@@ -2,7 +2,6 @@ use crate::app_ext::AppExt;
 use crate::ui::pages::book_viewer::cache::{
   BookViewerCache, PageImageState, PageLinksState, PageTextState,
 };
-use crate::ui::pages::book_viewer::constants::viewport::PAGE_RENDER_DPI;
 use crate::ui::pages::book_viewer::loader::{PageLoadRequest, spawn_book_page_loader};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use crate::ui::pages::book_viewer::viewport::page::PageView;
@@ -60,9 +59,9 @@ impl PagedContainer {
 
 impl Render for PagedContainer {
   fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let (current_page, current_book) = {
+    let (current_page, current_book, zoom_factor) = {
       let s = self.state.read(cx);
-      (s.current_page, s.current_book.clone())
+      (s.current_page, s.current_book.clone(), s.zoom_factor)
     };
 
     // Update active visible page window in atomic for prefetch bounds
@@ -74,8 +73,22 @@ impl Render for PagedContainer {
         let path = book.as_pathbuf();
         let mut cache_lock = self.cache.lock();
 
+        let scale_factor = window.scale_factor();
+        let target_dpi =
+          crate::ui::pages::book_viewer::loader::compute_target_dpi(zoom_factor, scale_factor);
+        let cached_dpi = cache_lock.get_image_dpi(current_page);
+        let is_stale_dpi = cached_dpi.is_some_and(|d| d != target_dpi);
+
         let (img, is_img_loading) = match cache_lock.get_image(current_page) {
-          Some(PageImageState::Loaded(img)) => (Some(img.clone()), false),
+          Some(PageImageState::Loaded(img)) if !is_stale_dpi => (Some(img.clone()), false),
+          Some(PageImageState::Loaded(img)) => {
+            let _ = self.load_tx.send(PageLoadRequest {
+              page: current_page,
+              book_path: path,
+              dpi: target_dpi,
+            });
+            (Some(img.clone()), false)
+          }
           Some(PageImageState::Loading) => (None, true),
           Some(PageImageState::Failed(_)) => (None, false),
           Some(PageImageState::Unloaded) | None => {
@@ -83,7 +96,7 @@ impl Render for PagedContainer {
             let _ = self.load_tx.send(PageLoadRequest {
               page: current_page,
               book_path: path,
-              dpi: PAGE_RENDER_DPI,
+              dpi: target_dpi,
             });
             (None, true)
           }

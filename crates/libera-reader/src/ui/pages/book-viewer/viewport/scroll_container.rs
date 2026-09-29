@@ -2,9 +2,7 @@ use crate::app_ext::AppExt;
 use crate::ui::pages::book_viewer::cache::{
   BookViewerCache, PageImageState, PageLinksState, PageTextState,
 };
-use crate::ui::pages::book_viewer::constants::viewport::{
-  CONTAINER_PADDING, PAGE_GAP_Y, PAGE_RENDER_DPI,
-};
+use crate::ui::pages::book_viewer::constants::viewport::{CONTAINER_PADDING, PAGE_GAP_Y};
 use crate::ui::pages::book_viewer::loader::{PageLoadRequest, spawn_book_page_loader};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use crate::ui::pages::book_viewer::viewport::page::PageView;
@@ -155,9 +153,23 @@ impl Render for ScrollContainer {
               break;
             }
 
+            let scale_factor = window.scale_factor();
+            let target_dpi =
+              crate::ui::pages::book_viewer::loader::compute_target_dpi(zoom_factor, scale_factor);
+            let cached_dpi = cache_lock.get_image_dpi(page_num);
+            let is_stale_dpi = cached_dpi.is_some_and(|d| d != target_dpi);
+
             // Image cache lookup / trigger
             let (img, is_img_loading) = match cache_lock.get_image(page_num) {
-              Some(PageImageState::Loaded(img)) => (Some(img.clone()), false),
+              Some(PageImageState::Loaded(img)) if !is_stale_dpi => (Some(img.clone()), false),
+              Some(PageImageState::Loaded(img)) => {
+                let _ = load_tx.send(PageLoadRequest {
+                  page: page_num,
+                  book_path: book_path.clone(),
+                  dpi: target_dpi,
+                });
+                (Some(img.clone()), false)
+              }
               Some(PageImageState::Loading) => (None, true),
               Some(PageImageState::Failed(_)) => (None, false),
               Some(PageImageState::Unloaded) | None => {
@@ -165,7 +177,7 @@ impl Render for ScrollContainer {
                 let _ = load_tx.send(PageLoadRequest {
                   page: page_num,
                   book_path: book_path.clone(),
-                  dpi: PAGE_RENDER_DPI,
+                  dpi: target_dpi,
                 });
                 (None, true)
               }

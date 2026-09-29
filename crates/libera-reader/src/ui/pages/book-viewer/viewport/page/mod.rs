@@ -1,14 +1,12 @@
 pub mod page_canvas;
 pub mod page_links_layer;
 pub mod page_number_badge;
-pub mod page_search_layer;
 pub mod page_shadow;
 pub mod page_text_layer;
 
 pub use page_canvas::PageCanvas;
 pub use page_links_layer::PageLinksLayer;
 pub use page_number_badge::PageNumberBadge;
-pub use page_search_layer::PageSearchLayer;
 pub use page_shadow::PageShadow;
 pub use page_text_layer::PageTextLayer;
 
