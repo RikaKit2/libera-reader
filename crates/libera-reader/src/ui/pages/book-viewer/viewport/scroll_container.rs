@@ -227,6 +227,20 @@ impl Render for ScrollContainer {
     .track_scroll(&scroll)
     .size_full();
 
-    div().size_full().p(CONTAINER_PADDING).child(list)
+    div()
+      .size_full()
+      .p(CONTAINER_PADDING)
+      .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, _window, cx| {
+        if event.modifiers.control || event.modifiers.platform {
+          cx.stop_propagation();
+          let delta = event.delta.pixel_delta(px(20.0)).y;
+          let step = if delta > px(0.0) { 0.10 } else { -0.10 };
+          this.state.update(cx, |s, cx| {
+            s.adjust_zoom_by(step);
+            cx.notify();
+          });
+        }
+      }))
+      .child(list)
   }
 }

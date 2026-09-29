@@ -35,6 +35,17 @@ impl ZoomSelect {
           if let SelectEvent::Confirm(Some(preset)) = event {
             state.update(cx, |s, cx| {
               s.set_zoom(*preset);
+              if matches!(*preset, ZoomPreset::FitWidth | ZoomPreset::FitPage) {
+                let sidebar_open = s.active_sidebar_tab.is_open();
+                let window_size = _window.viewport_size();
+                let available_width = if sidebar_open {
+                  window_size.width - px(250.0)
+                } else {
+                  window_size.width
+                };
+                let available_height = window_size.height - px(32.0);
+                s.update_fit_zoom(size(available_width, available_height));
+              }
               cx.notify();
             });
           }

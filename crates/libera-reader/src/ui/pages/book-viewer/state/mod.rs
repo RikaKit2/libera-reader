@@ -6,12 +6,12 @@ pub mod zoom;
 pub use layout_mode::LayoutMode;
 pub use sidebar_tab::SidebarTab;
 pub use tts_config::{TtsConfigProvider, TtsEngineConfig, TtsVoiceConfig};
-pub use zoom::ZoomPreset;
+pub use zoom::{ZoomPreset, calculate_fit_page, calculate_fit_width};
 
 use crate::db::models::books::book::BookPath;
 use crate::types::HashMap;
 use crate::ui::pages::book_viewer::document::DocumentData;
-use gpui::SharedString;
+use gpui::{Pixels, SharedString, Size};
 use mutool::{BBox, OutlineNode, PageDimensions};
 #[derive(Debug, Clone, PartialEq)]
 pub struct OutlineItem {
@@ -285,6 +285,21 @@ impl BookViewerState {
     }
   }
 
+  pub fn update_fit_zoom(&mut self, available_size: Size<Pixels>) {
+    let page = self.page_size(self.current_page);
+    match self.zoom_preset {
+      ZoomPreset::FitWidth => {
+        let w = f32::from(available_size.width) - 48.0; // padding + scrollbar
+        self.zoom_factor = calculate_fit_width(w, page.width);
+      }
+      ZoomPreset::FitPage => {
+        let h = f32::from(available_size.height) - 64.0; // padding + header + gap
+        self.zoom_factor = calculate_fit_page(h, page.height);
+      }
+      _ => {}
+    }
+  }
+
   pub fn zoom_in(&mut self) {
     let presets = ZoomPreset::all();
     let current_idx = presets.iter().position(|p| *p == self.zoom_preset).unwrap_or(2);
@@ -385,6 +400,23 @@ mod tests {
 
     state.adjust_zoom_by(0.10);
     assert!((state.zoom_factor - 1.35).abs() < 0.001);
+  }
+
+  #[test]
+  fn test_update_fit_zoom() {
+    let mut state = BookViewerState::new();
+    state.page_sizes = vec![PageDimensions::new(600.0, 800.0)];
+    state.current_page = 1;
+
+    state.set_zoom(ZoomPreset::FitWidth);
+    state.update_fit_zoom(Size { width: gpui::px(1248.0), height: gpui::px(900.0) });
+    // available w = 1248.0 - 48.0 = 1200.0. page.width = 600.0. factor = 2.0.
+    assert!((state.zoom_factor - 2.0).abs() < 0.01);
+
+    state.set_zoom(ZoomPreset::FitPage);
+    state.update_fit_zoom(Size { width: gpui::px(1200.0), height: gpui::px(864.0) });
+    // available h = 864.0 - 64.0 = 800.0. page.height = 800.0. factor = 1.0.
+    assert!((state.zoom_factor - 1.0).abs() < 0.01);
   }
 
   #[test]

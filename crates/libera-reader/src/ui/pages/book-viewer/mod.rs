@@ -23,7 +23,7 @@ pub use viewport::Viewport;
 
 use crate::app_ext::AppExt;
 use gpui::prelude::*;
-use gpui::{App, Context, Entity, FocusHandle, IntoElement, MouseButton, ParentElement, Render, Styled, Window, div};
+use gpui::{App, Context, Entity, FocusHandle, IntoElement, MouseButton, ParentElement, Render, Styled, Subscription, Window, div, px, size};
 use crate::db::models::settings::{RootRoute, Route};
 
 pub(crate) struct BookViewer {
@@ -32,6 +32,7 @@ pub(crate) struct BookViewer {
   sidebar: Entity<SideBar>,
   viewport: Entity<Viewport>,
   focus_handle: FocusHandle,
+  _window_subscription: Subscription,
 }
 
 impl BookViewer {
@@ -46,7 +47,32 @@ impl BookViewer {
     cx.new(|cx| {
       let focus_handle = cx.focus_handle();
       window.focus(&focus_handle, cx);
-      Self { state, header, sidebar, viewport, focus_handle }
+
+      let sub = cx.observe_window_bounds(window, |this: &mut Self, window, cx| {
+        let sidebar_open = this.state.read(cx).active_sidebar_tab.is_open();
+        let window_size = window.viewport_size();
+        let available_width = if sidebar_open {
+          window_size.width - px(250.0)
+        } else {
+          window_size.width
+        };
+        let available_height = window_size.height - px(32.0);
+        this.state.update(cx, |s, cx| {
+          if matches!(s.zoom_preset, ZoomPreset::FitWidth | ZoomPreset::FitPage) {
+            s.update_fit_zoom(size(available_width, available_height));
+            cx.notify();
+          }
+        });
+      });
+
+      Self {
+        state,
+        header,
+        sidebar,
+        viewport,
+        focus_handle,
+        _window_subscription: sub,
+      }
     })
   }
 
@@ -114,15 +140,33 @@ impl Render for BookViewer {
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::FitWidth, _window, cx| {
+      .on_action(cx.listener(|this, _: &actions::FitWidth, window, cx| {
         this.state.update(cx, |s, cx| {
           s.set_zoom(ZoomPreset::FitWidth);
+          let sidebar_open = s.active_sidebar_tab.is_open();
+          let window_size = window.viewport_size();
+          let available_width = if sidebar_open {
+            window_size.width - px(250.0)
+          } else {
+            window_size.width
+          };
+          let available_height = window_size.height - px(32.0);
+          s.update_fit_zoom(size(available_width, available_height));
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::FitPage, _window, cx| {
+      .on_action(cx.listener(|this, _: &actions::FitPage, window, cx| {
         this.state.update(cx, |s, cx| {
           s.set_zoom(ZoomPreset::FitPage);
+          let sidebar_open = s.active_sidebar_tab.is_open();
+          let window_size = window.viewport_size();
+          let available_width = if sidebar_open {
+            window_size.width - px(250.0)
+          } else {
+            window_size.width
+          };
+          let available_height = window_size.height - px(32.0);
+          s.update_fit_zoom(size(available_width, available_height));
           cx.notify();
         });
       }))

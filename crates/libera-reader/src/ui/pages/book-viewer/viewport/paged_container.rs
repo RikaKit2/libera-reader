@@ -130,6 +130,24 @@ impl Render for PagedContainer {
       selection_handle,
     );
 
-    div().size_full().flex().flex_col().items_center().justify_center().p_4().child(page_view)
+    div()
+      .size_full()
+      .flex()
+      .flex_col()
+      .items_center()
+      .justify_center()
+      .p_4()
+      .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, _window, cx| {
+        if event.modifiers.control || event.modifiers.platform {
+          cx.stop_propagation();
+          let delta = event.delta.pixel_delta(px(20.0)).y;
+          let step = if delta > px(0.0) { 0.10 } else { -0.10 };
+          this.state.update(cx, |s, cx| {
+            s.adjust_zoom_by(step);
+            cx.notify();
+          });
+        }
+      }))
+      .child(page_view)
   }
 }

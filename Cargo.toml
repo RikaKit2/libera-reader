@@ -6,12 +6,12 @@ members = [
 ]
 
 [workspace.dependencies]
-gpui-kit = "0.6.4"
-gpui = { package = "gpui-pre", version = "0.3.5" }
-gpui_platform = { package = "gpui-pre-platform", version = "0.3.5", features = ["font-kit", "wayland", "x11"] }
-gpui-base = { package = "gpui-base", version = "0.6.4" }
-gpui-component = { package = "gpui-component", version = "0.6.4" }
-gpui-component-assets = { package = "gpui-kit-assets", version = "0.6.4" }
+gpui-kit = "0.7.0"
+gpui = { package = "gpui-pre", version = "0.3.7" }
+gpui_platform = { package = "gpui-pre-platform", version = "0.3.7", features = ["font-kit", "wayland", "x11"] }
+gpui-base = { package = "gpui-base", version = "0.7.0" }
+gpui-component = { package = "gpui-component", version = "0.7.0" }
+gpui-component-assets = { package = "gpui-kit-assets", version = "0.7.0" }
 gxhash = "3.5"
 directories = "6.0.0"
 notify = "8.2.0"
@@ -66,5 +66,8 @@ gpui-pre-platform = { opt-level = 3 }
 rustybuzz = { opt-level = 3 }
 taffy = { opt-level = 3 }
 ttf-parser = { opt-level = 3 }
-[profile.dev.package."*"]
-opt-level = 3
+resvg = { opt-level = 3 }
+smol = { opt-level = 3 }
+
+[profile.dev.build-override]
+opt-level = 0
