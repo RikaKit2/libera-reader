@@ -2496,8 +2496,7 @@ dependencies = [
 [[package]]
 name = "gpui-base"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64bb52b29a8dcdc8d3f595b8b0839c076f237572ab601ba4577d3da8ae085728"
+source = "git+https://github.com/RikaKit2/gpui-kit.git?branch=feat%2Fdynamic-linking#dc151590d6f91fa0a29da0acb4e327958a77dbf8"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -2536,8 +2535,7 @@ dependencies = [
 [[package]]
 name = "gpui-component"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac246c9f3d9771e56fbf90bd7d8656d0992d83940b580debf2efab4c44fe91df"
+source = "git+https://github.com/RikaKit2/gpui-kit.git?branch=feat%2Fdynamic-linking#dc151590d6f91fa0a29da0acb4e327958a77dbf8"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2580,8 +2578,7 @@ dependencies = [
 [[package]]
 name = "gpui-component-macros"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b3574bd6e108b9a09c9d584e60626c9140add6d8fe839bf57627577b7977e"
+source = "git+https://github.com/RikaKit2/gpui-kit.git?branch=feat%2Fdynamic-linking#dc151590d6f91fa0a29da0acb4e327958a77dbf8"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -2592,12 +2589,12 @@ dependencies = [
 [[package]]
 name = "gpui-kit"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8edb2a8eafdb6e65ad1a80625347b93f8e54cbf3fac82a584e4924cda674d5c2"
+source = "git+https://github.com/RikaKit2/gpui-kit.git?branch=feat%2Fdynamic-linking#dc151590d6f91fa0a29da0acb4e327958a77dbf8"
 dependencies = [
  "gpui-base",
  "gpui-component",
  "gpui-kit-assets",
+ "gpui-kit-dylib",
  "gpui-pre",
  "gpui-pre-platform",
  "gpui-pre-web",
@@ -2606,8 +2603,7 @@ dependencies = [
 [[package]]
 name = "gpui-kit-assets"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "885a2abd416e29a76ef1553aea06eb2645a9290cf5e1d3fa02d218ecac6d318f"
+source = "git+https://github.com/RikaKit2/gpui-kit.git?branch=feat%2Fdynamic-linking#dc151590d6f91fa0a29da0acb4e327958a77dbf8"
 dependencies = [
  "anyhow",
  "gpui-pre",
@@ -2616,6 +2612,18 @@ dependencies = [
  "rust-embed",
  "wasm-bindgen",
  "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "gpui-kit-dylib"
+version = "0.7.0"
+source = "git+https://github.com/RikaKit2/gpui-kit.git?branch=feat%2Fdynamic-linking#dc151590d6f91fa0a29da0acb4e327958a77dbf8"
+dependencies = [
+ "gpui-base",
+ "gpui-component",
+ "gpui-kit-assets",
+ "gpui-pre",
+ "gpui-pre-platform",
 ]
 
 [[package]]

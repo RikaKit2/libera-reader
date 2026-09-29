@@ -8,6 +8,7 @@ edition = "2024"
 
 [features]
 default = []
+dev = ["gpui-kit/dynamic_linking"]
 dhat-heap = ["dep:dhat"]
 
 [dependencies]

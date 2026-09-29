@@ -71,3 +71,9 @@ smol = { opt-level = 3 }
 
 [profile.dev.build-override]
 opt-level = 0
+
+[patch.crates-io]
+gpui-kit = { git = "https://github.com/RikaKit2/gpui-kit.git", branch = "feat/dynamic-linking" }
+gpui-base = { git = "https://github.com/RikaKit2/gpui-kit.git", branch = "feat/dynamic-linking" }
+gpui-component = { git = "https://github.com/RikaKit2/gpui-kit.git", branch = "feat/dynamic-linking" }
+gpui-kit-assets = { git = "https://github.com/RikaKit2/gpui-kit.git", branch = "feat/dynamic-linking" }
