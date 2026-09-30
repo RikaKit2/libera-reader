@@ -5,7 +5,7 @@ RUSTC_BOOTSTRAP = "1"
 rustflags = ["-C", "target-cpu=native"]
 
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-cpu=native", "-C", "link-arg=--ld-path=wild", "-Zshare-generics=y"]
+rustflags = ["-C", "target-cpu=native", "-C", "link-arg=--ld-path=wild", "-C", "prefer-dynamic", "-Zshare-generics=y"]
 
 [alias]
 run-dev = "run --package libera-reader --features dev"
@@ -15,9 +15,10 @@ build-dev = "build --package libera-reader --features dev"
 codegen-units = 16
 lto = false
 panic = "unwind"
-strip = "debuginfo"
-debug = 1
-opt-level = "s"
+strip = "none"
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+opt-level = 1
 incremental = true
 
 [profile.dev.package."*"]

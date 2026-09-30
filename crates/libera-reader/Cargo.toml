@@ -8,10 +8,11 @@ edition = "2024"
 
 [features]
 default = []
-dev = ["gpui-kit/dynamic_linking"]
+dev = ["dep:gpui-kit-dynlib"]
 dhat-heap = ["dep:dhat"]
 
 [dependencies]
+gpui-kit-dynlib = { version = "0.7.0", path = "../gpui-kit-dynlib", optional = true }
 gpui-kit = { workspace = true }
 gpui = { workspace = true }
 gpui_platform = { workspace = true }
@@ -49,7 +50,6 @@ once_cell = { workspace = true }
 concurrent-queue = { workspace = true }
 num_cpus = { workspace = true }
 sys-locale = { workspace = true }
-dashmap = { workspace = true }
 jwalk = { workspace = true }
 chrono = { workspace = true }
 indexmap = { workspace = true }

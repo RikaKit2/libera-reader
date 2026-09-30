@@ -5,9 +5,13 @@
 #[global_allocator]
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
-#[cfg(not(feature = "dhat-heap"))]
+#[cfg(all(not(feature = "dhat-heap"), not(feature = "dev")))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[cfg(feature = "dev")]
+#[allow(unused_imports, clippy::single_component_path_imports)]
+use gpui_kit_dynlib as _;
 
 use anyhow::Result;
 use gpui::{

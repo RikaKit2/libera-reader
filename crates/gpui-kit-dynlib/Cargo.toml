@@ -1,0 +1,17 @@
+[package]
+name = "gpui-kit-dynlib"
+version = "0.7.0"
+edition = "2024"
+description = "Dynamically linked GPUI Kit engine with MiMalloc allocator"
+
+[lib]
+crate-type = ["dylib"]
+
+[dependencies]
+gpui-kit = { workspace = true, features = ["component", "assets"] }
+gpui = { workspace = true }
+gpui_platform = { workspace = true }
+gpui-base = { workspace = true }
+gpui-component = { workspace = true }
+gpui-component-assets = { workspace = true }
+mimalloc = { workspace = true }
