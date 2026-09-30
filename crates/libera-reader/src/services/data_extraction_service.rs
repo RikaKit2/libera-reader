@@ -59,68 +59,42 @@ pub async fn run(
           return;
         }
 
-        // 2. Compute fallback thumbnail path and check if PNG already exists on disk
-        let fallback_path = app_dirs.dir_of_unhashed_books.join(format!("{}.png", book_size_bytes));
-        if fallback_path.exists() {
-          books_state.mark_thumbnail_extracted(&book.book_path);
-          drop(permit);
-          return;
-        }
-
-        // 3. Skip if a usable thumbnail already exists on disk
+        // 2. Skip if a usable, non-empty thumbnail already exists on disk
         if book.has_thumbnail_on_disk(&db, &app_dirs.thumbnails_dir) {
           books_state.mark_thumbnail_extracted(&book.book_path);
           drop(permit);
           return;
         }
 
-        // Determine correct thumbnail path based on book_sizes and book_hashes
-        let mut path_to_thumbnail = None;
+        // 3. Determine book hash if duplicate size
         let mut computed_hash = None;
 
         if let Ok(Some(book_sizes)) = db.get_primary::<BookSizes>(book.book_size) {
           match book_sizes.book_type {
-            BookType::UniqueSize { .. } => {
-              path_to_thumbnail = Some(fallback_path.clone());
-            }
+            BookType::UniqueSize { .. } => {}
             DuplicateSize(map) => {
               if let Some(dup_data) = map.get(&book.book_path) {
                 match dup_data {
                   BookHash(hash) => {
-                    path_to_thumbnail =
-                      Some(app_dirs.dir_of_hashed_books.join(format!("{}.png", hash.0)));
                     computed_hash = Some(hash.clone());
                   }
-                  MutoolData(_) => match fallback_path.exists() {
-                    true => {
-                      path_to_thumbnail = Some(fallback_path.clone());
+                  MutoolData(_) => {
+                    if let Ok(hash_str) =
+                      crate::utils::calc_file_hash(book.book_path.as_pathbuf()).await
+                    {
+                      computed_hash = Some(crate::db::models::books::BookHash(hash_str.into()));
                     }
-                    false => {
-                      if let Ok(hash_str) =
-                        crate::utils::calc_file_hash(book.book_path.as_pathbuf()).await
-                      {
-                        let hash = crate::db::models::books::BookHash(hash_str.into());
-                        let hashed_path =
-                          app_dirs.dir_of_hashed_books.join(format!("{}.png", hash.0));
-                        match hashed_path.exists() {
-                          true => {
-                            path_to_thumbnail = Some(hashed_path);
-                          }
-                          false => {
-                            path_to_thumbnail = Some(hashed_path);
-                            computed_hash = Some(hash);
-                          }
-                        }
-                      }
-                    }
-                  },
+                  }
                 }
               }
             }
           }
         }
 
-        let path_to_thumbnail = path_to_thumbnail.unwrap_or(fallback_path);
+        let path_to_thumbnail = app_dirs.book_cover_path(
+          book_size_bytes,
+          computed_hash.as_ref().map(|h| h.0.as_str()),
+        );
 
         if let Some(parent) = path_to_thumbnail.parent() {
           let _ = std::fs::create_dir_all(parent);

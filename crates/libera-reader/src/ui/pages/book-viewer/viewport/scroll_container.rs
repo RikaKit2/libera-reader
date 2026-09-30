@@ -39,6 +39,8 @@ impl ScrollContainer {
     let runtime = crate::TOKIO.get().unwrap();
     let coordinator = cx.services().extraction_coordinator.clone();
 
+    let workers = cx.settings().read().workers_num.max(1) as usize;
+    let app_dirs = cx.app_dirs().clone();
     spawn_book_page_loader(
       runtime,
       cache.clone(),
@@ -47,6 +49,8 @@ impl ScrollContainer {
       load_rx,
       notify_tx,
       coordinator,
+      app_dirs,
+      workers,
     );
 
     cx.new(|cx| {
@@ -84,11 +88,17 @@ impl ScrollContainer {
 
 impl Render for ScrollContainer {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let (total_pages, current_book, zoom_factor, active_page) = {
+    let (total_pages, current_book, book_size, book_hash, zoom_factor, active_page) = {
       let s = self.state.read(cx);
-      (s.total_pages, s.current_book.clone(), s.zoom_factor, s.current_page)
+      (
+        s.total_pages,
+        s.current_book.clone(),
+        s.book_size,
+        s.book_hash.clone(),
+        s.zoom_factor,
+        s.current_page,
+      )
     };
-
     let total_items = total_pages.max(1);
 
     // Compute dynamic item sizes for each page based on its aspect ratio & zoom
@@ -214,6 +224,8 @@ impl Render for ScrollContainer {
                   page: page_num,
                   book_path: book_path.clone(),
                   dpi: target_dpi,
+                  book_size,
+                  book_hash: book_hash.clone(),
                 });
                 (Some(img.clone()), false)
               }
@@ -225,6 +237,8 @@ impl Render for ScrollContainer {
                   page: page_num,
                   book_path: book_path.clone(),
                   dpi: target_dpi,
+                  book_size,
+                  book_hash: book_hash.clone(),
                 });
                 (None, true)
               }

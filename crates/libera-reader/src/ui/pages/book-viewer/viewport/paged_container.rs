@@ -30,6 +30,8 @@ impl PagedContainer {
     let runtime = crate::TOKIO.get().unwrap();
     let coordinator = cx.services().extraction_coordinator.clone();
 
+    let workers = cx.settings().read().workers_num.max(1) as usize;
+    let app_dirs = cx.app_dirs().clone();
     spawn_book_page_loader(
       runtime,
       cache.clone(),
@@ -38,6 +40,8 @@ impl PagedContainer {
       load_rx,
       notify_tx,
       coordinator,
+      app_dirs,
+      workers,
     );
 
     cx.new(|cx| {
@@ -59,9 +63,9 @@ impl PagedContainer {
 
 impl Render for PagedContainer {
   fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let (current_page, current_book, zoom_factor) = {
+    let (current_page, current_book, book_size, book_hash, zoom_factor) = {
       let s = self.state.read(cx);
-      (s.current_page, s.current_book.clone(), s.zoom_factor)
+      (s.current_page, s.current_book.clone(), s.book_size, s.book_hash.clone(), s.zoom_factor)
     };
 
     // Update active visible page window in atomic for prefetch bounds
@@ -84,8 +88,10 @@ impl Render for PagedContainer {
           Some(PageImageState::Loaded(img)) => {
             let _ = self.load_tx.send(PageLoadRequest {
               page: current_page,
-              book_path: path,
+              book_path: path.clone(),
               dpi: target_dpi,
+              book_size,
+              book_hash: book_hash.clone(),
             });
             (Some(img.clone()), false)
           }
@@ -97,6 +103,8 @@ impl Render for PagedContainer {
               page: current_page,
               book_path: path,
               dpi: target_dpi,
+              book_size,
+              book_hash,
             });
             (None, true)
           }

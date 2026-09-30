@@ -96,4 +96,66 @@ impl Dirs {
     }
     poss_errors
   }
+
+  /// Returns the base directory for a specific book on disk.
+  /// If hash is provided, uses `thumbnails/hashed_books/<hash>`.
+  /// Otherwise uses `thumbnails/unhashed_books/<book_size>`.
+  pub fn book_dir(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf {
+    match hash_opt {
+      Some(hash) if !hash.is_empty() => self.dir_of_hashed_books.join(hash),
+      _ => self.dir_of_unhashed_books.join(book_size.to_string()),
+    }
+  }
+
+  /// Path to the cover image of the book (`cover.png`).
+  pub fn book_cover_path(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf {
+    self.book_dir(book_size, hash_opt).join("cover.png")
+  }
+
+  /// Path to the legacy fallback cover path (e.g. `unhashed_books/<size>.png` or `hashed_books/<hash>.png`).
+  pub fn legacy_book_cover_path(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf {
+    match hash_opt {
+      Some(hash) if !hash.is_empty() => self.dir_of_hashed_books.join(format!("{}.png", hash)),
+      _ => self.dir_of_unhashed_books.join(format!("{}.png", book_size)),
+    }
+  }
+
+  /// Path to the directory containing rendered pages for this book.
+  pub fn book_pages_dir(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf {
+    self.book_dir(book_size, hash_opt).join("pages")
+  }
+
+  /// Path to a specific rendered page PNG on disk (`pages/p{page}_{dpi}dpi.png`).
+  pub fn book_page_path(
+    &self, book_size: u64, hash_opt: Option<&str>, page: usize, dpi: u32,
+  ) -> PathBuf {
+    self.book_pages_dir(book_size, hash_opt).join(format!("p{}_{}dpi.png", page, dpi))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use tempfile::tempdir;
+
+  #[test]
+  fn test_book_paths_generation() {
+    let tmp = tempdir().unwrap();
+    let dirs = Dirs::new(tmp.path().to_path_buf()).unwrap();
+    let app_dirs = AppDirs { inn: Arc::new(dirs) };
+
+    // Hashed book
+    let hash_dir = app_dirs.book_dir(1024, Some("a1b2c3d4"));
+    assert!(hash_dir.ends_with("thumbnails/hashed_books/a1b2c3d4"));
+    let cover_path = app_dirs.book_cover_path(1024, Some("a1b2c3d4"));
+    assert!(cover_path.ends_with("thumbnails/hashed_books/a1b2c3d4/cover.png"));
+    let page_path = app_dirs.book_page_path(1024, Some("a1b2c3d4"), 5, 150);
+    assert!(page_path.ends_with("thumbnails/hashed_books/a1b2c3d4/pages/p5_150dpi.png"));
+
+    // Unhashed book
+    let unhash_dir = app_dirs.book_dir(2048, None);
+    assert!(unhash_dir.ends_with("thumbnails/unhashed_books/2048"));
+    let unhash_cover = app_dirs.book_cover_path(2048, None);
+    assert!(unhash_cover.ends_with("thumbnails/unhashed_books/2048/cover.png"));
+  }
 }

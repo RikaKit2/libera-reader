@@ -83,6 +83,7 @@ pub struct NotifyService {
   settings: SETTINGS,
   db: DB,
   books_state: BooksState,
+  app_dirs: crate::app_dirs::AppDirs,
 }
 
 impl NotifyService {
@@ -93,11 +94,13 @@ impl NotifyService {
       cx.settings().clone(),
       cx.db().clone(),
       cx.books_state().clone(),
+      cx.app_dirs().clone(),
     )
   }
 
   pub fn from_deps(
     not_cached_books: NotCachedBooks, settings: SETTINGS, db: DB, books_state: BooksState,
+    app_dirs: crate::app_dirs::AppDirs,
   ) -> Result<Self> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let watcher = notify::recommended_watcher(move |res| match res {
@@ -116,6 +119,7 @@ impl NotifyService {
       settings,
       db,
       books_state,
+      app_dirs,
     })
   }
 
@@ -133,11 +137,12 @@ impl NotifyService {
           let db = self.db.clone();
           let not_cached_books = self.not_cached_books.clone();
           let books_state = self.books_state.clone();
+          let app_dirs = self.app_dirs.clone();
           self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
           self.status = WorkStatus::Working;
 
           tokio::spawn(async move {
-            run_event_loop(rx, not_cached_books, db, books_state).await;
+            run_event_loop(rx, not_cached_books, db, books_state, app_dirs).await;
           });
         }
       }
@@ -159,7 +164,7 @@ impl NotifyService {
 /// Main event processing loop with batching using tokio::select!
 async fn run_event_loop(
   mut rx: UnboundedReceiver<notify::Event>, not_cached_books: NotCachedBooks, db: DB,
-  books_state: BooksState,
+  books_state: BooksState, app_dirs: crate::app_dirs::AppDirs,
 ) {
   loop {
     let mut buffer: Vec<FSEvent> = Vec::new();
@@ -188,7 +193,7 @@ async fn run_event_loop(
 
     // Process buffer after timer expiration
     if !buffer.is_empty() {
-      process_batch(buffer, not_cached_books.clone(), db.clone(), books_state.clone()).await;
+      process_batch(buffer, not_cached_books.clone(), db.clone(), books_state.clone(), app_dirs.clone()).await;
     }
   }
 }
@@ -196,6 +201,7 @@ async fn run_event_loop(
 /// Process the entire batch of events in a SINGLE thread and a SINGLE DB transaction
 async fn process_batch(
   batch: Vec<FSEvent>, not_cached_books: NotCachedBooks, db: DB, books_state: BooksState,
+  app_dirs: crate::app_dirs::AppDirs,
 ) {
   tokio::task::spawn_blocking(move || {
     let start_time = std::time::Instant::now();
@@ -229,7 +235,7 @@ async fn process_batch(
           FSEvent::RemoveFile { file_path } => {
             // Use the new function that doesn't require reading metadata from disk
             if let Some(book_path) = BookPath::new(&file_path) {
-              match fs_handlers::remove_book_by_path(&file_path, rw_t) {
+              match fs_handlers::remove_book_by_path(&file_path, rw_t, &app_dirs) {
                 Ok(RemoveStatus::FullyDeleted) => {
                   removed_paths.push(book_path);
                 }
@@ -280,7 +286,7 @@ async fn process_batch(
 
           FSEvent::RemoveDir { dir_path } => {
             let dir = BookDir::new(dir_path.clone());
-            if let Err(err) = fs_handlers::remove_books_in_dir(dir.clone(), rw_t) {
+            if let Err(err) = fs_handlers::remove_books_in_dir(dir.clone(), rw_t, &app_dirs) {
               debug!("Error removing books in dir: {:?}", err);
             } else {
               removed_dirs.push(dir);

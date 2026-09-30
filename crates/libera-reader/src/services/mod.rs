@@ -98,6 +98,7 @@ impl Services {
       settings.clone(),
       db.clone(),
       books_state.clone(),
+      app_dirs.clone(),
     )?;
     let scan_service = ScanService::from_deps(
       settings.clone(),

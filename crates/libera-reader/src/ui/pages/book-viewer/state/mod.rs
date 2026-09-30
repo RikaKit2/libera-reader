@@ -42,6 +42,8 @@ pub struct SearchHit {
 pub struct BookViewerState {
   pub current_book: Option<BookPath>,
   pub current_document: Option<DocumentData>,
+  pub book_size: u64,
+  pub book_hash: Option<String>,
   pub page_sizes: Vec<PageDimensions>,
   pub current_page: usize,
   pub total_pages: usize,
@@ -83,6 +85,8 @@ impl Default for BookViewerState {
     Self {
       current_book: None,
       current_document: None,
+      book_size: 0,
+      book_hash: None,
       page_sizes: Vec::new(),
       current_page: 1,
       total_pages: 1,
@@ -155,6 +159,8 @@ impl BookViewerState {
   }
 
   pub fn set_book(&mut self, path: BookPath, total_pages: usize, title: SharedString) {
+    self.book_size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
+    self.book_hash = None;
     self.current_book = Some(path);
     self.total_pages = total_pages.max(1);
     self.current_page = 1;
@@ -164,13 +170,16 @@ impl BookViewerState {
     self.selection_handles.clear();
   }
 
+  pub fn set_book_metadata(&mut self, size: u64, hash: Option<String>) {
+    if size > 0 {
+      self.book_size = size;
+    }
+    self.book_hash = hash;
+  }
+
   pub fn set_document(&mut self, doc: DocumentData, title: SharedString) {
     self.current_book = Some(doc.book_path.clone());
-    self.total_pages = doc.total_pages.max(1);
-    self.page_sizes = doc.page_sizes.clone();
-    self.outline = doc.outline.iter().cloned().map(OutlineItem::from).collect();
-    self.current_document = Some(doc);
-    self.current_page = 1;
+    self.book_size = std::fs::metadata(doc.book_path.as_pathbuf()).map(|m| m.len()).unwrap_or(self.book_size);
     self.title = title;
     self.selected_text = None;
     self.selection_page = None;

@@ -173,49 +173,83 @@ impl Book {
   }
 
   /// Compute the path to the thumbnail PNG on disk by traversing BookSizes/BookHashes metadata.
-  /// Returns None if no PNG file exists at the predicted path.
+  /// Checks both the unified book directory (thumbnails/.../<id>/cover.png) and legacy paths.
+  /// Validates that the file exists and is non-empty. Corrupted (0-byte) files are automatically
+  /// deleted and return None so mutool can self-heal them.
   pub fn get_thumbnail_png_path(
     &self, db: &crate::db::DB, thumbnails_dir: &Path,
   ) -> anyhow::Result<Option<PathBuf>> {
     use crate::app_dirs::{HASHED_BOOKS_DIR, UNHASHED_BOOKS_DIR};
+
+    let is_valid_png = |path: &Path| -> bool {
+      if path.exists() {
+        match std::fs::metadata(path) {
+          Ok(m) if m.len() > 0 => true,
+          _ => {
+            let _ = std::fs::remove_file(path);
+            false
+          }
+        }
+      } else {
+        false
+      }
+    };
+
     let crate::db::models::books::book::BookSize::BYTES(size_bytes) = self.book_size;
-    let unhashed_path = thumbnails_dir.join(UNHASHED_BOOKS_DIR).join(format!("{}.png", size_bytes));
+    let unhashed_dir = thumbnails_dir.join(UNHASHED_BOOKS_DIR);
+    let hashed_dir = thumbnails_dir.join(HASHED_BOOKS_DIR);
+
+    let unhashed_cover = unhashed_dir.join(size_bytes.to_string()).join("cover.png");
+    let unhashed_legacy = unhashed_dir.join(format!("{}.png", size_bytes));
+
     if let Some(book_sizes) = db.get_primary::<BookSizes>(self.book_size)? {
       match &book_sizes.book_type {
         BookType::UniqueSize { .. } => {
-          if unhashed_path.exists() {
-            return Ok(Some(unhashed_path));
+          if is_valid_png(&unhashed_cover) {
+            return Ok(Some(unhashed_cover));
+          }
+          if is_valid_png(&unhashed_legacy) {
+            return Ok(Some(unhashed_legacy));
           }
         }
         BookType::DuplicateSize(map) => {
           if let Some(dup_data) = map.get(&self.book_path) {
             match dup_data {
               DuplicateBookData::BookHash(hash) => {
-                let hashed_path =
-                  thumbnails_dir.join(HASHED_BOOKS_DIR).join(format!("{}.png", hash.0));
-                if hashed_path.exists() {
-                  return Ok(Some(hashed_path));
+                let hashed_cover = hashed_dir.join(hash.0.as_str()).join("cover.png");
+                let hashed_legacy = hashed_dir.join(format!("{}.png", hash.0));
+                if is_valid_png(&hashed_cover) {
+                  return Ok(Some(hashed_cover));
+                }
+                if is_valid_png(&hashed_legacy) {
+                  return Ok(Some(hashed_legacy));
                 }
               }
               DuplicateBookData::MutoolData(_) => {
-                // No hash computed yet — might still have the unhashed PNG
-                if unhashed_path.exists() {
-                  return Ok(Some(unhashed_path));
+                if is_valid_png(&unhashed_cover) {
+                  return Ok(Some(unhashed_cover));
+                }
+                if is_valid_png(&unhashed_legacy) {
+                  return Ok(Some(unhashed_legacy));
                 }
               }
             }
           } else {
-            // Book path not found in map — unusual, try unhashed
-            if unhashed_path.exists() {
-              return Ok(Some(unhashed_path));
+            if is_valid_png(&unhashed_cover) {
+              return Ok(Some(unhashed_cover));
+            }
+            if is_valid_png(&unhashed_legacy) {
+              return Ok(Some(unhashed_legacy));
             }
           }
         }
       }
     } else {
-      // Fallback: try unhashed path
-      if unhashed_path.exists() {
-        return Ok(Some(unhashed_path));
+      if is_valid_png(&unhashed_cover) {
+        return Ok(Some(unhashed_cover));
+      }
+      if is_valid_png(&unhashed_legacy) {
+        return Ok(Some(unhashed_legacy));
       }
     }
 

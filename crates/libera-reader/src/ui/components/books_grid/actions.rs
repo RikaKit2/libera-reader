@@ -10,16 +10,41 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Records the book in history and triggers viewer navigation and document loading.
 pub fn book_card_click(path: BookPath, cx: &mut App) {
   push_at_history(path.clone(), cx);
+  cx.services()
+    .extraction_coordinator
+    .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::ForegroundReader);
   let _ = cx.settings_mut().set_route(RootRoute::BookViewer);
 
   let title = path.display_name();
+  let (size, hash) = {
+    let size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
+    let hash = if let Ok(Some(book)) = crate::db::models::books::book::Book::get(cx.db(), path.clone()) {
+      if let Ok(Some(book_sizes)) = cx.db().get_primary::<crate::db::models::books::book_sizes::BookSizes>(book.book_size) {
+        match book_sizes.book_type {
+          crate::db::models::books::BookType::DuplicateSize(map) => {
+            if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) = map.get(&path) {
+              Some(h.0.to_string())
+            } else {
+              None
+            }
+          }
+          _ => None,
+        }
+      } else {
+        None
+      }
+    } else {
+      None
+    };
+    (size, hash)
+  };
 
   let viewer_state = cx.book_viewer_state().clone();
   viewer_state.update(cx, |s, cx| {
     s.set_book(path.clone(), 1, title.clone());
+    s.set_book_metadata(size, hash);
     cx.notify();
   });
-
   let path_clone = path.clone();
   let viewer_state_worker = viewer_state.clone();
   let title_clone = title.clone();

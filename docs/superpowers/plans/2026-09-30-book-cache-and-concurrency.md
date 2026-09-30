@@ -26,11 +26,7 @@
 - Потребляет: `book_size: u64`, `hash_opt: Option<&str>`
 - Производит:
   - `AppDirs::book_dir(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf`
-  - `AppDirs::book_cover_path(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf`
-  - `AppDirs::book_pages_dir(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf`
-  - `AppDirs::book_page_path(&self, book_size: u64, hash_opt: Option<&str>, page: usize, dpi: u32) -> PathBuf`
-
-- [ ] **Шаг 1: Написать тест на пути кэша книги**
+- [x] **Шаг 1: Написать тест на пути кэша книги**
 
 В `crates/libera-reader/src/app_dirs.rs`:
 ```rust
@@ -60,9 +56,7 @@ mod tests {
 }
 ```
 
-- [ ] **Шаг 2: Реализовать методы в `AppDirs` и `Dirs`**
-
-```rust
+- [x] **Шаг 2: Реализовать методы в `AppDirs` и `Dirs`**
 impl Dirs {
   pub fn book_dir(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf {
     match hash_opt {
@@ -87,36 +81,45 @@ impl Dirs {
 }
 ```
 
-- [ ] **Шаг 3: Проверить через `cargo fix-all`**
+- [x] **Шаг 3: Проверить через `cargo fix-all`**
 
 ---
 
-### Задача 2: Ограничение параллелизма `mutool` и предотвращение 100% CPU
+### Задача 2: Координация ресурсов через `ExtractionCoordinator` и единое ограничение `workers_num`
 
 **Файлы:**
-- Изменить: `crates/libera-reader/src/ui/pages/book-viewer/loader.rs:30-40`
-- Изменить: `crates/libera-reader/src/services/data_extraction_service.rs:20-25`
+- Изменить: `crates/libera-reader/src/ui/pages/book-viewer/loader.rs:30-45`
+- Изменить: `crates/libera-reader/src/services/extraction_coordinator.rs`
+- Изменить: `crates/libera-reader/src/ui/pages/book-viewer/mod.rs` (переключение режима при входе/выходе)
 
 **Интерфейсы:**
-- Потребляет: физические ядра процессора (`num_cpus::get_physical()`)
-- Производит: Ограничение пула воркеров максимум до 2 потоков на 2-ядерных CPU
+- Потребляет: `ExtractionCoordinator`, `cx.settings().read().workers_num`
+- Производит: Безусловную приоритизацию читалки и синхронизацию лимита потоков `mutool` между библиотекой и `BookViewer`
 
-- [ ] **Шаг 1: Ограничить количество одновременных `mutool` в `loader.rs`**
+**Архитектурная роль `ExtractionCoordinator`:**
+1. **При входе в `BookViewer`**: вызывается `coordinator.set_mode(ExtractionCoordinatorMode::ForegroundReader)`. Фоновое извлечение обложек в библиотеке мгновенно блокируется на `wait_for_library_mode` — процессор на 100% освобождается для активного чтения.
+2. **При выходе из `BookViewer`** (по кнопке «Выход» или `Escape`): вызывается `coordinator.set_mode(ExtractionCoordinatorMode::BackgroundLibrary)`. Фоновые службы библиотеки возобновляют работу.
+3. **Единый лимит `workers_num`**: читалка и библиотека используют одно и то же число воркеров из `Settings` (выбранное пользователем в `WorkersSelect`). Никаких дублирующих настроек.
+
+- [x] **Шаг 1: Привязать семафор `loader.rs` к единой настройке `workers_num`**
 
 В `crates/libera-reader/src/ui/pages/book-viewer/loader.rs`:
 ```rust
-  // На 2-ядерном CPU (4 потока) нельзя запускать 4 тяжелых процесса mutool одновременно.
-  // Ограничиваем пул до числа физических ядер (максимум 2-3).
-  let physical_cores = num_cpus::get_physical();
-  let thread_count = physical_cores.clamp(1, 2);
-  let semaphore = Arc::new(tokio::sync::Semaphore::new(thread_count));
+  // Читаем пользовательский лимит воркеров из настроек вместо слепого available_parallelism.
+  // На 2-ядерном CPU пользователя (4 потока) дефолтное значение 2 потока.
+  let workers = settings_workers_num.clamp(1, num_cpus::get_physical().max(2));
+  let semaphore = Arc::new(tokio::sync::Semaphore::new(workers));
 ```
 
-- [ ] **Шаг 2: Устранить тройной запуск `mutool` на каждый кадр**
-  - Объединить получение структурированного текста и ссылок или кэшировать их один раз в `BookViewerCache` без перезапуска `mutool` при зуме.
-  - Текстовый слой `stext` и ссылки `links` извлекаются **один раз на страницу на весь сеанс книги** (они не зависят от DPI растра).
+- [x] **Шаг 2: Устранить тройной запуск `mutool` на каждый кадр**
+  - Текстовый слой `stext` и ссылки `links` извлекаются **один раз на страницу на весь сеанс книги** и сохраняются в кэше `BookViewerCache` (они не зависят от DPI растра).
+  - При повторном запросе той же страницы извлекается только растр `mutool draw` (если его ещё нет на диске).
 
-- [ ] **Шаг 3: Проверить через `cargo fix-all`**
+- [x] **Шаг 3: Переключать `ExtractionCoordinatorMode` при входе и выходе из читалки**
+  - В `book_card_click`: `coordinator.set_mode(ExtractionCoordinatorMode::ForegroundReader)`.
+  - В `ExitViewer`: `coordinator.set_mode(ExtractionCoordinatorMode::BackgroundLibrary)`.
+
+- [x] **Шаг 4: Проверить через `cargo fix-all`**
 
 ---
 
@@ -130,7 +133,7 @@ impl Dirs {
 - Потребляет: `PageLoadRequest { page, book_path, dpi, book_size, book_hash }`
 - Производит: Проверку наличия файла `book_page_path` на диске перед вызовом `mutool`, валидацию целостности (не пустой файл) и авто-регенерацию при ошибке.
 
-- [ ] **Шаг 1: Добавить проверку наличия файла на диске перед запуском `mutool`**
+- [x] **Шаг 1: Добавить проверку наличия файла на диске перед запуском `mutool`**
 
 В `tokio::task::spawn_blocking` в `loader.rs`:
 ```rust
@@ -173,7 +176,7 @@ impl Dirs {
   };
 ```
 
-- [ ] **Шаг 2: Проверить через `cargo fix-all`**
+- [x] **Шаг 2: Проверить через `cargo fix-all`**
 
 ---
 
@@ -188,7 +191,7 @@ impl Dirs {
 - Потребляет: Метаданные книги в БД
 - Производит: Проверку реального существования файла `cover.png` на диске. Если в БД стоит отметка, что миниатюра извлечена, но физический файл отсутствует или повреждён — автоматически запланировать извлечение через `mutool`.
 
-- [ ] **Шаг 1: Написать метод валидации обложки на диске**
+- [x] **Шаг 1: Написать метод валидации обложки на диске**
 
 В `crates/libera-reader/src/db/models/books/book/mod.rs`:
 ```rust
@@ -207,10 +210,10 @@ impl Dirs {
   }
 ```
 
-- [ ] **Шаг 2: Самовосстановление в `thumbnails.rs`**
+- [x] **Шаг 2: Самовосстановление в `thumbnails.rs`**
   Если `book.is_thumbnail_valid_on_disk(...)` возвращает `false`, сервис фоновой загрузки повторно отправляет задачу в `data_extraction_service`, восстанавливая отсутствующий PNG через `mutool`.
 
-- [ ] **Шаг 3: Проверить через `cargo fix-all`**
+- [x] **Шаг 3: Проверить через `cargo fix-all`**
 
 ---
 
@@ -224,7 +227,7 @@ impl Dirs {
 - Потребляет: `book: &Book`, `app_dirs: &AppDirs`
 - Производит: Удаление всей директории `book_dir` книги (`cover.png` + `pages/*`) в один системный вызов.
 
-- [ ] **Шаг 1: Добавить удаление директории кэша книги при удалении записи**
+- [x] **Шаг 1: Добавить удаление директории кэша книги при удалении записи**
 
 В `crates/libera-reader/src/services/notify_service/fs_handlers/remove_book.rs`:
 ```rust
@@ -244,7 +247,7 @@ impl Dirs {
   }
 ```
 
-- [ ] **Шаг 2: Проверить через `cargo fix-all`**
+- [x] **Шаг 2: Проверить через `cargo fix-all`**
 
 ---
 

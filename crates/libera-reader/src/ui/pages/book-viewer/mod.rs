@@ -194,11 +194,17 @@ impl Render for BookViewer {
             s.toggle_search();
             cx.notify();
           } else {
+            cx.services()
+              .extraction_coordinator
+              .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary);
             let _ = cx.settings_mut().set_route(RootRoute::Main(Route::Library));
           }
         });
       }))
       .on_action(cx.listener(|_this, _: &actions::ExitViewer, _window, cx| {
+        cx.services()
+          .extraction_coordinator
+          .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary);
         let _ = cx.settings_mut().set_route(RootRoute::Main(Route::Library));
       }))
       .on_action(cx.listener(|this, _: &actions::ToggleFullscreen, window, cx| {

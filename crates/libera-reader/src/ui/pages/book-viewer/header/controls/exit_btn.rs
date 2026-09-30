@@ -35,6 +35,9 @@ impl Render for ExitBtn {
       .on_mouse_down(
         MouseButton::Left,
         cx.listener(move |_this, _, _window, cx| {
+          cx.services()
+            .extraction_coordinator
+            .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary);
           let _ = cx.settings_mut().set_route(RootRoute::Main(Route::Library));
         }),
       )
