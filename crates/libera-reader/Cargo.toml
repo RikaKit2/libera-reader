@@ -9,7 +9,7 @@ edition = "2024"
 [features]
 default = []
 dev = ["dep:gpui-kit-dynlib"]
-dhat-heap = ["dep:dhat"]
+dhat-heap = ["dep:dhat", "gpui-kit-dynlib?/dhat-heap"]
 
 [dependencies]
 gpui-kit-dynlib = { version = "0.7.0", path = "../gpui-kit-dynlib", optional = true }

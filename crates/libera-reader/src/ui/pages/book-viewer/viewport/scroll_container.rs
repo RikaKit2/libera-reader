@@ -156,11 +156,8 @@ impl Render for ScrollContainer {
       };
 
       let new_page_y = page_y_offset(active_page);
-      let new_page_h = if active_page <= item_sizes.len() {
-        item_sizes[active_page - 1].height
-      } else {
-        px(0.0)
-      };
+      let new_page_h =
+        if active_page <= item_sizes.len() { item_sizes[active_page - 1].height } else { px(0.0) };
 
       let target_y = new_page_y + new_page_h * fraction;
       self.scroll_handle.set_offset(point(px(0.0), -target_y));

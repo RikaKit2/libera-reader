@@ -10,9 +10,8 @@ pub use debounce::Debouncer;
 pub use logger::{debug, error, timing, title};
 
 pub fn create_subscriber() -> Result<()> {
-  let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-    EnvFilter::new("libera_reader=debug,mutool=info,error")
-  });
+  let filter = EnvFilter::try_from_default_env()
+    .unwrap_or_else(|_| EnvFilter::new("libera_reader=debug,mutool=info,error"));
 
   let subscriber = tracing_subscriber::fmt()
     .event_format(Formatter { show_location: false })

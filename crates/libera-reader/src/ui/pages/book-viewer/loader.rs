@@ -27,14 +27,68 @@ pub fn compute_target_dpi(zoom_factor: f32, scale_factor: f32) -> u32 {
   let calculated = (BASE_PDF_DPI * zoom_factor * scale_factor).round() as u32;
   calculated.clamp(MIN_RENDER_DPI, MAX_RENDER_DPI)
 }
+
+/// The outcome of querying the persistent on-disk page cache.
+///
+/// Designed for explicit, self-documenting error handling:
+/// - `Hit`: Valid cached PNG found on disk and decoded immediately (0% CPU).
+/// - `Miss`: Cold cache, file does not exist yet; requires rendering.
+/// - `EmptyFile`: Corrupted 0-byte file detected on disk; deleted and self-healed.
+/// - `CorruptedFile`: File exists but PNG decoder failed; deleted and self-healed.
+#[derive(Debug)]
+pub enum DiskPageCacheResult {
+  /// Valid image loaded from disk cache without executing mutool.
+  Hit(Arc<gpui::RenderImage>),
+  /// Cache miss: file does not exist yet on disk.
+  Miss,
+  /// Self-healing needed: file exists on disk but is 0 bytes.
+  EmptyFile,
+  /// Self-healing needed: file exists on disk but bytes could not be decoded as PNG.
+  CorruptedFile,
+}
+
+impl DiskPageCacheResult {
+  /// Attempts to read and decode a page image from disk in a single pass.
+  pub fn probe_and_load(page_file: &std::path::Path) -> Self {
+    match std::fs::read(page_file) {
+      Ok(bytes) if !bytes.is_empty() => match decode_page_image_bytes(&bytes) {
+        Some(img) => Self::Hit(img),
+        None => Self::CorruptedFile,
+      },
+      Ok(_) => Self::EmptyFile,
+      Err(err) if err.kind() == std::io::ErrorKind::NotFound => Self::Miss,
+      Err(_) => Self::Miss,
+    }
+  }
+}
+
+/// Renders a page via mutool CLI, writes the resulting PNG to disk cache,
+/// and decodes it into a GPU-ready `RenderImage`.
+fn render_and_cache_page(
+  book_path: &std::path::Path, page: usize, dpi: u32, page_file: &std::path::Path,
+) -> PageImageState {
+  match mutool::render_page_to_png_bytes(book_path, page, dpi) {
+    Ok(bytes) => {
+      if let Some(parent) = page_file.parent() {
+        let _ = std::fs::create_dir_all(parent);
+      }
+      let _ = std::fs::write(page_file, &bytes);
+
+      match decode_page_image_bytes(&bytes) {
+        Some(img) => PageImageState::Loaded(img),
+        None => PageImageState::Failed("Failed to decode rendered PNG bytes".to_string()),
+      }
+    }
+    Err(err) => PageImageState::Failed(err.to_string()),
+  }
+}
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_book_page_loader(
   runtime: &Runtime, cache: Arc<Mutex<BookViewerCache>>, visible_start: Arc<AtomicUsize>,
   visible_end: Arc<AtomicUsize>,
   mut load_rx: tokio::sync::mpsc::UnboundedReceiver<PageLoadRequest>,
   notify_tx: tokio::sync::mpsc::UnboundedSender<()>, coordinator: ExtractionCoordinator,
-  app_dirs: crate::app_dirs::AppDirs,
-  workers: usize,
+  app_dirs: crate::app_dirs::AppDirs, workers: usize,
 ) {
   // Allow user full control over worker pool, up to 100% of available CPU threads.
   let max_threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
@@ -78,42 +132,27 @@ pub fn spawn_book_page_loader(
 
         let page_file = app_dirs_worker.book_page_path(book_size, book_hash.as_deref(), page, dpi);
 
-        // Fast path: attempt direct read and decode in one pass (no redundant exists() check)
-        let disk_image = match std::fs::read(&page_file) {
-          Ok(bytes) if !bytes.is_empty() => match decode_page_image_bytes(&bytes) {
-            Some(img) => Some(PageImageState::Loaded(img)),
-            None => {
-              // Corrupted PNG file — remove it and self-heal via mutool
-              let _ = std::fs::remove_file(&page_file);
-              None
-            }
-          },
-          Ok(_) => {
-            // 0-byte file — remove it and self-heal via mutool
-            let _ = std::fs::remove_file(&page_file);
-            None
+        // 1. Check disk cache with explicit, self-documenting outcome handling
+        let img_state = match DiskPageCacheResult::probe_and_load(&page_file) {
+          DiskPageCacheResult::Hit(img) => {
+            // Fast path: loaded directly from disk cache in 1 syscall (0% CPU)
+            PageImageState::Loaded(img)
           }
-          Err(_) => None, // File does not exist yet
-        };
-
-        let img_state = match disk_image {
-          Some(state) => state,
-          None => {
-            // Self-healing / first render: run mutool, save to disk, and decode
-            match mutool::render_page_to_png_bytes(&path, page, dpi) {
-              Ok(bytes) => {
-                if let Some(parent) = page_file.parent() {
-                  let _ = std::fs::create_dir_all(parent);
-                }
-                let _ = std::fs::write(&page_file, &bytes);
-
-                match decode_page_image_bytes(&bytes) {
-                  Some(img) => PageImageState::Loaded(img),
-                  None => PageImageState::Failed("Failed to decode PNG bytes".to_string()),
-                }
-              }
-              Err(err) => PageImageState::Failed(err.to_string()),
-            }
+          DiskPageCacheResult::Miss => {
+            // Cold cache: first time rendering this page
+            render_and_cache_page(&path, page, dpi, &page_file)
+          }
+          DiskPageCacheResult::EmptyFile => {
+            // Self-healing: 0-byte artifact from interrupted write; purge and regenerate
+            tracing::warn!(page, path = %page_file.display(), "Purging empty 0-byte cached page to self-heal");
+            let _ = std::fs::remove_file(&page_file);
+            render_and_cache_page(&path, page, dpi, &page_file)
+          }
+          DiskPageCacheResult::CorruptedFile => {
+            // Self-healing: invalid/corrupted PNG data; purge and regenerate
+            tracing::warn!(page, path = %page_file.display(), "Purging corrupted cached page to self-heal");
+            let _ = std::fs::remove_file(&page_file);
+            render_and_cache_page(&path, page, dpi, &page_file)
           }
         };
 
@@ -176,5 +215,23 @@ mod tests {
     assert_eq!(compute_target_dpi(1.5, 2.0), 216);
     assert_eq!(compute_target_dpi(0.1, 1.0), 36);
     assert_eq!(compute_target_dpi(5.0, 2.0), 300);
+  }
+
+  #[test]
+  fn test_disk_page_cache_result() {
+    let tmp = tempfile::tempdir().unwrap();
+    let missing = tmp.path().join("missing.png");
+    assert!(matches!(DiskPageCacheResult::probe_and_load(&missing), DiskPageCacheResult::Miss));
+
+    let empty = tmp.path().join("empty.png");
+    std::fs::write(&empty, []).unwrap();
+    assert!(matches!(DiskPageCacheResult::probe_and_load(&empty), DiskPageCacheResult::EmptyFile));
+
+    let corrupt = tmp.path().join("corrupt.png");
+    std::fs::write(&corrupt, b"not a valid png file").unwrap();
+    assert!(matches!(
+      DiskPageCacheResult::probe_and_load(&corrupt),
+      DiskPageCacheResult::CorruptedFile
+    ));
   }
 }

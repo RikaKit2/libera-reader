@@ -39,11 +39,8 @@ impl ZoomSelect {
               if matches!(*preset, ZoomPreset::FitWidth | ZoomPreset::FitPage) {
                 let sidebar_open = s.active_sidebar_tab.is_open();
                 let window_size = _window.viewport_size();
-                let available_width = if sidebar_open {
-                  window_size.width - px(250.0)
-                } else {
-                  window_size.width
-                };
+                let available_width =
+                  if sidebar_open { window_size.width - px(250.0) } else { window_size.width };
                 let available_height = window_size.height - px(32.0);
                 s.update_fit_zoom(size(available_width, available_height));
               }
@@ -76,9 +73,7 @@ impl Render for ZoomSelect {
     let matching_preset_idx = match zoom_preset {
       ZoomPreset::FitWidth => presets.iter().position(|p| *p == ZoomPreset::FitWidth),
       ZoomPreset::FitPage => presets.iter().position(|p| *p == ZoomPreset::FitPage),
-      _ => presets.iter().position(|p| {
-        p.factor().is_some_and(|f| (f - zoom_factor).abs() < 0.01)
-      }),
+      _ => presets.iter().position(|p| p.factor().is_some_and(|f| (f - zoom_factor).abs() < 0.01)),
     };
 
     let target_index = matching_preset_idx.map(|row| IndexPath::default().row(row));
@@ -95,11 +90,6 @@ impl Render for ZoomSelect {
     div()
       .id("header-zoom-select")
       .w(header::ZOOM_SELECT_WIDTH)
-      .child(
-        Select::new(&self.select_state)
-          .placeholder(percent_label)
-          .small()
-          .w_full(),
-      )
+      .child(Select::new(&self.select_state).placeholder(percent_label).small().w_full())
   }
 }

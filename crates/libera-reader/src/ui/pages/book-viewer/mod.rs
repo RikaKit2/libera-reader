@@ -22,9 +22,12 @@ pub use state::BookViewerState;
 pub use viewport::Viewport;
 
 use crate::app_ext::AppExt;
-use gpui::prelude::*;
-use gpui::{App, Context, Entity, FocusHandle, IntoElement, MouseButton, ParentElement, Render, Styled, Subscription, Window, div, px, size};
 use crate::db::models::settings::{RootRoute, Route};
+use gpui::prelude::*;
+use gpui::{
+  App, Context, Entity, FocusHandle, IntoElement, MouseButton, ParentElement, Render, Styled,
+  Subscription, Window, div, px, size,
+};
 
 pub(crate) struct BookViewer {
   state: Entity<BookViewerState>,
@@ -51,11 +54,8 @@ impl BookViewer {
       let sub = cx.observe_window_bounds(window, |this: &mut Self, window, cx| {
         let sidebar_open = this.state.read(cx).active_sidebar_tab.is_open();
         let window_size = window.viewport_size();
-        let available_width = if sidebar_open {
-          window_size.width - px(250.0)
-        } else {
-          window_size.width
-        };
+        let available_width =
+          if sidebar_open { window_size.width - px(250.0) } else { window_size.width };
         let available_height = window_size.height - px(32.0);
         this.state.update(cx, |s, cx| {
           if matches!(s.zoom_preset, ZoomPreset::FitWidth | ZoomPreset::FitPage) {
@@ -65,14 +65,7 @@ impl BookViewer {
         });
       });
 
-      Self {
-        state,
-        header,
-        sidebar,
-        viewport,
-        focus_handle,
-        _window_subscription: sub,
-      }
+      Self { state, header, sidebar, viewport, focus_handle, _window_subscription: sub }
     })
   }
 
@@ -145,11 +138,8 @@ impl Render for BookViewer {
           s.set_zoom(ZoomPreset::FitWidth);
           let sidebar_open = s.active_sidebar_tab.is_open();
           let window_size = window.viewport_size();
-          let available_width = if sidebar_open {
-            window_size.width - px(250.0)
-          } else {
-            window_size.width
-          };
+          let available_width =
+            if sidebar_open { window_size.width - px(250.0) } else { window_size.width };
           let available_height = window_size.height - px(32.0);
           s.update_fit_zoom(size(available_width, available_height));
           cx.notify();
@@ -160,11 +150,8 @@ impl Render for BookViewer {
           s.set_zoom(ZoomPreset::FitPage);
           let sidebar_open = s.active_sidebar_tab.is_open();
           let window_size = window.viewport_size();
-          let available_width = if sidebar_open {
-            window_size.width - px(250.0)
-          } else {
-            window_size.width
-          };
+          let available_width =
+            if sidebar_open { window_size.width - px(250.0) } else { window_size.width };
           let available_height = window_size.height - px(32.0);
           s.update_fit_zoom(size(available_width, available_height));
           cx.notify();
@@ -194,17 +181,17 @@ impl Render for BookViewer {
             s.toggle_search();
             cx.notify();
           } else {
-            cx.services()
-              .extraction_coordinator
-              .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary);
+            cx.services().extraction_coordinator.set_mode(
+              crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary,
+            );
             let _ = cx.settings_mut().set_route(RootRoute::Main(Route::Library));
           }
         });
       }))
       .on_action(cx.listener(|_this, _: &actions::ExitViewer, _window, cx| {
-        cx.services()
-          .extraction_coordinator
-          .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary);
+        cx.services().extraction_coordinator.set_mode(
+          crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary,
+        );
         let _ = cx.settings_mut().set_route(RootRoute::Main(Route::Library));
       }))
       .on_action(cx.listener(|this, _: &actions::ToggleFullscreen, window, cx| {

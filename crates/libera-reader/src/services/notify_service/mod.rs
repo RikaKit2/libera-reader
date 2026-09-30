@@ -193,7 +193,14 @@ async fn run_event_loop(
 
     // Process buffer after timer expiration
     if !buffer.is_empty() {
-      process_batch(buffer, not_cached_books.clone(), db.clone(), books_state.clone(), app_dirs.clone()).await;
+      process_batch(
+        buffer,
+        not_cached_books.clone(),
+        db.clone(),
+        books_state.clone(),
+        app_dirs.clone(),
+      )
+      .await;
     }
   }
 }

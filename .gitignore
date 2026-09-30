@@ -13,4 +13,5 @@ other/
 .vscode/
 .omp/
 .superpowers/
+dhat-*.json
 

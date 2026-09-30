@@ -91,10 +91,8 @@ pub async fn run(
           }
         }
 
-        let path_to_thumbnail = app_dirs.book_cover_path(
-          book_size_bytes,
-          computed_hash.as_ref().map(|h| h.0.as_str()),
-        );
+        let path_to_thumbnail =
+          app_dirs.book_cover_path(book_size_bytes, computed_hash.as_ref().map(|h| h.0.as_str()));
 
         if let Some(parent) = path_to_thumbnail.parent() {
           let _ = std::fs::create_dir_all(parent);

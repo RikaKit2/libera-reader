@@ -4,6 +4,10 @@ version = "0.7.0"
 edition = "2024"
 description = "Dynamically linked GPUI Kit engine with MiMalloc allocator"
 
+[features]
+default = []
+dhat-heap = ["dep:dhat"]
+
 [lib]
 crate-type = ["dylib"]
 
@@ -15,3 +19,4 @@ gpui-base = { workspace = true }
 gpui-component = { workspace = true }
 gpui-component-assets = { workspace = true }
 mimalloc = { workspace = true }
+dhat = { workspace = true, optional = true }

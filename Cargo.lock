@@ -1534,8 +1534,7 @@ dependencies = [
 [[package]]
 name = "dhat"
 version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98cd11d84628e233de0ce467de10b8633f4ddaecafadefc86e13b84b8739b827"
+source = "git+https://github.com/RikaKit2/dhat-rs?branch=master#af7baea1ff8c6892cbd1fd572505c22c52d00f33"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -2591,6 +2590,7 @@ dependencies = [
 name = "gpui-kit-dynlib"
 version = "0.7.0"
 dependencies = [
+ "dhat",
  "gpui-base",
  "gpui-component",
  "gpui-kit",

@@ -49,12 +49,11 @@ fn build_root_window(window: &mut Window, cx: &mut App) -> Entity<Root> {
 }
 
 fn main() -> Result<()> {
-  better_panic::install();
-  create_subscriber()?;
-
   #[cfg(feature = "dhat-heap")]
   let _profiler = dhat::Profiler::new_heap();
 
+  better_panic::install();
+  create_subscriber()?;
   TOKIO.set(Runtime::new().unwrap()).expect("Failed to initialize Tokio runtime");
 
   let project_root_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

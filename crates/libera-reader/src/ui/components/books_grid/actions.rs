@@ -18,8 +18,12 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
   let title = path.display_name();
   let (size, hash) = {
     let size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
-    let hash = if let Ok(Some(book)) = crate::db::models::books::book::Book::get(cx.db(), path.clone()) {
-      if let Ok(Some(book_sizes)) = cx.db().get_primary::<crate::db::models::books::book_sizes::BookSizes>(book.book_size) {
+    let hash = if let Ok(Some(book)) =
+      crate::db::models::books::book::Book::get(cx.db(), path.clone())
+    {
+      if let Ok(Some(book_sizes)) =
+        cx.db().get_primary::<crate::db::models::books::book_sizes::BookSizes>(book.book_size)
+      {
         match book_sizes.book_type {
           crate::db::models::books::BookType::DuplicateSize(map) => {
             if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) = map.get(&path) {
@@ -52,14 +56,21 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
   cx.spawn(|async_app: &mut AsyncApp| {
     let mut owned_app = async_app.clone();
     async move {
-      let doc_res =
-        owned_app.background_executor().spawn(async move { DocumentData::load(path_clone) }).await;
-
-      if let Ok(doc) = doc_res {
-        viewer_state_worker.update(&mut owned_app, |s, cx| {
-          s.set_document(doc, title_clone);
-          cx.notify();
-        });
+      let path_for_load = path_clone.clone();
+      let doc_res = owned_app
+        .background_executor()
+        .spawn(async move { DocumentData::load(path_for_load) })
+        .await;
+      match doc_res {
+        Ok(doc) => {
+          viewer_state_worker.update(&mut owned_app, |s, cx| {
+            s.set_document(doc, title_clone);
+            cx.notify();
+          });
+        }
+        Err(err) => {
+          crate::utils::error!("Failed to load DocumentData for {:?}: {:?}", path_clone, err);
+        }
       }
     }
   })

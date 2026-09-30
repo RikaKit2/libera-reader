@@ -179,7 +179,12 @@ impl BookViewerState {
 
   pub fn set_document(&mut self, doc: DocumentData, title: SharedString) {
     self.current_book = Some(doc.book_path.clone());
-    self.book_size = std::fs::metadata(doc.book_path.as_pathbuf()).map(|m| m.len()).unwrap_or(self.book_size);
+    self.total_pages = doc.total_pages.max(1);
+    self.page_sizes = doc.page_sizes.clone();
+    self.outline = doc.outline.iter().cloned().map(OutlineItem::from).collect();
+    self.book_size =
+      std::fs::metadata(doc.book_path.as_pathbuf()).map(|m| m.len()).unwrap_or(self.book_size);
+    self.current_document = Some(doc);
     self.title = title;
     self.selected_text = None;
     self.selection_page = None;

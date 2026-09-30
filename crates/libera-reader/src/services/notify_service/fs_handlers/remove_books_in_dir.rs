@@ -18,7 +18,9 @@ pub(crate) fn remove_books_in_dir(
       let hash = if let Ok(Some(book_sizes)) = rw_t.get().primary::<BookSizes>(book.book_size) {
         match book_sizes.book_type {
           crate::db::models::books::BookType::DuplicateSize(map) => {
-            if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) = map.get(&book.book_path) {
+            if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) =
+              map.get(&book.book_path)
+            {
               Some(h.0.to_string())
             } else {
               None

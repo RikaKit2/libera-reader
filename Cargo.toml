@@ -72,3 +72,6 @@ smol = { opt-level = 3 }
 [profile.dev.build-override]
 opt-level = 0
 
+[patch.crates-io]
+dhat = { git = "https://github.com/RikaKit2/dhat-rs", branch = "master" }
+
