@@ -181,17 +181,13 @@ impl Book {
   ) -> anyhow::Result<Option<PathBuf>> {
     use crate::app_dirs::{HASHED_BOOKS_DIR, UNHASHED_BOOKS_DIR};
 
-    let is_valid_png = |path: &Path| -> bool {
-      if path.exists() {
-        match std::fs::metadata(path) {
-          Ok(m) if m.len() > 0 => true,
-          _ => {
-            let _ = std::fs::remove_file(path);
-            false
-          }
-        }
+    let pick_existing = |cover: PathBuf, legacy: PathBuf| -> Option<PathBuf> {
+      if cover.exists() {
+        Some(cover)
+      } else if legacy.exists() {
+        Some(legacy)
       } else {
-        false
+        None
       }
     };
 
@@ -205,11 +201,8 @@ impl Book {
     if let Some(book_sizes) = db.get_primary::<BookSizes>(self.book_size)? {
       match &book_sizes.book_type {
         BookType::UniqueSize { .. } => {
-          if is_valid_png(&unhashed_cover) {
-            return Ok(Some(unhashed_cover));
-          }
-          if is_valid_png(&unhashed_legacy) {
-            return Ok(Some(unhashed_legacy));
+          if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
+            return Ok(Some(p));
           }
         }
         BookType::DuplicateSize(map) => {
@@ -218,41 +211,28 @@ impl Book {
               DuplicateBookData::BookHash(hash) => {
                 let hashed_cover = hashed_dir.join(hash.0.as_str()).join("cover.png");
                 let hashed_legacy = hashed_dir.join(format!("{}.png", hash.0));
-                if is_valid_png(&hashed_cover) {
-                  return Ok(Some(hashed_cover));
-                }
-                if is_valid_png(&hashed_legacy) {
-                  return Ok(Some(hashed_legacy));
+                if let Some(p) = pick_existing(hashed_cover, hashed_legacy) {
+                  return Ok(Some(p));
                 }
               }
               DuplicateBookData::MutoolData(_) => {
-                if is_valid_png(&unhashed_cover) {
-                  return Ok(Some(unhashed_cover));
-                }
-                if is_valid_png(&unhashed_legacy) {
-                  return Ok(Some(unhashed_legacy));
+                if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
+                  return Ok(Some(p));
                 }
               }
             }
           } else {
-            if is_valid_png(&unhashed_cover) {
-              return Ok(Some(unhashed_cover));
-            }
-            if is_valid_png(&unhashed_legacy) {
-              return Ok(Some(unhashed_legacy));
+            if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
+              return Ok(Some(p));
             }
           }
         }
       }
     } else {
-      if is_valid_png(&unhashed_cover) {
-        return Ok(Some(unhashed_cover));
-      }
-      if is_valid_png(&unhashed_legacy) {
-        return Ok(Some(unhashed_legacy));
+      if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
+        return Ok(Some(p));
       }
     }
-
     Ok(None)
   }
 

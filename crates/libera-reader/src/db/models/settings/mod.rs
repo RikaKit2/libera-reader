@@ -9,6 +9,11 @@ use crate::db::models::{GetOrCreate, settings::route::SetupRoute::Welcome};
 fn default_cache_size() -> u32 {
   80
 }
+
+fn default_workers_num() -> u32 {
+  let available = std::thread::available_parallelism().map(|n| n.get() as u32).unwrap_or(4);
+  (available / 2).max(1)
+}
 use native_db::*;
 use native_model::{Model, native_model};
 use serde::{Deserialize, Serialize};
@@ -42,6 +47,7 @@ pub struct Settings {
   pub page_scaling_factor: f64,
   pub thumbnails_scaling_factor: f64,
   pub ui_zoom: f64,
+  #[serde(default = "default_workers_num")]
   pub workers_num: u32,
   /// Number of thumbnail images to keep in the LRU cache
   #[serde(default = "default_cache_size")]
@@ -64,7 +70,7 @@ impl Default for Settings {
       page_scaling_factor: 1.0,
       thumbnails_scaling_factor: 4.0,
       ui_zoom: 1.0,
-      workers_num: 2,
+      workers_num: default_workers_num(),
       image_cache_size: 80,
       route: RootRoute::Setup(Welcome),
       setup_is_done: false,

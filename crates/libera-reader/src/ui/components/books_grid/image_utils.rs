@@ -10,10 +10,24 @@ use std::sync::Arc;
 pub const THUMB_MAX_PX: u32 = 200;
 
 pub fn load_thumbnail(img_path: &Path) -> Option<Arc<RenderImage>> {
-  let img_file = std::fs::File::open(img_path).ok()?;
-  let img =
-    ImageReader::new(BufReader::new(&img_file)).with_guessed_format().ok()?.decode().ok()?;
-
+  let img_file = match std::fs::File::open(img_path) {
+    Ok(f) => f,
+    Err(_) => return None,
+  };
+  let reader = match ImageReader::new(BufReader::new(&img_file)).with_guessed_format() {
+    Ok(r) => r,
+    Err(_) => {
+      let _ = std::fs::remove_file(img_path);
+      return None;
+    }
+  };
+  let img = match reader.decode() {
+    Ok(img) => img,
+    Err(_) => {
+      let _ = std::fs::remove_file(img_path);
+      return None;
+    }
+  };
   let resized = if img.width() > THUMB_MAX_PX || img.height() > THUMB_MAX_PX {
     img.resize(THUMB_MAX_PX, THUMB_MAX_PX, FilterType::Triangle)
   } else {
