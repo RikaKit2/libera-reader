@@ -96,6 +96,11 @@ jobs:
           curl -sSL https://github.com/wild-linker/wild/releases/download/0.10.0/wild-linker-0.10.0-x86_64-unknown-linux-gnu.tar.gz | sudo tar -xz -C /usr/local/bin --strip-components=1 wild-linker-0.10.0-x86_64-unknown-linux-gnu/wild
           sudo ln -sf /usr/local/bin/wild /usr/local/bin/ld.wild
           wild --version
+      - name: Disable Windows Defender for build folders
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Add-MpPreference -ExclusionPath $PWD, $env:USERPROFILE\.cargo, $env:USERPROFILE\.rustup
       - name: Install mutool (Windows)
         if: runner.os == 'Windows'
         shell: powershell

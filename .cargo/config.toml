@@ -8,6 +8,9 @@ rustflags = ["-C", "target-cpu=native"]
 linker = "clang"
 rustflags = ["-C", "target-cpu=native", "-C", "link-arg=--ld-path=wild", "-C", "prefer-dynamic", "-Zshare-generics=y"]
 
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
+
 [alias]
 run-dev = "run --package libera-reader --features dev"
 build-dev = "build --package libera-reader --features dev"
