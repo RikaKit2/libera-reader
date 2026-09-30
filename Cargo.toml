@@ -33,7 +33,7 @@ sys-locale = "0.3.2"
 anyhow = "1.0.104"
 rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
 unicode-segmentation = "1.13.3"
-tracing-subscriber = { version = "0.3", features = ["ansi"] }
+tracing-subscriber = { version = "0.3", features = ["ansi", "env-filter"] }
 reqwest = { version = "0.13", default-features = false, features = ["native-tls", "stream", "charset", "http2", "system-proxy"] }
 zip = "8"
 tempfile = "3"

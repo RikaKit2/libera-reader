@@ -21,6 +21,7 @@ pub struct ScrollContainer {
   visible_start: Arc<AtomicUsize>,
   visible_end: Arc<AtomicUsize>,
   last_rendered_page: usize,
+  last_zoom_factor: f32,
   id: ElementId,
 }
 
@@ -67,7 +68,8 @@ impl ScrollContainer {
         load_tx,
         visible_start,
         visible_end,
-        last_rendered_page: 1,
+        last_rendered_page: 0,
+        last_zoom_factor: 1.0,
         id,
       }
     })
@@ -75,8 +77,7 @@ impl ScrollContainer {
 
   pub fn scroll_to_page(&mut self, page: usize) {
     if page > 0 {
-      self.last_rendered_page = page;
-      self.scroll_handle.scroll_to_item(page - 1, ScrollStrategy::Top);
+      self.last_rendered_page = 0; // Trigger programmatic scroll in next render
     }
   }
 }
@@ -89,15 +90,6 @@ impl Render for ScrollContainer {
     };
 
     let total_items = total_pages.max(1);
-
-    // If active page changed externally (button click, outline click, input), scroll to it
-    let page_changed_programmatically =
-      (active_page != self.last_rendered_page) && (active_page > 0) && (active_page <= total_items);
-
-    if page_changed_programmatically {
-      self.last_rendered_page = active_page;
-      self.scroll_handle.scroll_to_item(active_page - 1, ScrollStrategy::Top);
-    }
 
     // Compute dynamic item sizes for each page based on its aspect ratio & zoom
     let item_sizes: Rc<Vec<gpui::Size<Pixels>>> = {
@@ -114,6 +106,60 @@ impl Render for ScrollContainer {
       )
     };
 
+    let page_y_offset = |target_page: usize| -> Pixels {
+      let mut y = px(0.0);
+      for p in 1..target_page {
+        if p <= item_sizes.len() {
+          y += item_sizes[p - 1].height;
+        }
+      }
+      y
+    };
+
+    // If zoom changed, anchor the scroll position smoothly to the current relative position within active page.
+    // If active page changed externally (button click, outline click, input), scroll to it.
+    let zoom_changed = (zoom_factor - self.last_zoom_factor).abs() > 0.001;
+    let page_changed_programmatically =
+      (active_page != self.last_rendered_page) && (active_page > 0) && (active_page <= total_items);
+
+    if zoom_changed {
+      let old_zoom = self.last_zoom_factor;
+      self.last_zoom_factor = zoom_factor;
+      self.last_rendered_page = active_page;
+
+      let current_scroll_y = (-self.scroll_handle.offset().y).max(px(0.0));
+      // Calculate where active_page was with the old zoom factor
+      let mut old_page_y = px(0.0);
+      let state_read = self.state.read(cx);
+      for p in 1..active_page {
+        let dims = state_read.page_size(p);
+        let h = dims.height * old_zoom + f32::from(PAGE_GAP_Y) + 32.0;
+        old_page_y += px(h);
+      }
+      let old_page_dims = state_read.page_size(active_page);
+      let old_page_h = px(old_page_dims.height * old_zoom + f32::from(PAGE_GAP_Y) + 32.0);
+
+      let fraction = if old_page_h > px(0.0) {
+        ((current_scroll_y - old_page_y) / old_page_h).clamp(0.0, 1.0)
+      } else {
+        0.0
+      };
+
+      let new_page_y = page_y_offset(active_page);
+      let new_page_h = if active_page <= item_sizes.len() {
+        item_sizes[active_page - 1].height
+      } else {
+        px(0.0)
+      };
+
+      let target_y = new_page_y + new_page_h * fraction;
+      self.scroll_handle.set_offset(point(px(0.0), -target_y));
+    } else if page_changed_programmatically {
+      self.last_rendered_page = active_page;
+      let target_y = page_y_offset(active_page);
+      self.scroll_handle.set_offset(point(px(0.0), -target_y));
+    }
+
     let scroll = self.scroll_handle.clone();
     let state_entity = self.state.clone();
     let cache_arc = self.cache.clone();
@@ -128,12 +174,13 @@ impl Render for ScrollContainer {
         view.visible_start.store(visible_range.start, Ordering::Relaxed);
         view.visible_end.store(visible_range.end, Ordering::Relaxed);
 
-        // Sync top visible page with state.current_page during manual scroll
+        // Sync top visible page with state.current_page during manual scroll,
+        // but ignore intermediate shifts caused by zoom transitions.
         let top_visible_page = visible_range.start + 1;
-        let should_sync = (top_visible_page != view.last_rendered_page)
+        let should_sync = !zoom_changed
+          && (top_visible_page != view.last_rendered_page)
           && (top_visible_page <= total_pages)
           && (top_visible_page > 0);
-
         if should_sync {
           view.last_rendered_page = top_visible_page;
           state_entity.update(cx, |s, cx| {
@@ -216,6 +263,17 @@ impl Render for ScrollContainer {
                 .items_center()
                 .justify_center()
                 .py(PAGE_GAP_Y / 2.0)
+                .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, _window, cx| {
+                  if event.modifiers.control || event.modifiers.platform {
+                    cx.stop_propagation();
+                    let delta = event.delta.pixel_delta(px(20.0)).y;
+                    let step = if delta > px(0.0) { 0.10 } else { -0.10 };
+                    this.state.update(cx, |s, cx| {
+                      s.adjust_zoom_by(step);
+                      cx.notify();
+                    });
+                  }
+                }))
                 .child(page_view),
             );
           }

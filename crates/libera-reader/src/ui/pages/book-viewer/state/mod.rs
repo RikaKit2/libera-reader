@@ -301,20 +301,28 @@ impl BookViewerState {
   }
 
   pub fn zoom_in(&mut self) {
-    let presets = ZoomPreset::all();
-    let current_idx = presets.iter().position(|p| *p == self.zoom_preset).unwrap_or(2);
-    if current_idx + 1 < presets.len() && presets[current_idx + 1].factor().is_some() {
-      self.set_zoom(presets[current_idx + 1]);
+    let steps = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    if let Some(&next) = steps.iter().find(|&&f| f > self.zoom_factor + 0.01) {
+      let all_presets = ZoomPreset::all();
+      if let Some(&p) = all_presets.iter().find(|p| p.factor() == Some(next)) {
+        self.set_zoom(p);
+      } else {
+        self.zoom_factor = next;
+      }
     } else {
       self.adjust_zoom_by(0.15);
     }
   }
 
   pub fn zoom_out(&mut self) {
-    let presets = ZoomPreset::all();
-    let current_idx = presets.iter().position(|p| *p == self.zoom_preset).unwrap_or(2);
-    if current_idx > 0 && presets[current_idx - 1].factor().is_some() {
-      self.set_zoom(presets[current_idx - 1]);
+    let steps = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+    if let Some(&prev) = steps.iter().rev().find(|&&f| f < self.zoom_factor - 0.01) {
+      let all_presets = ZoomPreset::all();
+      if let Some(&p) = all_presets.iter().find(|p| p.factor() == Some(prev)) {
+        self.set_zoom(p);
+      } else {
+        self.zoom_factor = prev;
+      }
     } else {
       self.adjust_zoom_by(-0.15);
     }
@@ -323,6 +331,17 @@ impl BookViewerState {
   pub fn adjust_zoom_by(&mut self, delta: f32) {
     let new_factor = (self.zoom_factor + delta).clamp(0.25, 4.0);
     self.zoom_factor = new_factor;
+    let presets = [
+      (0.5, ZoomPreset::Percent50),
+      (0.75, ZoomPreset::Percent75),
+      (1.0, ZoomPreset::Percent100),
+      (1.25, ZoomPreset::Percent125),
+      (1.5, ZoomPreset::Percent150),
+      (2.0, ZoomPreset::Percent200),
+    ];
+    if let Some((_, p)) = presets.iter().find(|(val, _)| (*val - new_factor).abs() < 0.01) {
+      self.zoom_preset = *p;
+    }
   }
 
   pub fn toggle_fullscreen(&mut self, window: &gpui::Window) {

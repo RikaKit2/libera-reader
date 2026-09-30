@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::hash::{BuildHasher, Hasher};
 use std::path::Path;
-use tracing::Level;
+use tracing_subscriber::EnvFilter;
 
 use crate::utils::logger::Formatter;
 pub mod debounce;
@@ -10,9 +10,13 @@ pub use debounce::Debouncer;
 pub use logger::{debug, error, timing, title};
 
 pub fn create_subscriber() -> Result<()> {
+  let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+    EnvFilter::new("libera_reader=debug,mutool=info,error")
+  });
+
   let subscriber = tracing_subscriber::fmt()
     .event_format(Formatter { show_location: false })
-    .with_max_level(Level::DEBUG)
+    .with_env_filter(filter)
     .finish();
   tracing::subscriber::set_global_default(subscriber)?;
   Ok(())
