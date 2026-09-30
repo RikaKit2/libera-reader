@@ -10,7 +10,9 @@ dhat-heap = ["dep:dhat"]
 
 [lib]
 crate-type = ["dylib"]
-
+test = false
+doctest = false
+bench = false
 [dependencies]
 gpui-kit = { workspace = true, features = ["component", "assets"] }
 gpui = { workspace = true }

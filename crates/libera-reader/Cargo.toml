@@ -6,6 +6,13 @@ license = "AGPL-3"
 repository = "https://github.com/RikaKit2/libera-reader"
 edition = "2024"
 
+[[bin]]
+name = "libera-reader"
+path = "src/main.rs"
+test = false
+bench = false
+doc = false
+
 [features]
 default = []
 dev = ["dep:gpui-kit-dynlib"]

@@ -10,18 +10,17 @@ repos:
 
       - id: clippy
         name: cargo clippy
-        entry: cargo clippy --all-targets --all-features -- -D warnings
+        entry: cargo clippy --workspace -- -D warnings
         language: system
         pass_filenames: false
         always_run: true
 
       - id: test
         name: cargo test
-        entry: cargo test --all-targets --all-features
+        entry: cargo test --workspace
         language: system
         pass_filenames: false
         always_run: true
-
       - id: audit
         name: cargo audit
         entry: cargo audit --deny warnings
