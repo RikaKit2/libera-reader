@@ -1,32 +1,17 @@
 use crate::mutool_error::MuToolError;
-use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
-fn find_system_mutool() -> Option<PathBuf> {
-  let exe_name = if cfg!(windows) { "mutool.exe" } else { "mutool" };
-  if let Some(paths) = env::var_os("PATH") {
-    for p in env::split_paths(&paths) {
-      let candidate = p.join(exe_name);
-      if candidate.is_file() {
-        return Some(candidate);
-      }
-    }
-  }
-  None
-}
 pub async fn create_empty_book(
   path_to_mutool: &Path, path_to_book: &Path,
 ) -> Result<(), MuToolError> {
-  let exec_path: PathBuf = if let Some(system) = find_system_mutool() {
-    system
-  } else if path_to_mutool.is_file() {
+  let exec_path: PathBuf = if path_to_mutool.is_file() {
     path_to_mutool.to_path_buf()
   } else {
-    return create_empty_pdf_fallback(path_to_book).await;
+    crate::get_mutool_bin_path()
   };
 
   let null_device = if cfg!(windows) { "NUL" } else { "/dev/null" };

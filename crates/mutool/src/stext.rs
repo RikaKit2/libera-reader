@@ -4,7 +4,7 @@ use crate::constants::{
 use crate::mutool_error::MuToolError;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
 pub struct BBox {
@@ -90,7 +90,7 @@ pub fn get_page_structured_text(
   }
 
   let page_arg = page.to_string();
-  let output = Command::new("mutool")
+  let output = crate::mutool_std_command()
     .arg(CMD_DRAW)
     .arg(ARG_QUIET)
     .arg(ARG_FORMAT)

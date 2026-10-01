@@ -3,7 +3,7 @@ use crate::constants::{
 };
 use crate::mutool_error::MuToolError;
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 /// Render a single document page (1-indexed) directly to a PNG file on disk.
 pub fn render_page_to_png(
@@ -16,7 +16,7 @@ pub fn render_page_to_png(
   let page_str = page.to_string();
   let dpi_str = dpi.to_string();
 
-  let mut child = Command::new("mutool")
+  let mut child = crate::mutool_std_command()
     .arg(CMD_DRAW)
     .arg(ARG_QUIET)
     .arg(ARG_RESOLUTION)
@@ -47,7 +47,7 @@ pub fn render_page_to_png_bytes(
   let page_str = page.to_string();
   let dpi_str = dpi.to_string();
 
-  let output = Command::new("mutool")
+  let output = crate::mutool_std_command()
     .arg(CMD_DRAW)
     .arg(ARG_QUIET)
     .arg(ARG_RESOLUTION)

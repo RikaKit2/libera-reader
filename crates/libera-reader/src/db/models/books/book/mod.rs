@@ -172,36 +172,61 @@ impl Book {
     self.book_path.mark_as_deleted();
   }
 
-  /// Compute the path to the thumbnail PNG on disk by traversing BookSizes/BookHashes metadata.
-  /// Checks both the unified book directory (thumbnails/.../<id>/cover.png) and legacy paths.
+  /// Compute the path to the thumbnail on disk by traversing BookSizes/BookHashes metadata.
+  /// Checks both the unified book directory (thumbnails/.../<id>/cover.{jpg,jpeg,webp,png}) and legacy paths.
   /// Validates that the file exists and is non-empty. Corrupted (0-byte) files are automatically
   /// deleted and return None so mutool can self-heal them.
   pub fn get_thumbnail_png_path(
     &self, db: &crate::db::DB, thumbnails_dir: &Path,
   ) -> anyhow::Result<Option<PathBuf>> {
+    self.get_thumbnail_path(db, thumbnails_dir)
+  }
+
+  /// Alias for `get_thumbnail_png_path` supporting any image format (JPEG, WebP, PNG).
+  pub fn get_thumbnail_path(
+    &self, db: &crate::db::DB, thumbnails_dir: &Path,
+  ) -> anyhow::Result<Option<PathBuf>> {
     use crate::app_dirs::{HASHED_BOOKS_DIR, UNHASHED_BOOKS_DIR};
 
-    let pick_existing = |cover: PathBuf, legacy: PathBuf| -> Option<PathBuf> {
-      if cover.exists() {
-        Some(cover)
-      } else if legacy.exists() {
-        Some(legacy)
-      } else {
-        None
+    let check_valid_file = |path: PathBuf| -> Option<PathBuf> {
+      if path.exists()
+        && let Ok(meta) = std::fs::metadata(&path)
+      {
+        if meta.len() > 0 {
+          return Some(path);
+        } else {
+          let _ = std::fs::remove_file(&path);
+        }
       }
+      None
+    };
+
+    let pick_existing = |dir: &Path, id_str: &str| -> Option<PathBuf> {
+      for name in ["cover.jpg", "cover.jpeg", "cover.webp", "cover.png"] {
+        if let Some(p) = check_valid_file(dir.join(name)) {
+          return Some(p);
+        }
+      }
+      if let Some(parent) = dir.parent() {
+        for ext in ["jpg", "jpeg", "webp", "png"] {
+          if let Some(p) = check_valid_file(parent.join(format!("{}.{}", id_str, ext))) {
+            return Some(p);
+          }
+        }
+      }
+      None
     };
 
     let crate::db::models::books::book::BookSize::BYTES(size_bytes) = self.book_size;
     let unhashed_dir = thumbnails_dir.join(UNHASHED_BOOKS_DIR);
     let hashed_dir = thumbnails_dir.join(HASHED_BOOKS_DIR);
 
-    let unhashed_cover = unhashed_dir.join(size_bytes.to_string()).join("cover.png");
-    let unhashed_legacy = unhashed_dir.join(format!("{}.png", size_bytes));
+    let unhashed_book_dir = unhashed_dir.join(size_bytes.to_string());
 
     if let Some(book_sizes) = db.get_primary::<BookSizes>(self.book_size)? {
       match &book_sizes.book_type {
         BookType::UniqueSize { .. } => {
-          if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
+          if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
             return Ok(Some(p));
           }
         }
@@ -209,29 +234,24 @@ impl Book {
           if let Some(dup_data) = map.get(&self.book_path) {
             match dup_data {
               DuplicateBookData::BookHash(hash) => {
-                let hashed_cover = hashed_dir.join(hash.0.as_str()).join("cover.png");
-                let hashed_legacy = hashed_dir.join(format!("{}.png", hash.0));
-                if let Some(p) = pick_existing(hashed_cover, hashed_legacy) {
+                let hashed_book_dir = hashed_dir.join(hash.0.as_str());
+                if let Some(p) = pick_existing(&hashed_book_dir, hash.0.as_str()) {
                   return Ok(Some(p));
                 }
               }
               DuplicateBookData::MutoolData(_) => {
-                if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
+                if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
                   return Ok(Some(p));
                 }
               }
             }
-          } else {
-            if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
-              return Ok(Some(p));
-            }
+          } else if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
+            return Ok(Some(p));
           }
         }
       }
-    } else {
-      if let Some(p) = pick_existing(unhashed_cover, unhashed_legacy) {
-        return Ok(Some(p));
-      }
+    } else if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
+      return Ok(Some(p));
     }
     Ok(None)
   }

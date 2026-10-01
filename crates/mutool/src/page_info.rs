@@ -5,7 +5,7 @@ use crate::constants::{
 use crate::mutool_error::MuToolError;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct PageDimensions {
@@ -41,7 +41,7 @@ pub fn get_document_page_info(path_to_book: &Path) -> Result<DocumentPageInfo, M
     return Err(MuToolError::IoError);
   }
 
-  let output = Command::new("mutool")
+  let output = crate::mutool_std_command()
     .arg(CMD_PAGES)
     .arg(path_to_book)
     .stdout(Stdio::piped())
@@ -140,7 +140,7 @@ fn extract_attr_f32(line: &str, attr_name: &str) -> Option<f32> {
 /// Fallback for formats where `mutool pages` doesn't output XML (e.g. text/epub),
 /// using `mutool draw -F text -o - file 1-N` to count pages.
 fn fallback_probe_page_info(path_to_book: &Path) -> Result<DocumentPageInfo, MuToolError> {
-  let output = Command::new("mutool")
+  let output = crate::mutool_std_command()
     .arg(CMD_DRAW)
     .arg(ARG_QUIET)
     .arg(ARG_FORMAT)

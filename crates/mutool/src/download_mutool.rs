@@ -14,11 +14,15 @@ use std::os::unix::fs::PermissionsExt;
 //noinspection RsUnwrap
 pub async fn download_mutool(target_dir: &PathBuf, progress: Arc<RwLock<f32>>) -> Result<()> {
   #[cfg(target_os = "windows")]
-  let url = "https://dw.uptodown.net/dwn/RvVkii134Riphftvun7hQBZyU0aCwJjJMFI3FD3XyiSl7SJevwENyD0jcXhKYhV4CH_qruGqhacLd-aUefTwe9zMDyaZZaCB0DAsBlBNsHh60asEu7ao6dZq9ivOTbIO/sAY2_Qg6XkK8aAMV8-eZCZlUKuoc9OWpW7QRoSl77rD4qiPKT6XxUQu6F9ugodwtN2WtM6byM_Jd2ielaIbSabs6zeNhBnGYQ5Ru50F6EqcttmsERNy3yEYcDbNxBxfu/zryZ2lIUcxdledxtl0F3OVJfSn8NZRroKmjE_IPkVeZ5FGSY5neb0gBe8tkOIwAn/mupdf-1-26-0.zip";
+  let url = "https://github.com/ArtifexSoftware/mupdf-downloads/releases/download/1.28.5/mupdf-1.28.5-windows.zip";
   #[cfg(target_os = "linux")]
   let url = "https://github.com/m59peacemaker/mupdf-appimage/releases/download/1.18.0/mutool-1.18.0-x86_64.AppImage";
 
-  let response = reqwest::get(url).await.context("Failed to perform a GET questioning")?;
+  let client = reqwest::Client::builder()
+    .user_agent("libera-reader/0.1.0")
+    .build()
+    .context("Failed to build HTTP client")?;
+  let response = client.get(url).send().await.context("Failed to perform a GET request")?;
   let total_size =
     response.content_length().context("The server did not report the amount of content")?;
   let mut temp_file = NamedTempFile::new().context("Failed to create a temporary file")?;
@@ -110,6 +114,7 @@ pub async fn download_mutool_if_missing_blocking(path_to_mutool_storage: &PathBu
     for p in env::split_paths(&paths) {
       let candidate = p.join(exe_name);
       if candidate.exists() {
+        crate::set_mutool_path(candidate.clone());
         #[cfg(target_os = "windows")]
         println!("✅ system mutool.exe found at {:?}", candidate);
         #[cfg(target_os = "linux")]
@@ -119,26 +124,28 @@ pub async fn download_mutool_if_missing_blocking(path_to_mutool_storage: &PathBu
     }
   }
 
-  if path_to_mutool_storage.exists() {
-    let path_to_mutool: PathBuf = if cfg!(windows) {
-      path_to_mutool_storage.join("mutool.exe")
-    } else {
-      path_to_mutool_storage.join("mutool")
-    };
-    match path_to_mutool.exists() {
-      true => {}
-      false => {
-        let mutool_download_progress = Arc::new(RwLock::new(0.0));
-        let progress_task = tokio::spawn(show_download_progress(mutool_download_progress.clone()));
-        download_mutool(path_to_mutool_storage, mutool_download_progress).await?;
-        progress_task.await?;
+  tokio_fs::create_dir_all(path_to_mutool_storage)
+    .await
+    .context("Failed to create mutool storage directory")?;
 
-        #[cfg(target_os = "windows")]
-        println!("✅ mutool.exe loaded in {:?}", path_to_mutool_storage.join("mutool.exe"));
-        #[cfg(target_os = "linux")]
-        println!("✅ mutool loaded in {:?}", path_to_mutool_storage.join("mutool"));
-      }
-    }
+  let path_to_mutool: PathBuf = if cfg!(windows) {
+    path_to_mutool_storage.join("mutool.exe")
+  } else {
+    path_to_mutool_storage.join("mutool")
+  };
+
+  if !path_to_mutool.exists() {
+    let mutool_download_progress = Arc::new(RwLock::new(0.0));
+    let progress_task = tokio::spawn(show_download_progress(mutool_download_progress.clone()));
+    download_mutool(path_to_mutool_storage, mutool_download_progress).await?;
+    progress_task.await?;
+
+    #[cfg(target_os = "windows")]
+    println!("✅ mutool.exe loaded in {:?}", path_to_mutool);
+    #[cfg(target_os = "linux")]
+    println!("✅ mutool loaded in {:?}", path_to_mutool);
   }
+
+  crate::set_mutool_path(path_to_mutool);
   Ok(())
 }

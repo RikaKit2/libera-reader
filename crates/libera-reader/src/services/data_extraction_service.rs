@@ -98,10 +98,12 @@ pub async fn run(
           let _ = std::fs::create_dir_all(parent);
         }
 
-        // 4. Extract PNG to disk if it doesn't exist yet
-        let extraction_ok = match path_to_thumbnail.exists() {
-          true => true,
-          false => {
+        // 4. Extract cover (JPEG 85%) to disk if it doesn't exist yet
+        let existing_cover = app_dirs
+          .find_existing_book_cover(book_size_bytes, computed_hash.as_ref().map(|h| h.0.as_str()));
+        let extraction_ok = match existing_cover {
+          Some(_) => true,
+          None => {
             let res = mutool::extract_img::extract_img(
               &book.book_path.as_pathbuf(),
               20,

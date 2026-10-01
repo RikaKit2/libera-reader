@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod command;
 pub mod constants;
 pub mod create_book;
 pub mod download_mutool;
@@ -11,6 +12,7 @@ pub mod page_info;
 pub mod render_page;
 pub mod search;
 pub mod stext;
+pub use command::{get_mutool_bin_path, mutool_command, mutool_std_command, set_mutool_path};
 pub use constants::*;
 pub use create_book::create_empty_book;
 pub use download_mutool::{download_mutool, download_mutool_if_missing_blocking};

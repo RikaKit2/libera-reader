@@ -3,7 +3,7 @@ use crate::mutool_error::MuToolError;
 use crate::stext::BBox;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PageLink {
@@ -24,7 +24,7 @@ pub fn get_page_links(path_to_book: &Path, _page: usize) -> Result<Vec<PageLink>
     return Err(MuToolError::IoError);
   }
 
-  let output = Command::new("mutool")
+  let output = crate::mutool_std_command()
     .arg(CMD_SHOW)
     .arg(path_to_book)
     .arg(SHOW_TARGET_LINKS)

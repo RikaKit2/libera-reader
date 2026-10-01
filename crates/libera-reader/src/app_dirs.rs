@@ -107,9 +107,42 @@ impl Dirs {
     }
   }
 
-  /// Path to the cover image of the book (`cover.png`).
+  /// Path to the cover image of the book (defaults to `cover.jpg`).
   pub fn book_cover_path(&self, book_size: u64, hash_opt: Option<&str>) -> PathBuf {
-    self.book_dir(book_size, hash_opt).join("cover.png")
+    self.book_dir(book_size, hash_opt).join("cover.jpg")
+  }
+
+  /// Finds an existing valid cover image for the book across all supported formats:
+  /// `cover.jpg`, `cover.jpeg`, `cover.webp`, `cover.png`, followed by legacy `<size|hash>.png` / `.jpg`.
+  pub fn find_existing_book_cover(
+    &self, book_size: u64, hash_opt: Option<&str>,
+  ) -> Option<PathBuf> {
+    let dir = self.book_dir(book_size, hash_opt);
+    for name in ["cover.jpg", "cover.jpeg", "cover.webp", "cover.png"] {
+      let candidate = dir.join(name);
+      if candidate.exists() && std::fs::metadata(&candidate).map(|m| m.len() > 0).unwrap_or(false) {
+        return Some(candidate);
+      }
+    }
+
+    let legacy_candidates = match hash_opt {
+      Some(hash) if !hash.is_empty() => vec![
+        self.dir_of_hashed_books.join(format!("{}.jpg", hash)),
+        self.dir_of_hashed_books.join(format!("{}.jpeg", hash)),
+        self.dir_of_hashed_books.join(format!("{}.webp", hash)),
+        self.dir_of_hashed_books.join(format!("{}.png", hash)),
+      ],
+      _ => vec![
+        self.dir_of_unhashed_books.join(format!("{}.jpg", book_size)),
+        self.dir_of_unhashed_books.join(format!("{}.jpeg", book_size)),
+        self.dir_of_unhashed_books.join(format!("{}.webp", book_size)),
+        self.dir_of_unhashed_books.join(format!("{}.png", book_size)),
+      ],
+    };
+
+    legacy_candidates.into_iter().find(|candidate| {
+      candidate.exists() && std::fs::metadata(candidate).map(|m| m.len() > 0).unwrap_or(false)
+    })
   }
 
   /// Path to the legacy fallback cover path (e.g. `unhashed_books/<size>.png` or `hashed_books/<hash>.png`).
@@ -148,7 +181,7 @@ mod tests {
     let hash_dir = app_dirs.book_dir(1024, Some("a1b2c3d4"));
     assert!(hash_dir.ends_with("thumbnails/hashed_books/a1b2c3d4"));
     let cover_path = app_dirs.book_cover_path(1024, Some("a1b2c3d4"));
-    assert!(cover_path.ends_with("thumbnails/hashed_books/a1b2c3d4/cover.png"));
+    assert!(cover_path.ends_with("thumbnails/hashed_books/a1b2c3d4/cover.jpg"));
     let page_path = app_dirs.book_page_path(1024, Some("a1b2c3d4"), 5, 150);
     assert!(page_path.ends_with("thumbnails/hashed_books/a1b2c3d4/pages/p5_150dpi.png"));
 
@@ -156,6 +189,28 @@ mod tests {
     let unhash_dir = app_dirs.book_dir(2048, None);
     assert!(unhash_dir.ends_with("thumbnails/unhashed_books/2048"));
     let unhash_cover = app_dirs.book_cover_path(2048, None);
-    assert!(unhash_cover.ends_with("thumbnails/unhashed_books/2048/cover.png"));
+    assert!(unhash_cover.ends_with("thumbnails/unhashed_books/2048/cover.jpg"));
+  }
+
+  #[test]
+  fn test_find_existing_book_cover() {
+    let tmp = tempdir().unwrap();
+    let dirs = Dirs::new(tmp.path().to_path_buf()).unwrap();
+    let app_dirs = AppDirs { inn: Arc::new(dirs) };
+
+    // None when no cover exists
+    assert!(app_dirs.find_existing_book_cover(5000, None).is_none());
+
+    // Create legacy cover.png
+    let legacy_dir = app_dirs.book_dir(5000, None);
+    std::fs::create_dir_all(&legacy_dir).unwrap();
+    let legacy_png = legacy_dir.join("cover.png");
+    std::fs::write(&legacy_png, b"legacy png data").unwrap();
+    assert_eq!(app_dirs.find_existing_book_cover(5000, None), Some(legacy_png.clone()));
+
+    // Create modern cover.jpg - should take priority over legacy cover.png
+    let modern_jpg = legacy_dir.join("cover.jpg");
+    std::fs::write(&modern_jpg, b"modern jpg data").unwrap();
+    assert_eq!(app_dirs.find_existing_book_cover(5000, None), Some(modern_jpg));
   }
 }

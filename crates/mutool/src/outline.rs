@@ -2,7 +2,7 @@ use crate::constants::{CMD_SHOW, SHOW_TARGET_OUTLINE};
 use crate::mutool_error::MuToolError;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct OutlineNode {
@@ -25,7 +25,7 @@ pub fn get_document_outline(path_to_book: &Path) -> Result<Vec<OutlineNode>, MuT
     return Err(MuToolError::IoError);
   }
 
-  let output = Command::new("mutool")
+  let output = crate::mutool_std_command()
     .arg(CMD_SHOW)
     .arg(path_to_book)
     .arg(SHOW_TARGET_OUTLINE)

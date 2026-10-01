@@ -2,7 +2,7 @@ use crate::mutool_error::MuToolError;
 use crate::stext::BBox;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DocumentSearchMatch {
@@ -72,7 +72,7 @@ pub fn search_document_text(
 
   let script_path = ensure_search_script()?;
 
-  let output = Command::new("mutool")
+  let output = crate::mutool_std_command()
     .arg("run")
     .arg(&script_path)
     .arg(path_to_book)

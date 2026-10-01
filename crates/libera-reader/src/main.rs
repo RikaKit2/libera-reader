@@ -62,6 +62,12 @@ fn main() -> Result<()> {
   let app = gpui_platform::application().with_assets(Assets);
   app.run(move |cx| {
     let app_dirs = AppDirs::new_with_default_data_dir().unwrap();
+    let data_dir = app_dirs.data_dir.clone();
+    TOKIO.get().unwrap().block_on(async {
+      if let Err(e) = mutool::download_mutool_if_missing_blocking(&data_dir).await {
+        tracing::error!("Failed to verify or download mutool: {:#}", e);
+      }
+    });
     let path_to_db = app_dirs.path_to_db.clone();
     let db = DB::new(path_to_db).unwrap();
     let settings = SETTINGS::new(db.clone()).unwrap();
