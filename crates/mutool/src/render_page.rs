@@ -69,3 +69,31 @@ pub fn render_page_to_png_bytes(
 
   Ok(output.stdout)
 }
+
+/// Render a single document page (1-indexed) directly to encoded WebP bytes.
+pub fn render_page_to_webp_bytes(
+  path_to_book: &Path, page: usize, dpi: u32, quality: f32,
+) -> Result<Vec<u8>, MuToolError> {
+  let png_bytes = render_page_to_png_bytes(path_to_book, page, dpi)?;
+  let img = image::ImageReader::new(std::io::Cursor::new(png_bytes))
+    .with_guessed_format()
+    .map_err(|_| MuToolError::OtherErr)?
+    .decode()
+    .map_err(|_| MuToolError::OtherErr)?;
+
+  let encoder = webp::Encoder::from_image(&img).map_err(|_| MuToolError::OtherErr)?;
+  let webp_memory = encoder.encode(quality);
+  Ok(webp_memory.to_vec())
+}
+
+/// Render a single document page (1-indexed) directly to a WebP file on disk.
+pub fn render_page_to_webp(
+  path_to_book: &Path, page: usize, dpi: u32, output_path: &Path, quality: f32,
+) -> Result<(), MuToolError> {
+  let webp_bytes = render_page_to_webp_bytes(path_to_book, page, dpi, quality)?;
+  if let Some(parent) = output_path.parent() {
+    let _ = std::fs::create_dir_all(parent);
+  }
+  std::fs::write(output_path, webp_bytes).map_err(|_| MuToolError::IoError)?;
+  Ok(())
+}

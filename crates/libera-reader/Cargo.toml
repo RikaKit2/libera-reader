@@ -61,3 +61,5 @@ jwalk = { workspace = true }
 chrono = { workspace = true }
 indexmap = { workspace = true }
 tempfile = { workspace = true }
+webp = { workspace = true }
+libwebp_sys2 = { workspace = true }

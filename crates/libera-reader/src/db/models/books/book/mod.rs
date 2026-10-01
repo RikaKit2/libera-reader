@@ -201,21 +201,8 @@ impl Book {
       None
     };
 
-    let pick_existing = |dir: &Path, id_str: &str| -> Option<PathBuf> {
-      for name in ["cover.jpg", "cover.jpeg", "cover.webp", "cover.png"] {
-        if let Some(p) = check_valid_file(dir.join(name)) {
-          return Some(p);
-        }
-      }
-      if let Some(parent) = dir.parent() {
-        for ext in ["jpg", "jpeg", "webp", "png"] {
-          if let Some(p) = check_valid_file(parent.join(format!("{}.{}", id_str, ext))) {
-            return Some(p);
-          }
-        }
-      }
-      None
-    };
+    let pick_existing =
+      |dir: &Path| -> Option<PathBuf> { check_valid_file(dir.join("cover.webp")) };
 
     let crate::db::models::books::book::BookSize::BYTES(size_bytes) = self.book_size;
     let unhashed_dir = thumbnails_dir.join(UNHASHED_BOOKS_DIR);
@@ -226,7 +213,7 @@ impl Book {
     if let Some(book_sizes) = db.get_primary::<BookSizes>(self.book_size)? {
       match &book_sizes.book_type {
         BookType::UniqueSize { .. } => {
-          if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
+          if let Some(p) = pick_existing(&unhashed_book_dir) {
             return Ok(Some(p));
           }
         }
@@ -235,22 +222,22 @@ impl Book {
             match dup_data {
               DuplicateBookData::BookHash(hash) => {
                 let hashed_book_dir = hashed_dir.join(hash.0.as_str());
-                if let Some(p) = pick_existing(&hashed_book_dir, hash.0.as_str()) {
+                if let Some(p) = pick_existing(&hashed_book_dir) {
                   return Ok(Some(p));
                 }
               }
               DuplicateBookData::MutoolData(_) => {
-                if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
+                if let Some(p) = pick_existing(&unhashed_book_dir) {
                   return Ok(Some(p));
                 }
               }
             }
-          } else if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
+          } else if let Some(p) = pick_existing(&unhashed_book_dir) {
             return Ok(Some(p));
           }
         }
       }
-    } else if let Some(p) = pick_existing(&unhashed_book_dir, &size_bytes.to_string()) {
+    } else if let Some(p) = pick_existing(&unhashed_book_dir) {
       return Ok(Some(p));
     }
     Ok(None)

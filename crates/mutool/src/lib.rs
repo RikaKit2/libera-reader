@@ -23,7 +23,9 @@ pub use outline::{OutlineNode, get_document_outline};
 pub use page_info::{
   DocumentPageInfo, PageDimensions, get_document_page_info, get_page_count, get_page_size,
 };
-pub use render_page::{render_page_to_png, render_page_to_png_bytes};
+pub use render_page::{
+  render_page_to_png, render_page_to_png_bytes, render_page_to_webp, render_page_to_webp_bytes,
+};
 pub use search::{DocumentSearchMatch, search_document_text};
 pub use stext::{
   BBox, FontInfo, PageStructuredText, TextBlock, TextLine, get_page_structured_text,

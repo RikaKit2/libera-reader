@@ -23,7 +23,26 @@ pub async fn extract_img(
 
   let ext = path_to_thumbnail.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
 
-  if ext == "jpg" || ext == "jpeg" {
+  if ext == "webp" {
+    let temp_file =
+      tempfile::Builder::new().suffix(".png").tempfile().map_err(|_| MuToolError::IoError)?;
+    let temp_path = temp_file.path().to_path_buf();
+
+    extract_img_with_format(path_to_book, resolution, &temp_path, "png").await?;
+
+    let reader = BufReader::new(File::open(&temp_path).map_err(|_| MuToolError::IoError)?);
+    let img = ImageReader::new(reader)
+      .with_guessed_format()
+      .map_err(|_| MuToolError::OtherErr)?
+      .decode()
+      .map_err(|_| MuToolError::OtherErr)?;
+
+    let encoder = webp::Encoder::from_image(&img).map_err(|_| MuToolError::OtherErr)?;
+    let webp_memory = encoder.encode(80.0);
+    std::fs::write(path_to_thumbnail, &*webp_memory).map_err(|_| MuToolError::IoError)?;
+
+    Ok(())
+  } else if ext == "jpg" || ext == "jpeg" {
     let temp_file =
       tempfile::Builder::new().suffix(".png").tempfile().map_err(|_| MuToolError::IoError)?;
     let temp_path = temp_file.path().to_path_buf();
@@ -117,5 +136,23 @@ mod tests {
 
     let reader = image::ImageReader::open(&cover_jpg).unwrap().with_guessed_format().unwrap();
     assert_eq!(reader.format(), Some(image::ImageFormat::Jpeg));
+  }
+
+  #[tokio::test]
+  async fn test_extract_webp_compression() {
+    let tmp = tempdir().unwrap();
+    let pdf_path = tmp.path().join("test_webp.pdf");
+    let cover_webp = tmp.path().join("cover.webp");
+
+    crate::create_empty_book(&pdf_path, &pdf_path).await.unwrap();
+
+    let res = extract_img(&pdf_path, 20, &cover_webp).await;
+    assert!(res.is_ok());
+    assert!(cover_webp.exists());
+    let meta = std::fs::metadata(&cover_webp).unwrap();
+    assert!(meta.len() > 0);
+
+    let reader = image::ImageReader::open(&cover_webp).unwrap().with_guessed_format().unwrap();
+    assert_eq!(reader.format(), Some(image::ImageFormat::WebP));
   }
 }

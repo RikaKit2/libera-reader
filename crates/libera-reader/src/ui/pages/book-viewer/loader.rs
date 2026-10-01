@@ -62,12 +62,12 @@ impl DiskPageCacheResult {
   }
 }
 
-/// Renders a page via mutool CLI, writes the resulting PNG to disk cache,
+/// Renders a page via mutool CLI, writes the resulting WebP to disk cache,
 /// and decodes it into a GPU-ready `RenderImage`.
 fn render_and_cache_page(
   book_path: &std::path::Path, page: usize, dpi: u32, page_file: &std::path::Path,
 ) -> PageImageState {
-  match mutool::render_page_to_png_bytes(book_path, page, dpi) {
+  match mutool::render_page_to_webp_bytes(book_path, page, dpi, 85.0) {
     Ok(bytes) => {
       if let Some(parent) = page_file.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -76,7 +76,7 @@ fn render_and_cache_page(
 
       match decode_page_image_bytes(&bytes) {
         Some(img) => PageImageState::Loaded(img),
-        None => PageImageState::Failed("Failed to decode rendered PNG bytes".to_string()),
+        None => PageImageState::Failed("Failed to decode rendered WebP bytes".to_string()),
       }
     }
     Err(err) => PageImageState::Failed(err.to_string()),
@@ -232,6 +232,16 @@ mod tests {
     assert!(matches!(
       DiskPageCacheResult::probe_and_load(&corrupt),
       DiskPageCacheResult::CorruptedFile
+    ));
+
+    let rgba = vec![255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255];
+    let encoder = webp::Encoder::from_rgba(&rgba, 2, 2);
+    let webp_mem = encoder.encode(80.0);
+    let valid_webp = tmp.path().join("valid.webp");
+    std::fs::write(&valid_webp, &*webp_mem).unwrap();
+    assert!(matches!(
+      DiskPageCacheResult::probe_and_load(&valid_webp),
+      DiskPageCacheResult::Hit(_)
     ));
   }
 }
