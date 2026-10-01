@@ -1572,11 +1572,11 @@ dependencies = [
 
 [[package]]
 name = "directories"
-version = "6.0.0"
+version = "5.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16f5094c54661b38d03bd7e50df373292118db60b585c08a411c6d840017fe7d"
+checksum = "9a49173b84e034382284f27f1af4dcbbd231ffa358c0fe316541a7337f376a35"
 dependencies = [
- "dirs-sys 0.5.0",
+ "dirs-sys 0.4.1",
 ]
 
 [[package]]
@@ -2522,7 +2522,7 @@ dependencies = [
  "log",
  "lsp-types",
  "markdown",
- "notify 7.0.0",
+ "notify",
  "num-traits",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
@@ -2533,7 +2533,7 @@ dependencies = [
  "regex",
  "resvg 0.45.1",
  "ropey",
- "rust-i18n 4.2.4",
+ "rust-i18n",
  "schemars",
  "serde",
  "serde_json",
@@ -3655,17 +3655,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "inotify"
-version = "0.11.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cc00ea907cab49550b7da656f80ebb97be1b997d931fbcd28d39734e17ce592"
-dependencies = [
- "bitflags 2.13.2",
- "inotify-sys",
- "libc",
-]
-
-[[package]]
 name = "inotify-sys"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3979,19 +3968,19 @@ dependencies = [
  "itertools 0.14.0",
  "jwalk",
  "libc",
- "libwebp-sys2 0.2.0",
+ "libwebp-sys2",
  "lru",
  "mimalloc",
  "mutool",
  "native_db",
  "native_model",
- "notify 8.2.0",
+ "notify",
  "num_cpus",
  "once_cell",
  "parking_lot",
  "rfd",
  "rust-embed",
- "rust-i18n 3.1.5",
+ "rust-i18n",
  "serde",
  "smallvec",
  "sys-locale",
@@ -4066,20 +4055,6 @@ dependencies = [
  "cc",
  "cfg-if",
  "libc",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
-name = "libwebp-sys2"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dc3d00aeaa1d6bf4f35f3003bc1835135e0fb41f2fc19082a3f98d619792505"
-dependencies = [
- "cc",
- "cfg-if",
- "libc",
- "libwebp-sys2 0.1.11",
  "pkg-config",
  "vcpkg",
 ]
@@ -4472,7 +4447,7 @@ dependencies = [
  "image",
  "indicatif",
  "libc",
- "libwebp-sys2 0.2.0",
+ "libwebp-sys2",
  "reqwest",
  "serde",
  "serde_json",
@@ -4654,32 +4629,14 @@ dependencies = [
  "bitflags 2.13.2",
  "filetime",
  "fsevent-sys",
- "inotify 0.10.2",
+ "inotify",
  "kqueue",
  "libc",
  "log",
  "mio",
- "notify-types 1.0.1",
+ "notify-types",
  "walkdir",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "notify"
-version = "8.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d3d07927151ff8575b7087f245456e549fea62edf0ec4e565a5ee50c8402bc3"
-dependencies = [
- "bitflags 2.13.2",
- "fsevent-sys",
- "inotify 0.11.5",
- "kqueue",
- "libc",
- "log",
- "mio",
- "notify-types 2.1.0",
- "walkdir",
- "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4703,15 +4660,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "585d3cb5e12e01aed9e8a1f70d5c6b5e86fe2a6e48fc8cd0b3e0b8df6f6eb174"
 dependencies = [
  "instant",
-]
-
-[[package]]
-name = "notify-types"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42b8cfee0e339a0337359f3c88165702ac6e600dc01c0cc9579a92d62b08477a"
-dependencies = [
- "bitflags 2.13.2",
 ]
 
 [[package]]
@@ -6398,46 +6346,15 @@ dependencies = [
 
 [[package]]
 name = "rust-i18n"
-version = "3.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda2551fdfaf6cc5ee283adc15e157047b92ae6535cf80f6d4962d05717dc332"
-dependencies = [
- "globwalk",
- "once_cell",
- "regex",
- "rust-i18n-macro 3.1.5",
- "rust-i18n-support 3.1.5",
- "smallvec",
-]
-
-[[package]]
-name = "rust-i18n"
 version = "4.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8502e73e6461c738659455c5d2cf95bc132760a6f203c717e66ee72b78906d7f"
 dependencies = [
  "globwalk",
  "regex",
- "rust-i18n-macro 4.2.4",
- "rust-i18n-support 4.2.4",
+ "rust-i18n-macro",
+ "rust-i18n-support",
  "smallvec",
-]
-
-[[package]]
-name = "rust-i18n-macro"
-version = "3.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22baf7d7f56656d23ebe24f6bb57a5d40d2bce2a5f1c503e692b5b2fa450f965"
-dependencies = [
- "glob",
- "once_cell",
- "proc-macro2",
- "quote",
- "rust-i18n-support 3.1.5",
- "serde",
- "serde_json",
- "serde_yaml",
- "syn 2.0.119",
 ]
 
 [[package]]
@@ -6449,33 +6366,10 @@ dependencies = [
  "glob",
  "proc-macro2",
  "quote",
- "rust-i18n-support 4.2.4",
+ "rust-i18n-support",
  "serde",
  "serde_json",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "rust-i18n-support"
-version = "3.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "940ed4f52bba4c0152056d771e563b7133ad9607d4384af016a134b58d758f19"
-dependencies = [
- "arc-swap",
- "base62",
- "globwalk",
- "itertools 0.11.0",
- "lazy_static",
- "normpath",
- "once_cell",
- "proc-macro2",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml",
- "siphasher",
- "toml 0.8.23",
- "triomphe",
 ]
 
 [[package]]
@@ -6878,19 +6772,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
 ]
 
 [[package]]
@@ -8052,12 +7933,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
 
 [[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
-
-[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9093,15 +8968,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e38bc4d79ed67fd075bcc251a1c39b32a1776bbe92e5bef1f0bf1f8c531853b"
 dependencies = [
  "windows-targets 0.52.6",
-]
-
-[[package]]
-name = "windows-sys"
-version = "0.60.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2f500e4d28234f72040990ec9d39e3a6b950f9f22d3dba18416c35882612bcb"
-dependencies = [
- "windows-targets 0.53.5",
 ]
 
 [[package]]
