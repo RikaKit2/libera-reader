@@ -14,7 +14,9 @@ linker = "rust-lld.exe"
 [alias]
 run-dev = "run --package libera-reader --features dev"
 build-dev = "build --package libera-reader --features dev"
-
+run-dhat = "run --package libera-reader --features dhat-heap"
+build-dhat = "build --package libera-reader --features dhat-heap"
+dhat = "run --package libera-reader --features dhat-heap"
 [profile.dev]
 codegen-units = 16
 lto = false
