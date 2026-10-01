@@ -100,39 +100,70 @@
   В `remove_book.rs` и `remove_books_in_dir.rs` удаление всей папки книги (`std::fs::remove_dir_all`) происходит в один системный вызов без оставления мусора на диске.
 
 
-### 1.8. Сжатие обложек, фоновая загрузка без блокировок БД и надежное скачивание mutool
+### 1.8. Сжатие в WebP (обложки и страницы читалки) и 0-swap BGRA декодирование
 План: [`docs/superpowers/plans/2026-09-30-cover-compression-async-loading-and-mutool-download.md`](superpowers/plans/2026-09-30-cover-compression-async-loading-and-mutool-download.md) — **[x] ЗАВЕРШЕНО**
-- [x] **Сжатие обложек в WebP (качество 80) и сверхбыстрый BGRA-декодинг**:
-  - `extract_img` извлекает страницу через `mutool draw` и кодирует в WebP с качеством 80% (`webp::Encoder::from_image`).
-  - Размер файла обложки снизился до 1.5–9 КБ для миниатюр (в 2.5–3 раза компактнее JPEG, в 20–50 раз компактнее PNG), экономя более 60–67% диска без мутных ореолов и артефактов вокруг букв.
-  - **Нативное BGRA-декодирование с 0 CPU-свопов (`decode_webp_to_gpui`)**: используется `libwebp_sys2::WebPDecodeBGRAInto` и `WebPDecode` (с аппаратным масштабированием на уровне декодера). Пиксели пишутся сразу в экранном порядке BGRA через AVX2/SSE2 без промежуточного цикла перестановки каналов `px.swap(0, 2)`.
+- [x] **Строго WebP для обложек книг (Quality 80.0)**:
+  - `extract_img` извлекает страницу и кодирует в WebP (`webp::Encoder::from_image(&img).encode(80.0)`).
+  - Размер миниатюр обложек снизился до 1.5–9 КБ (экономия 60–67% диска по сравнению с JPEG и 95%+ по сравнению с PNG) без мутных ореолов и артефактов вокруг букв.
+  - Устранен каскад старых форматов: в `app_dirs.rs` и `book/mod.rs` поддерживается исключительно актуальный `cover.webp`. Повреждённые 0-байтные файлы автоматически самовосстанавливаются.
+- [x] **Поддержка WebP в читалке (`BookViewer`)**:
+  - Страницы кэшируются на диск строго в формате `pages/p{page}_{dpi}dpi.webp` через `mutool::render_page_to_webp_bytes` (размер файла страницы снизился с 1.5–3 МБ в PNG до 150–300 КБ).
+- [x] **Нативное BGRA-декодирование с 0 CPU-свопов (`decode_webp_to_gpui`, `decode_page_image_bytes`)**:
+  - И в сетке библиотеки (`BooksGrid`), и в читалке (`BookViewer`) внедрено декодирование через `libwebp_sys2::WebPDecodeBGRAInto` и `WebPDecode` (со встроенным аппаратным масштабированием декодера).
+  - Пиксели пишутся сразу в экранном порядке BGRA через SIMD (AVX2/SSE2). **Ликвидирован попиксельный цикл перестановки каналов `px.swap(0, 2)`** на миллионах пикселей полноразмерных страниц.
 - [x] **Асинхронная подгрузка картинок в UI минуя БД**:
-  - Рендерер `BooksGrid` передаёт путь к картинке в `load_tx`.
+  - Рендерер передаёт путь к картинке в канал `load_tx`.
   - Фоновый воркер `spawn_background_loader` читает файл с диска через `tokio::task::spawn_blocking` без транзакций БД.
   - База `native_db` / `redb` хранит только легковесные метаданные и не блокируется операциями интерфейса.
-- [x] **Обратная совместимость и самовосстановление (`find_existing_book_cover`)**:
-  - Бесшовный каскадный поиск обложки: `cover.webp` $\to$ `cover.jpg` $\to$ `cover.jpeg` $\to$ `cover.png` $\to$ легаси `<id>.png`.
-  - Повреждённые или нулевые файлы (0 байт) автоматически удаляются и пересоздаются.
 - [x] **Официальный релиз Artifex Software для Windows**:
   - Временные ссылки Uptodown заменены на постоянный релиз:
     `https://github.com/ArtifexSoftware/mupdf-downloads/releases/download/1.28.5/mupdf-1.28.5-windows.zip`.
-  - Добавлен `User-Agent: libera-reader/0.1.0` для исключения блокировок со стороны CDN GitHub.
-  - Исправлен баг `if path_to_mutool_storage.exists()`: директория создаётся автоматически до проверки наличия файла.
+  - В запрос добавлен заголовок `User-Agent: libera-reader/0.1.0`.
+  - Директория создаётся автоматически до проверки наличия файла.
 - [x] **Централизованный резолвер команды `mutool::mutool_command()`**:
-  - Все 8 модулей (`extract_img`, `render_page`, `page_info`, `stext`, `links`, `outline`, `search`, `create_book`) переведены на единый резолвер.
-  - Резолвер находит бинарник в `PATH`, локальной папке `AppDirs::mutool` или по переменной `MUTOOL_PATH`.
+  - Модули переведены на единый резолвер, находящий бинарник в `PATH`, локальной папке `AppDirs::mutool` или по переменной `MUTOOL_PATH`.
 - [x] **Проверка mutool при запуске приложения**:
   - В `main.rs` добавлен вызов `download_mutool_if_missing_blocking(&data_dir)` перед стартом фоновых служб.
+
+### 1.9. Оптимизация дерева зависимостей (Deduplication)
+- [x] **Выравнивание версий в `Cargo.toml`**:
+  - `rust-i18n = "4.2.4"`: синхронизация с `gpui-component 0.7.0`, исключение дубликатов тяжелого процедурного макроса `rust-i18n-macro` и `rust-i18n-support`.
+  - `notify = "7.0.0"`: синхронизация с `gpui-component`, исключение дубликатов `inotify` (0.10 / 0.11) и `notify-types` (1.0 / 2.1).
+  - `directories = "5.0.0"`: синхронизация с экосистемой GPUI, исключение дубликата `dirs 6` и `dirs-sys 0.5`.
+  - `libwebp_sys2 = "0.1.11"`: синхронизация с `webp 0.3.1`, исключение повторной C-компиляции исходников `libwebp`.
+- [x] **Снижение дубликатов в `Cargo.lock`**:
+  - Число дублирующихся крейтов в дереве снижено с **49 до 42**.
+
+### 1.10. Исправление адаптивной вёрстки мастера настройки (`welcome.rs`)
+- [x] **Устранение коллапса контейнера по высоте**:
+  - Добавлены модификаторы `.w_full().h_full().bg(theme.background)`.
+  - Контент страницы теперь центрируется ровно посередине окна, а кнопка «Далее» зафиксирована в нижнем правом углу в соответствии с остальными шагами мастера.
 ---
 
 ## 2. Что находится В ПРОЦЕССЕ и предстоит решить в первую очередь (Next Steps)
 
-### 2.1. Горячие клавиши и контролы (следующий спринт)
+### 2.1. Устранение архитектурного дублирования кода (~430 строк)
+План: [`docs/superpowers/plans/2026-09-30-cover-compression-async-loading-and-mutool-download.md`](superpowers/plans/2026-09-30-cover-compression-async-loading-and-mutool-download.md):
+- [ ] **Общий модуль изображений и системного I/O (`crate::utils::image`)**:
+  - Консолидировать `decode_webp_bgra` и `evict_file_page_cache`.
+  - Удалить дублирующий `ui/pages/book-viewer/image_utils.rs`.
+  - Подключить `evict_file_page_cache` при чтении страниц книги в `book-viewer/loader.rs` для экономии памяти ядра ОС.
+- [ ] **Унификация страниц списков библиотеки (`BooksPage`)**:
+  - Добавить `keys_for_target(&self, target: TargetList) -> BookKeys` в `BooksState`.
+  - Заменить 4 копипаст-файла (`library.rs`, `favorite.rs`, `history.rs`, `bookmarks.rs`) одним компонентом `BooksPage` (сокращение ~180 строк).
+- [ ] **Централизация вызовов процессов в `crates/mutool/src/command.rs`**:
+  - Добавить хелперы `run_mutool_stdout`, `run_mutool_text`, `run_mutool_status`.
+  - Избавить модули `outline`, `links`, `page_info`, `stext`, `render_page`, `extract_img` от ручной конфигурации пайпов.
+- [ ] **Хелпер коалесцирования уведомлений GPUI**:
+  - Вынести `attach_coalesced_notifier` в `crate::utils`.
+- [ ] **Унификация очистки кэша книги**:
+  - Реализовать метод `app_dirs.remove_book_cache(size, hash)` в `remove_book.rs` и `remove_books_in_dir.rs`.
+
+### 2.2. Горячие клавиши и контролы (следующий спринт)
 План: [`docs/superpowers/plans/2026-09-20-keybindings-and-controls.md`](superpowers/plans/2026-09-20-keybindings-and-controls.md):
 - [ ] Модель хранения кастомных клавиш в `native_db` (`KeybindingsConfig`).
 - [ ] Интерактивный редактор клавиш в меню Настроек (`KeyRecorder`).
 - [ ] Виртуализация вкладки эскизов страниц (`ThumbnailsView`) на архитектуре `BooksGrid`.
-
 
 ## 3. Запланировано на будущее (Roadmap / Medium Term)
 

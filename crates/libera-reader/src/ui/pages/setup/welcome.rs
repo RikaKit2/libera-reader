@@ -45,6 +45,9 @@ impl Render for Welcome {
       ]);
 
     div()
+      .bg(theme.background)
+      .w_full()
+      .h_full()
       .p(SETUP_PAGE_PADDING)
       .flex()
       .flex_col()
