@@ -1,4 +1,5 @@
 pub(crate) mod bookmarks;
+pub(crate) mod books_page;
 pub(crate) mod favorite;
 pub(crate) mod file_manager;
 pub(crate) mod history;

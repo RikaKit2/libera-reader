@@ -1,3 +1,5 @@
+pub use crate::utils::image::*;
+
 use gpui::RenderImage;
 use image::Frame;
 use image::ImageReader;

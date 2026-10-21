@@ -22,6 +22,11 @@ ignore = [
     # RUSTSEC-2026-0206: rustybuzz is unmaintained.
     # Comes via usvg / resvg -> gpui. Cannot fix ourselves.
     "RUSTSEC-2026-0206",
+    # RUSTSEC-2026-0370 / 0371 / 0372: zvariant, zbus_names, zvariant_derive are unmaintained.
+    # Transitive via atspi / accesskit_unix -> gpui-pre-linux. Only warnings, not vulnerabilities.
+    "RUSTSEC-2026-0370",
+    "RUSTSEC-2026-0371",
+    "RUSTSEC-2026-0372",
 ]
 
 [yanked]

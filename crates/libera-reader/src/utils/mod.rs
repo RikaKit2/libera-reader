@@ -5,6 +5,7 @@ use tracing_subscriber::EnvFilter;
 
 use crate::utils::logger::Formatter;
 pub mod debounce;
+pub mod image;
 pub mod logger;
 pub use debounce::Debouncer;
 pub use logger::{debug, error, timing, title};

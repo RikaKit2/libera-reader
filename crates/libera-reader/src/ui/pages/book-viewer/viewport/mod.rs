@@ -5,9 +5,12 @@ pub mod scroll_container;
 pub use paged_container::PagedContainer;
 pub use scroll_container::ScrollContainer;
 
+use crate::ui::pages::book_viewer::cache::BookViewerCache;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::ActiveTheme;
+use parking_lot::Mutex;
+use std::sync::Arc;
 
 pub struct Viewport {
   state: Entity<BookViewerState>,
@@ -17,8 +20,9 @@ pub struct Viewport {
 
 impl Viewport {
   pub fn new(state: Entity<BookViewerState>, cx: &mut App) -> Entity<Self> {
-    let scroll_container = ScrollContainer::new(state.clone(), cx);
-    let paged_container = PagedContainer::new(state.clone(), cx);
+    let cache = Arc::new(Mutex::new(BookViewerCache::new()));
+    let scroll_container = ScrollContainer::new(state.clone(), cache.clone(), cx);
+    let paged_container = PagedContainer::new(state.clone(), cache.clone(), cx);
 
     cx.new(|_cx| Self { state, scroll_container, paged_container })
   }

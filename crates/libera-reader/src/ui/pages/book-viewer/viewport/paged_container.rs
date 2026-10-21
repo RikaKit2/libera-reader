@@ -19,8 +19,9 @@ pub struct PagedContainer {
 }
 
 impl PagedContainer {
-  pub fn new(state: Entity<BookViewerState>, cx: &mut App) -> Entity<Self> {
-    let cache = Arc::new(Mutex::new(BookViewerCache::new()));
+  pub fn new(
+    state: Entity<BookViewerState>, cache: Arc<Mutex<BookViewerCache>>, cx: &mut App,
+  ) -> Entity<Self> {
     let visible_start = Arc::new(AtomicUsize::new(1));
     let visible_end = Arc::new(AtomicUsize::new(1));
 
@@ -63,6 +64,7 @@ impl PagedContainer {
 
 impl Render for PagedContainer {
   fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    self.cache.lock().flush_evictions(cx);
     let (current_page, current_book, book_size, book_hash, zoom_factor) = {
       let s = self.state.read(cx);
       (s.current_page, s.current_book.clone(), s.book_size, s.book_hash.clone(), s.zoom_factor)

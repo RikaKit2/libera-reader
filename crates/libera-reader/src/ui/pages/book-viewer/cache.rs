@@ -43,6 +43,7 @@ pub struct BookViewerCache {
   image_dpis: LruCache<usize, u32>,
   texts: LruCache<usize, PageTextState>,
   links: LruCache<usize, PageLinksState>,
+  evicted: Vec<Arc<RenderImage>>,
 }
 
 impl Default for BookViewerCache {
@@ -62,6 +63,7 @@ impl BookViewerCache {
       image_dpis: LruCache::new(img_cap),
       texts: LruCache::new(text_cap),
       links: LruCache::new(links_cap),
+      evicted: Vec::new(),
     }
   }
 
@@ -70,8 +72,18 @@ impl BookViewerCache {
   }
 
   pub fn insert_image(&mut self, page: usize, state: PageImageState) {
-    self.images.put(page, state);
+    if let Some((_, PageImageState::Loaded(img))) = self.images.push(page, state) {
+      self.evicted.push(img);
+    }
   }
+
+  pub fn flush_evictions(&mut self, cx: &mut gpui::App) {
+    let evicted = std::mem::take(&mut self.evicted);
+    for img in evicted {
+      cx.drop_image(img, None);
+    }
+  }
+
   pub fn get_image_dpi(&mut self, page: usize) -> Option<u32> {
     self.image_dpis.get(&page).copied()
   }
@@ -109,6 +121,11 @@ impl BookViewerCache {
   }
 
   pub fn clear(&mut self) {
+    for (_, state) in self.images.iter() {
+      if let PageImageState::Loaded(img) = state {
+        self.evicted.push(img.clone());
+      }
+    }
     self.images.clear();
     self.image_dpis.clear();
     self.texts.clear();
@@ -116,6 +133,11 @@ impl BookViewerCache {
   }
 
   pub fn clear_images(&mut self) {
+    for (_, state) in self.images.iter() {
+      if let PageImageState::Loaded(img) = state {
+        self.evicted.push(img.clone());
+      }
+    }
     self.images.clear();
     self.image_dpis.clear();
   }
