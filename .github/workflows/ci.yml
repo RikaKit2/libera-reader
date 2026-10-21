@@ -32,13 +32,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install system dependencies & Wild linker (Linux)
+      - name: Install system dependencies & Mold linker (Linux)
         run: |
           set -eux
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            gcc g++ clang \
+            gcc g++ clang mold \
             libfontconfig1-dev \
             libwayland-dev \
             libxkbcommon-dev \
@@ -52,9 +52,7 @@ jobs:
             mupdf-tools
           sudo apt-get -qq clean
           sudo rm -rf /var/lib/apt/lists/*
-          curl -sSL https://github.com/wild-linker/wild/releases/download/0.10.0/wild-linker-0.10.0-x86_64-unknown-linux-gnu.tar.gz | sudo tar -xz -C /usr/local/bin --strip-components=1 wild-linker-0.10.0-x86_64-unknown-linux-gnu/wild
-          sudo ln -sf /usr/local/bin/wild /usr/local/bin/ld.wild
-          wild --version
+          mold --version
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -72,14 +70,14 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
-      - name: Install system dependencies & Wild linker (Linux)
+      - name: Install system dependencies & Mold linker (Linux)
         if: runner.os == 'Linux'
         run: |
           set -eux
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            gcc g++ clang \
+            gcc g++ clang mold \
             libfontconfig1-dev \
             libwayland-dev \
             libxkbcommon-dev \
@@ -93,9 +91,7 @@ jobs:
             mupdf-tools
           sudo apt-get -qq clean
           sudo rm -rf /var/lib/apt/lists/*
-          curl -sSL https://github.com/wild-linker/wild/releases/download/0.10.0/wild-linker-0.10.0-x86_64-unknown-linux-gnu.tar.gz | sudo tar -xz -C /usr/local/bin --strip-components=1 wild-linker-0.10.0-x86_64-unknown-linux-gnu/wild
-          sudo ln -sf /usr/local/bin/wild /usr/local/bin/ld.wild
-          wild --version
+          mold --version
       - name: Disable Windows Defender for build folders
         if: runner.os == 'Windows'
         shell: powershell
@@ -138,13 +134,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install system dependencies & Wild linker (Linux)
+      - name: Install system dependencies & Mold linker (Linux)
         run: |
           set -eux
           export DEBIAN_FRONTEND=noninteractive
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
-            gcc g++ clang \
+            gcc g++ clang mold \
             libfontconfig1-dev \
             libwayland-dev \
             libxkbcommon-dev \
@@ -158,9 +154,7 @@ jobs:
             mupdf-tools
           sudo apt-get -qq clean
           sudo rm -rf /var/lib/apt/lists/*
-          curl -sSL https://github.com/wild-linker/wild/releases/download/0.10.0/wild-linker-0.10.0-x86_64-unknown-linux-gnu.tar.gz | sudo tar -xz -C /usr/local/bin --strip-components=1 wild-linker-0.10.0-x86_64-unknown-linux-gnu/wild
-          sudo ln -sf /usr/local/bin/wild /usr/local/bin/ld.wild
-          wild --version
+          mold --version
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview

@@ -1,15 +1,13 @@
 [env]
 RUSTC_BOOTSTRAP = "1"
 
-[build]
-rustflags = ["-C", "target-cpu=native"]
-
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
-rustflags = ["-C", "target-cpu=native", "-C", "link-arg=--ld-path=wild", "-C", "prefer-dynamic", "-Zshare-generics=y"]
+rustflags = ["-C", "target-cpu=native", "-C", "link-arg=-fuse-ld=mold", "-C", "prefer-dynamic", "-Zshare-generics=y"]
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
+rustflags = []
 
 [alias]
 run-dev = "run --package libera-reader --features dev"
