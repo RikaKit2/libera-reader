@@ -58,6 +58,8 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - name: Run Clippy
+        env:
+          RUSTFLAGS: "-C target-feature=+aes,+sse2 -C link-arg=-fuse-ld=mold"
         run: cargo clippy --workspace --locked -- -D warnings
 
   test:
@@ -117,7 +119,13 @@ jobs:
           }
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Run Tests
+      - name: Run Tests (Linux)
+        if: runner.os == 'Linux'
+        env:
+          RUSTFLAGS: "-C target-feature=+aes,+sse2 -C link-arg=-fuse-ld=mold"
+        run: cargo test --workspace --locked
+      - name: Run Tests (Windows)
+        if: runner.os == 'Windows'
         run: cargo test --workspace --locked
 
   audit:
