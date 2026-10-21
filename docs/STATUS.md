@@ -21,6 +21,7 @@
 | **Эскизы страниц (Thumbnails)** | 🔴 Требует доработки | 20% | Работает на примитивном `div()`, предстоит виртуализация по архитектуре `BooksGrid`. |
 | **Инфраструктура и Зависимости** | ✅ Завершено | 100% | Переход на `gpui-kit 0.7.0`, авто `cargo fmt` в pre-commit, обновление `zip 9` и `rustls 0.23.46`. |
 | **Сжатие обложек & Загрузка mutool** | ✅ Завершено | 100% | Сжатие обложек в WebP (Q80), 0-swap нативное BGRA декодирование в GPUI, загрузка mutool с GitHub Artifex. |
+| **Кроссплатформенный CI/CD** | ✅ Завершено | 100% | 100% Green пайплайн (Linux + Windows). Mold линкер, кэш mutool, устранение флаков. |
 ---
 
 ## 1. Что уже ПОЛНОСТЬЮ РЕШЕНО (Completed & Verified)
@@ -156,6 +157,18 @@
   - Создан параметризованный компонент `BooksPage(TargetList)` (`main/content/books_page.rs`).
   - Файлы `library.rs`, `favorite.rs`, `history.rs` и `bookmarks.rs` сокращены до тонких оберток вокруг `BooksPage`.
 
+
+### 1.13. Стабилизация файлового мониторинга на Windows
+- [x] **Поддержка событий `ReadDirectoryChangesW` в `notify_service`**:
+  - Внедрена поддержка общих событий `CreateKind::Any` / `CreateKind::Other` и `RemoveKind::Any` / `RemoveKind::Other`.
+  - Реализовано связывание раздельных событий переименования: буфер `pending_rename` в `run_event_loop` склеивает `RenameMode::From` и `RenameMode::To` в единое событие `RenameFile` / `RenameDir`.
+- [x] **Асинхронный retry-polling в интеграционных тестах**:
+  - Метод `test_fn` переведён на асинхронный retry-цикл ожидания записи в БД (до 3 секунд по 100 мс).
+
+### 1.14. Оптимизация CI/CD и отказ от Chocolatey
+- [x] Внедрён Mold linker на Ubuntu в CI (ускорение Clippy в 6 раз).
+- [x] Изолированы флаги `RUSTFLAGS` в CI, исключив `SIGILL` на виртуальных машинах Azure.
+- [x] Установка `mupdf-tools` через Chocolatey на Windows заменена прямым скачиванием автономного бинарника Artifex и кэшированием `actions/cache@v4` (время прогона джоба Windows упало с 21 мин до 4 мин 39 сек).
 ---
 
 ## 2. Известные дефекты и задачи в работе (Known Issues & Active Debt)
