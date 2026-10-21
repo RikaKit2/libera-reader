@@ -161,6 +161,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate Code Coverage
+        env:
+          RUSTFLAGS: ""
         run: cargo llvm-cov --workspace --locked --codecov --output-path codecov.json
       - uses: codecov/codecov-action@v7
         with:

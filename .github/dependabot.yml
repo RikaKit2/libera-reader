@@ -1,23 +1,41 @@
 version: 2
 updates:
+  # Maintain Rust dependencies for Cargo
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 10
+    # Delay routine updates for 7 days to mitigate supply-chain risks & raw releases
+    cooldown:
+      default-days: 7
+    # Group routine Cargo updates into ONE consolidated reviewable PR
+    groups:
+      cargo-dependencies:
+        patterns: ["*"]
+    # Bound the number of active open PRs to avoid PR clutter
+    open-pull-requests-limit: 3
+    # Update lockfile without bumping Cargo.toml if compatible with current semver
+    versioning-strategy: increase-if-necessary
     labels:
       - "dependencies"
       - "rust"
 
+  # Maintain GitHub Actions dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    # Group workflow action updates into ONE reviewable PR
+    groups:
+      actions-dependencies:
+        patterns: ["*"]
+    open-pull-requests-limit: 2
     labels:
       - "dependencies"
       - "github-actions"
