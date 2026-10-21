@@ -99,24 +99,34 @@ jobs:
         shell: powershell
         run: |
           Add-MpPreference -ExclusionPath $PWD, $env:USERPROFILE\.cargo, $env:USERPROFILE\.rustup
-      - name: Install mutool (Windows)
+      - name: Cache mutool (Windows)
+        if: runner.os == 'Windows'
+        id: cache-mutool-windows
+        uses: actions/cache@v4
+        with:
+          path: C:\tools\mutool
+          key: mutool-windows-1.28.5
+
+      - name: Download mutool from Artifex (Windows)
+        if: runner.os == 'Windows' && steps.cache-mutool-windows.outputs.cache-hit != 'true'
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\tools\mutool
+          $url = "https://github.com/ArtifexSoftware/mupdf-downloads/releases/download/1.28.5/mupdf-1.28.5-windows.zip"
+          curl.exe -sSL $url -o C:\tools\mupdf.zip
+          tar.exe -xf C:\tools\mupdf.zip -C C:\tools\mutool
+          $exe = Get-ChildItem -Path C:\tools\mutool -Filter "mutool.exe" -Recurse | Select-Object -First 1
+          if ($exe -and $exe.DirectoryName -ne "C:\tools\mutool") {
+            Copy-Item $exe.FullName -Destination "C:\tools\mutool\mutool.exe" -Force
+          }
+          Remove-Item C:\tools\mupdf.zip -Force
+
+      - name: Add mutool to PATH (Windows)
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          if (Get-Command choco -ErrorAction SilentlyContinue) {
-            choco feature disable -n showDownloadProgress
-            try {
-              choco install -y mupdf
-            } catch {
-              try {
-                choco install -y mupdf-tools
-              } catch {
-                Write-Host 'choco install failed, continuing'
-              }
-            }
-          } else {
-            Write-Host 'Chocolatey not installed on runner — skipping mutool install'
-          }
+          "C:\tools\mutool" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & "C:\tools\mutool\mutool.exe" -v
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run Tests (Linux)
