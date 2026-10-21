@@ -10,7 +10,7 @@ use libera_reader::utils::{debug, error, title};
 use mutool::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::fs::{create_dir_all, remove_dir_all, rename};
+use tokio::fs::{create_dir, create_dir_all, remove_dir_all, rename};
 #[allow(dead_code)]
 pub enum TestMode {
   Notify,
@@ -116,7 +116,7 @@ impl TestLib {
 
   pub async fn move_second_book_to_first_dir(&mut self) -> Result<()> {
     title!("FILE MOVEMENT TEST: MOVE SECOND BOOK TO FIRST DIR");
-    create_dir(&self.fist_dir).await?;
+    create_dir_all(&self.fist_dir).await?;
 
     if let TestMode::Notify = self.test_mode {
       tokio::time::sleep(Duration::from_millis(50)).await;
