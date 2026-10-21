@@ -97,9 +97,11 @@ impl TestLib {
     create_empty_book(&path_to_mutool, &self.first_book).await.unwrap();
 
     self.wait_for_sync().await?;
-    self.test_fn(&self.first_book, |book: &Book| {
-      assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref())
-    })?;
+    self
+      .test_fn(&self.first_book, |book: &Book| {
+        assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref())
+      })
+      .await?;
     Ok(())
   }
 
@@ -108,9 +110,11 @@ impl TestLib {
     rename(&self.first_book, &self.second_book).await?;
 
     self.wait_for_sync().await?;
-    self.test_fn(&self.second_book, |book: &Book| {
-      assert_eq!(SECOND_BOOK, book.book_path.file_name().as_ref())
-    })?;
+    self
+      .test_fn(&self.second_book, |book: &Book| {
+        assert_eq!(SECOND_BOOK, book.book_path.file_name().as_ref())
+      })
+      .await?;
     Ok(())
   }
 
@@ -129,9 +133,11 @@ impl TestLib {
     self.wait_for_sync().await?;
 
     self.second_book = book_in_first_dir;
-    self.test_fn(&self.second_book, |book: &Book| {
-      assert_eq!(FIRST_DIR, book.book_path.parent_dir.dir_name().as_ref())
-    })?;
+    self
+      .test_fn(&self.second_book, |book: &Book| {
+        assert_eq!(FIRST_DIR, book.book_path.parent_dir.dir_name().as_ref())
+      })
+      .await?;
     Ok(())
   }
 
@@ -142,9 +148,11 @@ impl TestLib {
     self.wait_for_sync().await?;
 
     self.second_book = self.tmp_dir.join(SECOND_DIR).join(SECOND_BOOK);
-    self.test_fn(&self.second_book, |book: &Book| {
-      assert_eq!(SECOND_DIR, book.book_path.parent_dir.dir_name().as_ref())
-    })?;
+    self
+      .test_fn(&self.second_book, |book: &Book| {
+        assert_eq!(SECOND_DIR, book.book_path.parent_dir.dir_name().as_ref())
+      })
+      .await?;
     Ok(())
   }
 
@@ -156,9 +164,11 @@ impl TestLib {
 
     self.wait_for_sync().await?;
 
-    self.test_fn(&self.first_book, |book: &Book| {
-      assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref())
-    })?;
+    self
+      .test_fn(&self.first_book, |book: &Book| {
+        assert_eq!(FIRST_BOOK, book.book_path.file_name().as_ref())
+      })
+      .await?;
     Ok(())
   }
 
@@ -170,10 +180,15 @@ impl TestLib {
 
     let parent_dir = self.first_book.parent().unwrap().to_path_buf();
     let book_dir = BookDir::new(parent_dir);
-    let target_books = Book::scan_by_parent_dir(&self.db, book_dir.full_path().as_ref())?;
-
+    let mut target_books = Book::scan_by_parent_dir(&self.db, book_dir.full_path().as_ref())?;
+    for _ in 0..30 {
+      if target_books.is_empty() {
+        break;
+      }
+      tokio::time::sleep(Duration::from_millis(100)).await;
+      target_books = Book::scan_by_parent_dir(&self.db, book_dir.full_path().as_ref())?;
+    }
     assert!(target_books.is_empty(), "Directory exists in DB but should be empty");
-
     Ok(())
   }
 
@@ -186,34 +201,30 @@ impl TestLib {
     };
   }
 
-  fn test_fn<F>(&self, book_path_in_db: &PathBuf, assert_fn: F) -> Result<()>
+  async fn test_fn<F>(&self, book_path_in_db: &PathBuf, assert_fn: F) -> Result<()>
   where
     F: Fn(&Book),
   {
     let book_path = BookPath::new(book_path_in_db)
       .expect("Failed to create BookPath from file path (check if extension is valid)");
 
-    let book_result = Book::get(&self.db, book_path.clone());
-
-    match book_result {
-      Ok(Some(book)) => {
+    let max_attempts = if let TestMode::Notify = self.test_mode { 30 } else { 1 };
+    for _ in 0..max_attempts {
+      if let Ok(Some(book)) = Book::get(&self.db, book_path.clone()) {
         assert_fn(&book);
+        return Ok(());
       }
-      Ok(None) => {
-        let Ok(books_from_db) = Book::scan_all(&self.db) else {
-          panic!("Failed to get all books from db for debug dump");
-        };
-        let book_count = books_from_db.len();
-        for book in books_from_db {
-          debug!("{:?}", book);
-        }
-        panic!("Book not found in DB: {:?} (Total books in DB: {})", book_path_in_db, book_count);
-      }
-      Err(e) => {
-        panic!("Error getting book from db: {:?}", e);
-      }
+      tokio::time::sleep(Duration::from_millis(100)).await;
     }
-    Ok(())
+
+    let Ok(books_from_db) = Book::scan_all(&self.db) else {
+      panic!("Failed to get all books from db for debug dump");
+    };
+    let book_count = books_from_db.len();
+    for book in books_from_db {
+      debug!("{:?}", book);
+    }
+    panic!("Book not found in DB: {:?} (Total books in DB: {})", book_path_in_db, book_count);
   }
 
   pub async fn run(&mut self) -> Result<()> {

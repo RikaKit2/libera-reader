@@ -49,6 +49,14 @@ impl FSEvent {
       EventKind::Create(CreateKind::File) => {
         paths.into_iter().next().map(|path| Self::CreateFile { file_path: path })
       }
+      EventKind::Create(CreateKind::Any | CreateKind::Other) => {
+        let path = paths.into_iter().next()?;
+        if path.is_file() || path.extension().is_some() {
+          Some(Self::CreateFile { file_path: path })
+        } else {
+          None
+        }
+      }
       EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => {
         let mut it = paths.into_iter();
         match (it.next(), it.next()) {
@@ -69,6 +77,14 @@ impl FSEvent {
       }
       EventKind::Remove(RemoveKind::Folder) => {
         paths.into_iter().next().map(|path| Self::RemoveDir { dir_path: path })
+      }
+      EventKind::Remove(RemoveKind::Any | RemoveKind::Other) => {
+        let path = paths.into_iter().next()?;
+        if path.extension().is_some() {
+          Some(Self::RemoveFile { file_path: path })
+        } else {
+          Some(Self::RemoveDir { dir_path: path })
+        }
       }
       _ => None,
     }
