@@ -10,7 +10,7 @@ use libera_reader::utils::{debug, error, title};
 use mutool::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::fs::{create_dir, remove_dir_all, rename};
+use tokio::fs::{create_dir_all, remove_dir_all, rename};
 #[allow(dead_code)]
 pub enum TestMode {
   Notify,
@@ -180,7 +180,7 @@ impl TestLib {
   pub async fn drop_files(tmp_dir: &PathBuf) {
     debug!("Drop test files");
     let _ = remove_dir_all(tmp_dir).await; // Ignore error if folder doesn't exist yet
-    match create_dir(tmp_dir).await {
+    match create_dir_all(tmp_dir).await {
       Ok(_) => {}
       Err(e) => error!("error when creating tests_files_dir: {:?}", e),
     };
