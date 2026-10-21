@@ -7,7 +7,7 @@ rustflags = ["-C", "target-cpu=native", "-C", "link-arg=-fuse-ld=mold", "-C", "p
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
-rustflags = []
+rustflags = ["-C", "target-feature=+aes,+sse2"]
 
 [alias]
 run-dev = "run --package libera-reader --features dev"
