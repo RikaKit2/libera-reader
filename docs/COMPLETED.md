@@ -165,3 +165,32 @@
 - [x] **Исправление адаптивной вёрстки мастера настройки (`welcome.rs`)**:
   - Добавлены модификаторы `.w_full().h_full().bg(theme.background)`.
   - Устранен коллапс контейнера по высоте: контент центрируется ровно посередине окна, а кнопка «Далее» закреплена в правом нижнем углу.
+
+---
+
+## 12. Ликвидация утечки GPU Texture Atlas и единый кэш Viewport
+- [x] **Устранение утечки памяти в `BookViewerCache`**:
+  - Внедрена очередь вытеснения `evicted: Vec<Arc<RenderImage>>`.
+  - Реализован метод `flush_evictions(&mut self, cx: &mut gpui::App)`, который извлекает вытесненные текстуры и вызывает `cx.drop_image(img, None)`, своевременно очищая `WgpuAtlasTextures`.
+  - При очистке кэша (`clear()`, `clear_images()`) все активные страницы переводятся в очередь сброса видеопамяти.
+  - Лимит удерживаемых в памяти страниц `MAX_CACHED_PAGE_IMAGES` снижен с **20 до 5** (текущая + по 2 соседних), экономя до 260 МБ RAM на ровном месте.
+- [x] **Объединение кэша во `Viewport`**:
+  - Во `Viewport::new` создается один общий экземпляр `Arc<Mutex<BookViewerCache>>`, передаваемый в `ScrollContainer` и `PagedContainer`.
+  - Страницы, загруженные в режиме ленточного скролла, мгновенно доступны при переключении на постраничный режим без повторного декодирования через `mutool`.
+  - В начале каждого кадра `render()` обоих контейнеров вызывается `self.cache.lock().flush_evictions(cx)`.
+
+---
+
+## 13. Консолидация утилит изображений и унификация экранов библиотеки
+- [x] **Общий модуль `crate::utils::image`**:
+  - Создан единый каноничный модуль `crates/libera-reader/src/utils/image.rs`, содержащий `decode_webp_to_gpui`, `load_thumbnail` и `evict_file_page_cache`.
+  - Устранено дублирование кода между `books_grid/image_utils.rs` и `book-viewer/image_utils.rs`: оба модуля переведены на реэкспорт.
+- [x] **Универсальный компонент `BooksPage` (-344 LOC)**:
+  - Создан параметризованный компонент `BooksPage(TargetList)` (`main/content/books_page.rs`).
+  - Файлы `library.rs`, `favorite.rs`, `history.rs` и `bookmarks.rs` сокращены до тонких оберток, ликвидировав сотни строк шаблонного кода.
+
+---
+
+## 14. Автоматический cargo fmt и стейджинг в pre-commit
+- [x] В `.git/hooks/pre-commit` интегрирован автоматический прогон `cargo fmt --all` и синхронизация индекса `git update-index --again`.
+- [x] В `.cargo/audit.toml` зафиксированы транзитивные unmaintained-предупреждения экосистемы GPUI (`zvariant`, `zbus_names`), устранив ложные сбои `prek` при коммитах.
