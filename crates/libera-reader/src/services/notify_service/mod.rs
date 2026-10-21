@@ -43,7 +43,7 @@ enum FSEvent {
 }
 
 impl FSEvent {
-  fn from_event(event: Event) -> Option<Self> {
+  fn from_event(event: Event, pending_rename: &mut Option<PathBuf>) -> Option<Self> {
     let Event { kind, paths, .. } = event;
     match kind {
       EventKind::Create(CreateKind::File) => {
@@ -61,11 +61,60 @@ impl FSEvent {
         let mut it = paths.into_iter();
         match (it.next(), it.next()) {
           (Some(old_path), Some(new_path)) => {
-            if new_path.is_file() {
+            if new_path.is_file() || new_path.extension().is_some() {
               Some(Self::RenameFile { old_path, new_path })
             } else if new_path.is_dir() {
               Some(Self::RenameDir { old_path, new_path })
             } else {
+              None
+            }
+          }
+          _ => None,
+        }
+      }
+      EventKind::Modify(ModifyKind::Name(RenameMode::From)) => {
+        *pending_rename = paths.into_iter().next();
+        None
+      }
+      EventKind::Modify(ModifyKind::Name(RenameMode::To)) => {
+        let new_path = paths.into_iter().next()?;
+        if let Some(old_path) = pending_rename.take() {
+          if new_path.is_file() || new_path.extension().is_some() {
+            Some(Self::RenameFile { old_path, new_path })
+          } else if new_path.is_dir() {
+            Some(Self::RenameDir { old_path, new_path })
+          } else {
+            None
+          }
+        } else if new_path.is_file() || new_path.extension().is_some() {
+          Some(Self::CreateFile { file_path: new_path })
+        } else {
+          None
+        }
+      }
+      EventKind::Modify(ModifyKind::Name(RenameMode::Any | RenameMode::Other)) => {
+        let mut it = paths.into_iter();
+        match (it.next(), it.next()) {
+          (Some(old_path), Some(new_path)) => {
+            if new_path.is_file() || new_path.extension().is_some() {
+              Some(Self::RenameFile { old_path, new_path })
+            } else if new_path.is_dir() {
+              Some(Self::RenameDir { old_path, new_path })
+            } else {
+              None
+            }
+          }
+          (Some(single_path), None) => {
+            if let Some(old_path) = pending_rename.take() {
+              if single_path.is_file() || single_path.extension().is_some() {
+                Some(Self::RenameFile { old_path, new_path: single_path })
+              } else if single_path.is_dir() {
+                Some(Self::RenameDir { old_path, new_path: single_path })
+              } else {
+                None
+              }
+            } else {
+              *pending_rename = Some(single_path);
               None
             }
           }
@@ -182,6 +231,7 @@ async fn run_event_loop(
   mut rx: UnboundedReceiver<notify::Event>, not_cached_books: NotCachedBooks, db: DB,
   books_state: BooksState, app_dirs: crate::app_dirs::AppDirs,
 ) {
+  let mut pending_rename: Option<PathBuf> = None;
   loop {
     let mut buffer: Vec<FSEvent> = Vec::new();
     let debounce_timer = tokio::time::sleep(DEBOUNCE_INTERVAL);
@@ -192,7 +242,7 @@ async fn run_event_loop(
         // Received event from channel
         maybe_event = rx.recv() => {
           if let Some(event) = maybe_event {
-            if let Some(fs_event) = FSEvent::from_event(event) {
+            if let Some(fs_event) = FSEvent::from_event(event, &mut pending_rename) {
               buffer.push(fs_event);
             }
           } else {
