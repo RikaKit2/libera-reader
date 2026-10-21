@@ -46,7 +46,7 @@ pub async fn download_mutool(target_dir: &PathBuf, progress: Arc<RwLock<f32>>) -
     let mut archive = zip::ZipArchive::new(temp_file.reopen()?)?;
     for i in 0..archive.len() {
       let mut file = archive.by_index(i)?;
-      let name = file.name().replace('\\', "/");
+      let name = file.name()?.replace('\\', "/");
       if name.ends_with("mutool.exe") {
         tokio_fs::create_dir_all(target_dir).await?;
         let out_path = target_dir.join("mutool.exe");
