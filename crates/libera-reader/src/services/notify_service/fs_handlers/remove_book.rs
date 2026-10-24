@@ -2,8 +2,11 @@ use std::path::Path;
 
 use native_db::transaction::RwTransaction;
 
-use crate::db::models::books::book::{Book, BookPath};
-use crate::db::models::books::book_sizes::BookSizes;
+use crate::db::models::books::{
+  book::{Book, BookPath},
+  book_sizes::BookSizes,
+  bookmark::BookBookmarks,
+};
 use crate::services::notify_service::RemoveStatus;
 
 pub(crate) fn remove_book_by_path(
@@ -47,8 +50,11 @@ pub(crate) fn remove_book_by_path(
       let _ = std::fs::remove_file(&legacy_path);
     }
 
-    // 2. Fully delete the book from BookSizes and Book table
+    // 2. Fully delete the book from BookSizes, BookBookmarks, and Book table
     BookSizes::remove_book(book.book_size, &book.book_path, rw_t)?;
+    if let Some(bookmarks) = rw_t.get().primary::<BookBookmarks>(book.book_path.clone())? {
+      rw_t.remove::<BookBookmarks>(bookmarks)?;
+    }
     rw_t.remove::<Book>(book)?;
     Ok(RemoveStatus::FullyDeleted)
   } else {

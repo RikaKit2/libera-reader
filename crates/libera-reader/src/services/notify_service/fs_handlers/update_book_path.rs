@@ -7,6 +7,7 @@ use anyhow::Ok;
 use crate::db::models::books::{
   book::{Book, BookPath},
   book_sizes::BookSizes,
+  bookmark::BookBookmarks,
 };
 
 pub(crate) fn update_book_path(
@@ -24,7 +25,15 @@ pub(crate) fn update_book_path(
           updated_book.book_path = new_book_path.clone();
           updated_book.parent_dir = new_book_path.parent_dir.clone();
 
-          BookSizes::update_book_path(book.book_size, &old_book_path, new_book_path, rw_t)?;
+          BookSizes::update_book_path(book.book_size, &old_book_path, new_book_path.clone(), rw_t)?;
+
+          // Migrate bookmarks to the new book path if any exist
+          if let Some(bookmarks) = rw_t.get().primary::<BookBookmarks>(old_book_path.clone())? {
+            let mut updated_bookmarks = bookmarks.clone();
+            updated_bookmarks.book_path = new_book_path;
+            rw_t.remove::<BookBookmarks>(bookmarks)?;
+            rw_t.insert::<BookBookmarks>(updated_bookmarks)?;
+          }
 
           // Remove old key and insert new since primary key changed
           rw_t.remove::<Book>(book)?;

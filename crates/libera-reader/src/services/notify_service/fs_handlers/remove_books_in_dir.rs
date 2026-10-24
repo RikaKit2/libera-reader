@@ -1,5 +1,6 @@
 use crate::db::models::books::book::{Book, BookDir, BookSize};
 use crate::db::models::books::book_sizes::BookSizes;
+use crate::db::models::books::bookmark::BookBookmarks;
 use itertools::Itertools;
 use native_db::transaction::RwTransaction;
 
@@ -42,6 +43,9 @@ pub(crate) fn remove_books_in_dir(
       }
 
       BookSizes::remove_book(book.book_size, &book.book_path, rw_t)?;
+      if let Some(bookmarks) = rw_t.get().primary::<BookBookmarks>(book.book_path.clone())? {
+        rw_t.remove::<BookBookmarks>(bookmarks)?;
+      }
       rw_t.remove::<Book>(book)?;
     } else {
       BookSizes::mark_book_path_as_deleted(book.book_size, &book.book_path, rw_t)?;

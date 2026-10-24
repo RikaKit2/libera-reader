@@ -191,6 +191,23 @@ impl BookViewerState {
     self.selection_handles.clear();
   }
 
+  pub fn clear(&mut self) {
+    self.current_book = None;
+    self.current_document = None;
+    self.page_sizes.clear();
+    self.outline.clear();
+    self.current_page = 1;
+    self.total_pages = 1;
+    self.title = "".into();
+    self.selected_text = None;
+    self.selection_page = None;
+    self.selection_handles.clear();
+    self.search_results.clear();
+    self.search_open = false;
+    self.search_query.clear();
+    self.is_searching = false;
+    self.has_searched = false;
+  }
   pub fn get_or_create_selection_handle(
     &mut self, page: usize, window: &gpui::Window, cx: &mut gpui::App,
   ) -> gpui_base::TextSelectionHandle {

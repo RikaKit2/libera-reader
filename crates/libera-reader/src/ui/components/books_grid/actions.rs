@@ -1,7 +1,7 @@
 use crate::app_ext::AppExt;
 use crate::books_state::TargetList;
-use crate::db::models::RootRoute;
 use crate::db::models::books::book::BookPath;
+use crate::db::models::{RootRoute, Route};
 use crate::ui::pages::book_viewer::DocumentData;
 use gpui::{App, AsyncApp, SharedString};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -9,12 +9,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// Entry point when a user clicks on a book card in any view mode.
 /// Records the book in history and triggers viewer navigation and document loading.
 pub fn book_card_click(path: BookPath, cx: &mut App) {
+  let previous_route = {
+    let current = cx.settings().read().route;
+    if current == RootRoute::BookViewer { RootRoute::Main(Route::Library) } else { current }
+  };
   push_at_history(path.clone(), cx);
   cx.services()
     .extraction_coordinator
     .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::ForegroundReader);
   let _ = cx.settings_mut().set_route(RootRoute::BookViewer);
-
   let title = path.display_name();
   let (size, hash) = {
     let size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
@@ -53,7 +56,7 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
   let viewer_state_worker = viewer_state.clone();
   let title_clone = title.clone();
 
-  cx.spawn(|async_app: &mut AsyncApp| {
+  cx.spawn(move |async_app: &mut AsyncApp| {
     let mut owned_app = async_app.clone();
     async move {
       let path_for_load = path_clone.clone();
@@ -70,6 +73,32 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
         }
         Err(err) => {
           crate::utils::error!("Failed to load DocumentData for {:?}: {:?}", path_clone, err);
+          owned_app.update(|cx| {
+            let _ = cx.settings_mut().set_route(previous_route);
+            cx.services().extraction_coordinator.set_mode(
+              crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary,
+            );
+
+            if let Some(window_handle) =
+              cx.active_window().or_else(|| cx.windows().first().copied())
+            {
+              let _ = window_handle.update(cx, |_, window, cx| {
+                use gpui_component::WindowExt;
+                use gpui_component::notification::Notification;
+
+                let title = rust_i18n::t!("components.book_viewer.errors.failed_to_open_book");
+                let msg = format!(
+                  "{}: {err}",
+                  rust_i18n::t!("components.book_viewer.errors.corrupted_or_password")
+                );
+                window.push_notification(Notification::error(msg).title(title), cx);
+              });
+            }
+          });
+          viewer_state_worker.update(&mut owned_app, |s, cx| {
+            s.clear();
+            cx.notify();
+          });
         }
       }
     }

@@ -150,6 +150,9 @@ components:
       fit_page: "Fit page"
     pagination:
       page_of: "(%{current} of %{total})"
+    errors:
+      failed_to_open_book: "Failed to open book"
+      corrupted_or_password: "The file may be corrupted or password-protected"
 lang:
   ru: "Russian"
   en: "English"

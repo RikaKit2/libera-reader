@@ -7,6 +7,7 @@ use itertools::Itertools;
 use crate::db::models::books::{
   book::{Book, BookDir},
   book_sizes::BookSizes,
+  bookmark::BookBookmarks,
 };
 
 pub(crate) fn update_book_dir(
@@ -35,6 +36,14 @@ pub(crate) fn update_book_dir(
       updated_book.book_path.clone(),
       rw_t,
     )?;
+
+    // Migrate bookmarks to the new book path if any exist
+    if let Some(bookmarks) = rw_t.get().primary::<BookBookmarks>(old_book_path.clone())? {
+      let mut updated_bookmarks = bookmarks.clone();
+      updated_bookmarks.book_path = updated_book.book_path.clone();
+      rw_t.remove::<BookBookmarks>(bookmarks)?;
+      rw_t.insert::<BookBookmarks>(updated_bookmarks)?;
+    }
 
     // Update in DB - need to remove old and insert new since primary key changed
     rw_t.remove::<Book>(book)?;
