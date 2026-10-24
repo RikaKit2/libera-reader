@@ -6,7 +6,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 
 #[cfg(not(feature = "dhat-heap"))]
 #[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static GLOBAL: mimalloc_pprof::MiMalloc = mimalloc_pprof::MiMalloc;
 
 #[allow(unused_imports, clippy::single_component_path_imports)]
 use gpui as _;

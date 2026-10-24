@@ -5,6 +5,10 @@ members = [
     "crates/mutool",
     "crates/gpui-kit-dynlib",
 ]
+default-members = [
+    "crates/libera-reader",
+    "crates/mutool",
+]
 
 [workspace.dependencies]
 gpui-kit = "0.7.0"
@@ -43,7 +47,7 @@ image = "0.25.10"
 zune-core = "0.5.3"
 zune-jpegxl = "0.5.2"
 jwalk = "0.8.1"
-mimalloc = "0.1.52"
+mimalloc-pprof = { version = "1.1.0", default-features = false }
 chrono = "0.4.45"
 indexmap = { version = "2", features = ["serde"] }
 colored = "3"

@@ -36,6 +36,7 @@
           pkg-config
           clang
           rustup
+          lldb
         ];
         buildInputs = libs;
         shellHook = ''

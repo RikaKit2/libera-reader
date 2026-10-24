@@ -7,6 +7,7 @@ description = "Dynamically linked GPUI Kit engine with MiMalloc allocator"
 [features]
 default = []
 dhat-heap = ["dep:dhat"]
+pprof = ["mimalloc-pprof/pprof"]
 
 [lib]
 crate-type = ["dylib"]
@@ -20,5 +21,5 @@ gpui_platform = { workspace = true }
 gpui-base = { workspace = true }
 gpui-component = { workspace = true }
 gpui-component-assets = { workspace = true }
-mimalloc = { workspace = true }
+mimalloc-pprof = { workspace = true }
 dhat = { workspace = true, optional = true }

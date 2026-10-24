@@ -3,7 +3,13 @@ RUSTC_BOOTSTRAP = "1"
 
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
-rustflags = ["-C", "target-cpu=native", "-C", "link-arg=-fuse-ld=mold", "-C", "prefer-dynamic", "-Zshare-generics=y"]
+rustflags = [
+  "-C", "target-cpu=native",
+  "-C", "link-arg=-fuse-ld=mold",
+  "-Zshare-generics=y",
+  "-C", "force-frame-pointers=yes",
+  "-C", "link-arg=-Wl,--compress-debug-sections=zlib",
+]
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
@@ -12,24 +18,32 @@ rustflags = ["-C", "target-feature=+aes,+sse2"]
 [alias]
 run-dev = "run --package libera-reader --features dev"
 build-dev = "build --package libera-reader --features dev"
-run-dhat = "run --package libera-reader --features dhat-heap"
-build-dhat = "build --package libera-reader --features dhat-heap"
-dhat = "run --package libera-reader --features dhat-heap"
+
+run-prof = "run --profile profiling --package libera-reader --features dev"
+build-prof = "build --profile profiling --package libera-reader --features dev"
+
 [profile.dev]
-codegen-units = 16
 lto = false
 panic = "unwind"
 strip = "none"
-debug = "line-tables-only"
+debug = 2
 split-debuginfo = "unpacked"
-opt-level = 1
+opt-level = 0
 incremental = true
 
 [profile.dev.package."*"]
 opt-level = 2
+debug = "line-tables-only"
 
-[profile.dev.package.gxhash]
-opt-level = 2
+[profile.profiling]
+inherits = "release"
+opt-level = 3
+lto = false
+panic = "unwind"
+strip = "none"
+debug = "limited"
+split-debuginfo = "off"
+incremental = true
 
 [profile.release]
 codegen-units = 1

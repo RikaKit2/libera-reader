@@ -2600,7 +2600,7 @@ dependencies = [
  "gpui-kit-assets",
  "gpui-pre",
  "gpui-pre-platform",
- "mimalloc",
+ "mimalloc-pprof",
 ]
 
 [[package]]
@@ -3982,7 +3982,7 @@ dependencies = [
  "libc",
  "libwebp-sys2",
  "lru",
- "mimalloc",
+ "mimalloc-pprof",
  "mutool",
  "native_db",
  "native_model",
@@ -4029,15 +4029,6 @@ name = "libm"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8355be11b20d696c8f18f6cc018c4e372165b1fa8126cef092399c9951984ffa"
-
-[[package]]
-name = "libmimalloc-sys"
-version = "0.1.49"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a45a52f43e1c16f667ccfe4dd8c85b7f7c204fd5e3bf46c5b0db9a5c3c0b8e9"
-dependencies = [
- "cc",
-]
 
 [[package]]
 name = "libredox"
@@ -4367,12 +4358,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "mimalloc"
-version = "0.1.52"
+name = "mimalloc-pprof"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4139bb28d14ad1facf21d5eb8825051b326e172d216b39f6d31df53cc97862"
+checksum = "d26c55d67571b57373a078262cb6efb4f8a2ff0719157c452217e604c6bd7306"
 dependencies = [
- "libmimalloc-sys",
+ "cc",
 ]
 
 [[package]]

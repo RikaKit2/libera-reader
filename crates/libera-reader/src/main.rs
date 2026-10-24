@@ -7,7 +7,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 
 #[cfg(all(not(feature = "dhat-heap"), not(feature = "dev")))]
 #[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+static GLOBAL: mimalloc_pprof::MiMalloc = mimalloc_pprof::MiMalloc;
 
 #[cfg(feature = "dev")]
 #[allow(unused_imports, clippy::single_component_path_imports)]

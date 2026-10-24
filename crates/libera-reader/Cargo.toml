@@ -17,6 +17,7 @@ doc = false
 default = []
 dev = ["dep:gpui-kit-dynlib"]
 dhat-heap = ["dep:dhat", "gpui-kit-dynlib?/dhat-heap"]
+pprof = ["mimalloc-pprof/pprof"]
 
 [dependencies]
 gpui-kit-dynlib = { version = "0.7.0", path = "../gpui-kit-dynlib", optional = true }
@@ -35,7 +36,7 @@ mutool = { version = "0.1.0", path = "../mutool" }
 data-encoding = { workspace = true }
 tracing-subscriber = { workspace = true }
 colored = { workspace = true }
-mimalloc = { workspace = true }
+mimalloc-pprof = { workspace = true }
 better-panic = { workspace = true }
 tracing = { workspace = true }
 rust-embed = { workspace = true }
