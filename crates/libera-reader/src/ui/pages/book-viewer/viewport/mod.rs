@@ -62,7 +62,7 @@ impl Viewport {
       PagedContainer::new(state.clone(), cache.clone(), load_tx, visible_start, visible_end, cx);
 
     let last_book_path = state.read(cx).current_book.clone();
-
+    cache.lock().current_book = last_book_path.as_ref().map(|b| b.as_pathbuf());
     cx.new(|cx| {
       cx.observe(&state, |_, _, cx| cx.notify()).detach();
       let sc = scroll_container.clone();
@@ -95,9 +95,10 @@ impl Render for Viewport {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     let current_book = self.state.read(cx).current_book.clone();
     if current_book != self.last_book_path {
-      self.last_book_path = current_book;
+      self.last_book_path = current_book.clone();
       let mut cache_lock = self.cache.lock();
       cache_lock.clear();
+      cache_lock.current_book = current_book.map(|b| b.as_pathbuf());
       cache_lock.flush_evictions(cx);
     }
 

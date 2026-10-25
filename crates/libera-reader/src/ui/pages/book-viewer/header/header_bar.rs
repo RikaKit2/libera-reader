@@ -28,38 +28,74 @@ pub struct HeaderBar {
 
 impl HeaderBar {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
-    let outline_btn = cx.new(|_cx| OutlineBtn::new(state.clone()));
-    let scroll_mode_btn = cx.new(|_cx| ScrollModeBtn::new(state.clone()));
-    let tts_btn = cx.new(|_cx| TtsBtn::new(state.clone()));
+    let outline_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      OutlineBtn::new(state.clone())
+    });
+    let scroll_mode_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      ScrollModeBtn::new(state.clone())
+    });
+    let tts_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      TtsBtn::new(state.clone())
+    });
 
-    let prev_page_btn = cx.new(|_cx| PrevPageBtn::new(state.clone()));
-    let next_page_btn = cx.new(|_cx| NextPageBtn::new(state.clone()));
+    let prev_page_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      PrevPageBtn::new(state.clone())
+    });
+    let next_page_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      NextPageBtn::new(state.clone())
+    });
     let page_number_input = PageNumberInput::new(window, cx, state.clone());
-    let page_counter = cx.new(|_cx| PageCounter::new(state.clone()));
+    let page_counter = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      PageCounter::new(state.clone())
+    });
     let zoom_select = ZoomSelect::new(window, cx, state.clone());
 
-    let invert_colors_btn = cx.new(|_cx| InvertColorsBtn::new(state.clone()));
-    let bookmarks_btn = cx.new(|_cx| BookmarksBtn::new(state.clone()));
-    let thumbnails_btn = cx.new(|_cx| ThumbnailsBtn::new(state.clone()));
-    let search_toggle_btn = cx.new(|_cx| SearchToggleBtn::new(state.clone()));
-    let fullscreen_btn = cx.new(|_cx| FullscreenBtn::new(state.clone()));
+    let invert_colors_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      InvertColorsBtn::new(state.clone())
+    });
+    let bookmarks_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      BookmarksBtn::new(state.clone())
+    });
+    let thumbnails_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      ThumbnailsBtn::new(state.clone())
+    });
+    let search_toggle_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      SearchToggleBtn::new(state.clone())
+    });
+    let fullscreen_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      FullscreenBtn::new(state.clone())
+    });
     let exit_btn = cx.new(|_cx| ExitBtn::new());
 
-    cx.new(|_cx| Self {
-      outline_btn,
-      scroll_mode_btn,
-      tts_btn,
-      prev_page_btn,
-      next_page_btn,
-      page_number_input,
-      page_counter,
-      zoom_select,
-      invert_colors_btn,
-      bookmarks_btn,
-      thumbnails_btn,
-      search_toggle_btn,
-      fullscreen_btn,
-      exit_btn,
+    cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      Self {
+        outline_btn,
+        scroll_mode_btn,
+        tts_btn,
+        prev_page_btn,
+        next_page_btn,
+        page_number_input,
+        page_counter,
+        zoom_select,
+        invert_colors_btn,
+        bookmarks_btn,
+        thumbnails_btn,
+        search_toggle_btn,
+        fullscreen_btn,
+        exit_btn,
+      }
     })
   }
 }

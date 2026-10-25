@@ -24,12 +24,24 @@ pub struct BookmarksView {
 
 impl BookmarksView {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
-    let add_btn = cx.new(|_cx| AddBookmarkBtn::new(state.clone()));
-    let quick_btn = cx.new(|_cx| QuickBookmarkBtn::new(state.clone()));
+    let add_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      AddBookmarkBtn::new(state.clone())
+    });
+    let quick_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      QuickBookmarkBtn::new(state.clone())
+    });
     let search_input = BookmarkSearchInput::new(window, cx, state.clone());
-    let list = cx.new(|_cx| BookmarksList::new(state.clone()));
+    let list = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      BookmarksList::new(state.clone())
+    });
 
-    cx.new(|_cx| Self { state, add_btn, quick_btn, search_input, list })
+    cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      Self { state, add_btn, quick_btn, search_input, list }
+    })
   }
 }
 

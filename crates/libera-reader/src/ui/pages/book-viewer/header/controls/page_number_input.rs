@@ -22,6 +22,7 @@ impl PageNumberInput {
 
     let state_clone = state.clone();
     cx.new(|cx: &mut Context<Self>| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
       let subscription = cx.subscribe_in(&input_state, window, {
         let state = state_clone.clone();
         move |_this: &mut Self, input: &Entity<InputState>, ev: &InputEvent, _window, cx| {

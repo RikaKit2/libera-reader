@@ -66,6 +66,7 @@ pub struct ThumbnailsView {
 
 impl ThumbnailsView {
   pub fn new(state: Entity<BookViewerState>, cx: &mut Context<Self>) -> Self {
+    cx.observe(&state, |_, _, cx| cx.notify()).detach();
     let cache = Arc::new(Mutex::new(SharedThumbCache::new(64)));
     let visible_start = Arc::new(AtomicUsize::new(1));
     let visible_end = Arc::new(AtomicUsize::new(10));

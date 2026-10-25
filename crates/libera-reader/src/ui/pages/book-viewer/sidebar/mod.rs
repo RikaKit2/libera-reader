@@ -26,8 +26,14 @@ pub struct SideBar {
 
 impl SideBar {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
-    let header = cx.new(|_cx| SidebarHeader::new(state.clone()));
-    let outline = cx.new(|_cx| OutlineView::new(state.clone()));
+    let header = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      SidebarHeader::new(state.clone())
+    });
+    let outline = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      OutlineView::new(state.clone())
+    });
     let bookmarks = BookmarksView::new(window, cx, state.clone());
     let thumbnails = cx.new(|cx| ThumbnailsView::new(state.clone(), cx));
     let tts = TtsView::new(window, cx, state.clone());

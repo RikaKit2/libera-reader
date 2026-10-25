@@ -39,6 +39,7 @@ pub enum PageLinksState {
 
 /// In-memory LRU cache storing recently viewed page images, text layers, and links.
 pub struct BookViewerCache {
+  pub current_book: Option<std::path::PathBuf>,
   images: LruCache<usize, (Arc<RenderImage>, u32)>,
   loading_dpis: crate::types::HashMap<usize, u32>,
   failed_images: crate::types::HashMap<usize, String>,
@@ -60,6 +61,7 @@ impl BookViewerCache {
     let links_cap = NonZeroUsize::new(MAX_CACHED_TEXT_LAYERS).unwrap();
 
     Self {
+      current_book: None,
       images: LruCache::new(img_cap),
       loading_dpis: crate::types::HashMap::default(),
       failed_images: crate::types::HashMap::default(),
@@ -126,6 +128,9 @@ impl BookViewerCache {
       cx.drop_image(img, None);
     }
   }
+  pub fn evict_image(&mut self, img: Arc<RenderImage>) {
+    self.evicted.push(img);
+  }
 
   pub fn get_image_dpi(&mut self, page: usize) -> Option<u32> {
     self.images.peek(&page).map(|(_, dpi)| *dpi)
@@ -172,6 +177,7 @@ impl BookViewerCache {
   }
 
   pub fn clear(&mut self) {
+    self.current_book = None;
     for (_, (img, _)) in self.images.iter() {
       self.evicted.push(img.clone());
     }

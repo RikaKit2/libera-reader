@@ -102,6 +102,21 @@ pub(crate) fn render_and_cache_page(
     }
   }
 }
+/// Checks if a page load request is stale (e.g. reader closed or another book opened).
+/// If stale, clears any pending loading flags from the cache and returns `true`.
+fn cancel_if_request_stale(
+  req: &PageLoadRequest, coordinator: &ExtractionCoordinator, cache: &Mutex<BookViewerCache>,
+) -> bool {
+  let is_not_foreground = coordinator.mode() != ExtractionCoordinatorMode::ForegroundReader;
+  let mut lock = cache.lock();
+  if is_not_foreground || lock.current_book.as_deref() != Some(req.book_path.as_path()) {
+    lock.pop_image_loading(req.page);
+    lock.pop_text_loading(req.page);
+    return true;
+  }
+  false
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn spawn_book_page_loader(
   runtime: &Runtime, cache: Arc<Mutex<BookViewerCache>>, visible_start: Arc<AtomicUsize>,
@@ -116,13 +131,21 @@ pub fn spawn_book_page_loader(
   let semaphore = Arc::new(tokio::sync::Semaphore::new(thread_count));
   runtime.spawn(async move {
     while let Some(req) = load_rx.recv().await {
-      // Prioritize active reader tasks over background library extraction
-      coordinator.set_mode(ExtractionCoordinatorMode::ForegroundReader);
+      // Fast check before waiting for an available worker permit
+      if cancel_if_request_stale(&req, &coordinator, &cache) {
+        continue;
+      }
 
       let permit = match semaphore.clone().acquire_owned().await {
         Ok(p) => p,
         Err(_) => break,
       };
+
+      // Re-verify after waiting for permit in case user exited or switched books while waiting
+      if cancel_if_request_stale(&req, &coordinator, &cache) {
+        drop(permit);
+        continue;
+      }
 
       let s = visible_start.load(Ordering::Relaxed);
       let e = visible_end.load(Ordering::Relaxed);
@@ -205,6 +228,15 @@ pub fn spawn_book_page_loader(
         };
         {
           let mut lock = cache_worker.lock();
+          // If the user opened a different book while this page was rendering, discard the result and evict texture
+          if lock.current_book.as_deref() != Some(path.as_path()) {
+            if let PageImageState::Loaded(img) = img_state {
+              lock.evict_image(img);
+            }
+            drop(permit);
+            return;
+          }
+
           let expected_dpi = lock.get_loading_dpi(page);
           // Применяем отрендеренную картинку, только если за время рендера
           // не был запрошен другой target_dpi (работает и при Zoom In, и при Zoom Out!)

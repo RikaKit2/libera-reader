@@ -26,12 +26,24 @@ pub struct SearchBar {
 impl SearchBar {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
     let input = SearchInput::new(window, cx, state.clone());
-    let prev_btn = cx.new(|_cx| SearchPrevBtn::new(state.clone()));
-    let next_btn = cx.new(|_cx| SearchNextBtn::new(state.clone()));
-    let counter = cx.new(|_cx| SearchCounter::new(state.clone()));
+    let prev_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      SearchPrevBtn::new(state.clone())
+    });
+    let next_btn = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      SearchNextBtn::new(state.clone())
+    });
+    let counter = cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      SearchCounter::new(state.clone())
+    });
     let close_btn = cx.new(|_cx| SearchCloseBtn::new(state.clone()));
 
-    cx.new(|_cx| Self { state, input, prev_btn, next_btn, counter, close_btn })
+    cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      Self { state, input, prev_btn, next_btn, counter, close_btn }
+    })
   }
 }
 

@@ -10,7 +10,7 @@ use libera_reader::utils::{debug, error, title};
 use mutool::{create_empty_book, download_mutool_if_missing_blocking, get_path_to_mutool};
 use std::path::PathBuf;
 use std::time::Duration;
-use tokio::fs::{create_dir, create_dir_all, remove_dir_all, rename};
+use tokio::fs::{create_dir_all, remove_dir_all, rename};
 #[allow(dead_code)]
 pub enum TestMode {
   Notify,

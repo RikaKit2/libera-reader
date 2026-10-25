@@ -556,8 +556,10 @@ impl Element for PageTextLayer {
       let page_text = Self::extract_page_selected_text(page_num, &self.lines, start, end);
       if self.state.read(cx).selected_page_texts.get(&page_num) != page_text.as_ref() {
         let state_sync = self.state.clone();
-        state_sync.update(cx, |s, _cx| {
-          s.update_page_selected_text(page_num, page_text);
+        window.defer(cx, move |_window, cx| {
+          state_sync.update(cx, |s, _cx| {
+            s.update_page_selected_text(page_num, page_text);
+          });
         });
       }
 

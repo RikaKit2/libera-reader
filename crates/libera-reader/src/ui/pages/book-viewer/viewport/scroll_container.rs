@@ -27,6 +27,7 @@ pub struct ScrollContainer {
   cached_item_sizes: Rc<Vec<Size<Pixels>>>,
   cached_page_offsets: Vec<Pixels>,
   cached_total_pages: usize,
+  cached_book: Option<crate::db::models::books::book::BookPath>,
   id: ElementId,
 }
 
@@ -53,6 +54,7 @@ impl ScrollContainer {
         cached_item_sizes: Rc::new(Vec::new()),
         cached_page_offsets: Vec::new(),
         cached_total_pages: 0,
+        cached_book: None,
         id,
       }
     })
@@ -124,6 +126,14 @@ impl Render for ScrollContainer {
     };
     if !doc_loaded || book_size == 0 {
       return div().size_full().p(CONTAINER_PADDING);
+    }
+    if current_book != self.cached_book {
+      self.cached_book = current_book.clone();
+      self.cached_total_pages = 0;
+      self.cached_item_sizes = Rc::new(Vec::new());
+      self.cached_page_offsets.clear();
+      self.last_rendered_page = 0;
+      self.scroll_handle.set_offset(point(px(0.0), px(0.0)));
     }
 
     let total_items = total_pages.max(1);
