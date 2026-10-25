@@ -28,7 +28,13 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
         match book_sizes.book_type {
           crate::db::models::books::BookType::DuplicateSize(map) => {
             if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) = map.get(&path) {
-              Some(h.0.to_string())
+              let hashed_cover = cx.app_dirs().book_cover_path(size, Some(h.0.as_str()));
+              let unhashed_cover = cx.app_dirs().book_cover_path(size, None);
+              if !hashed_cover.exists() && unhashed_cover.exists() {
+                None
+              } else {
+                Some(h.0.to_string())
+              }
             } else {
               None
             }

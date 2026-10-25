@@ -31,11 +31,11 @@ impl PagedContainer {
 }
 
 impl Render for PagedContainer {
-  fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     self.cache.lock().flush_evictions(cx);
-    let (current_page, current_book, book_size, book_hash, zoom_factor) = {
+    let (current_page, current_book, book_size, book_hash) = {
       let s = self.state.read(cx);
-      (s.current_page, s.current_book.clone(), s.book_size, s.book_hash.clone(), s.zoom_factor)
+      (s.current_page, s.current_book.clone(), s.book_size, s.book_hash.clone())
     };
 
     // Update active visible page window in atomic for prefetch bounds
@@ -47,28 +47,10 @@ impl Render for PagedContainer {
         let path = book.as_pathbuf();
         let mut cache_lock = self.cache.lock();
 
-        let scale_factor = window.scale_factor();
-        let target_dpi =
-          crate::ui::pages::book_viewer::loader::compute_target_dpi(zoom_factor, scale_factor);
-        let cached_dpi = cache_lock.get_image_dpi(current_page);
-        let is_stale_dpi = cached_dpi.is_some_and(|d| d != target_dpi);
-
+        let target_dpi = crate::ui::pages::book_viewer::constants::viewport::PAGE_RENDER_DPI;
         let img_state = cache_lock.get_image(current_page);
         let (img, is_img_loading) = match img_state {
-          Some(PageImageState::Loaded(img)) if !is_stale_dpi => (Some(img), false),
-          Some(PageImageState::Loaded(img)) => {
-            if cache_lock.get_loading_dpi(current_page) != Some(target_dpi) {
-              cache_lock.set_loading_dpi(current_page, target_dpi);
-              let _ = self.load_tx.send(PageLoadRequest {
-                page: current_page,
-                book_path: path.clone(),
-                dpi: target_dpi,
-                book_size,
-                book_hash: book_hash.clone(),
-              });
-            }
-            (Some(img), false)
-          }
+          Some(PageImageState::Loaded(img)) => (Some(img), false),
           Some(PageImageState::Loading) => (None, true),
           Some(PageImageState::Failed(_)) => (None, false),
           Some(PageImageState::Unloaded) | None => {

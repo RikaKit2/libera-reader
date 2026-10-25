@@ -2,7 +2,7 @@ use crate::services::extraction_coordinator::{ExtractionCoordinator, ExtractionC
 use crate::ui::pages::book_viewer::cache::{
   BookViewerCache, PageImageState, PageLinksState, PageTextState,
 };
-use crate::ui::pages::book_viewer::constants::viewport::PREFETCH_DISTANCE;
+use crate::ui::pages::book_viewer::constants::viewport::{PAGE_RENDER_DPI, PREFETCH_DISTANCE};
 use crate::ui::pages::book_viewer::image_utils::decode_page_image_bytes;
 use parking_lot::Mutex;
 use std::path::PathBuf;
@@ -24,12 +24,10 @@ pub const BASE_PDF_DPI: f32 = 72.0;
 
 pub const DPI_BUCKETS: &[u32] = &[36, 72, 96, 108, 120, 144, 180, 216, 252, 300];
 
-/// Compute optimal raster render resolution snapped to discrete DPI buckets.
-/// Prevents spamming disk and CPU with tens of intermediate DPIs during window resize / zoom.
-pub fn compute_target_dpi(zoom_factor: f32, scale_factor: f32) -> u32 {
-  let raw = (BASE_PDF_DPI * zoom_factor * scale_factor).round() as u32;
-  let clamped = raw.clamp(MIN_RENDER_DPI, MAX_RENDER_DPI);
-  *DPI_BUCKETS.iter().min_by_key(|&&b| b.abs_diff(clamped)).unwrap_or(&144)
+/// Always renders book pages at fixed high-quality rasterization (PAGE_RENDER_DPI = 180),
+/// so that scaling (zoom / resize) is handled instantly by GPU with zero disk duplicates and zero latency.
+pub fn compute_target_dpi(_zoom_factor: f32, _scale_factor: f32) -> u32 {
+  PAGE_RENDER_DPI
 }
 
 /// The outcome of querying the persistent on-disk page cache.
@@ -240,13 +238,9 @@ mod tests {
 
   #[test]
   fn test_compute_target_dpi() {
-    assert_eq!(compute_target_dpi(1.0, 1.0), 72);
-    assert_eq!(compute_target_dpi(1.5, 1.0), 108);
-    assert_eq!(compute_target_dpi(2.0, 1.0), 144);
-    assert_eq!(compute_target_dpi(1.0, 2.0), 144);
-    assert_eq!(compute_target_dpi(1.5, 2.0), 216);
-    assert_eq!(compute_target_dpi(0.1, 1.0), 36);
-    assert_eq!(compute_target_dpi(5.0, 2.0), 300);
+    assert_eq!(compute_target_dpi(1.0, 1.0), PAGE_RENDER_DPI);
+    assert_eq!(compute_target_dpi(0.75, 1.0), PAGE_RENDER_DPI);
+    assert_eq!(compute_target_dpi(1.5, 2.0), PAGE_RENDER_DPI);
   }
 
   #[test]

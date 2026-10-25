@@ -141,7 +141,7 @@ impl ThumbnailsView {
       return None;
     }
     // Проверяем все бакеты DPI перед запуском mutool
-    for &dpi in &[72, 96, 108, 120, 144, 180, 216] {
+    for &dpi in &[180, 72, 96, 108, 120, 144, 216] {
       let path =
         req.app_dirs.book_page_path(req.book_size, req.book_hash.as_deref(), req.page, dpi);
       if path.exists()

@@ -200,9 +200,7 @@ impl Render for ScrollContainer {
           let mut cache_lock = cache_arc.lock();
           cache_lock.ensure_min_capacity(visible_range.len() + PREFETCH_DISTANCE * 2 + 4);
 
-          let scale_factor = window.scale_factor();
-          let target_dpi =
-            crate::ui::pages::book_viewer::loader::compute_target_dpi(zoom_factor, scale_factor);
+          let target_dpi = crate::ui::pages::book_viewer::constants::viewport::PAGE_RENDER_DPI;
 
           for page_idx in visible_range {
             let page_num = page_idx + 1;
@@ -210,25 +208,9 @@ impl Render for ScrollContainer {
               break;
             }
 
-            let cached_dpi = cache_lock.get_image_dpi(page_num);
-            let is_stale_dpi = cached_dpi.is_some_and(|d| d != target_dpi);
-
             let img_state = cache_lock.get_image(page_num);
             let (img, is_img_loading) = match img_state {
-              Some(PageImageState::Loaded(img)) if !is_stale_dpi => (Some(img), false),
-              Some(PageImageState::Loaded(img)) => {
-                if cache_lock.get_loading_dpi(page_num) != Some(target_dpi) {
-                  cache_lock.set_loading_dpi(page_num, target_dpi);
-                  let _ = load_tx.send(PageLoadRequest {
-                    page: page_num,
-                    book_path: book_path.clone(),
-                    dpi: target_dpi,
-                    book_size,
-                    book_hash: book_hash.clone(),
-                  });
-                }
-                (Some(img), false)
-              }
+              Some(PageImageState::Loaded(img)) => (Some(img), false),
               Some(PageImageState::Loading) => (None, true),
               Some(PageImageState::Failed(_)) => (None, false),
               Some(PageImageState::Unloaded) | None => {

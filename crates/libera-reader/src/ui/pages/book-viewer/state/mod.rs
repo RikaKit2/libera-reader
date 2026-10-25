@@ -213,6 +213,8 @@ impl BookViewerState {
     self.book_size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
     self.book_hash = None;
     self.current_book = Some(path);
+    self.current_document = None;
+    self.page_sizes.clear();
     self.total_pages = total_pages.max(1);
     self.current_page = 1;
     self.title = title;

@@ -239,9 +239,8 @@ pub mod viewport {
   /// Container padding in continuous scroll mode.
   pub const CONTAINER_PADDING: Pixels = px(16.0);
 
-  /// Page render resolution in DPI.
-  pub const PAGE_RENDER_DPI: u32 = 150;
-  /// Thumbnail render resolution in DPI.
+  /// Page render resolution in DPI (fixed high-quality rasterization).
+  pub const PAGE_RENDER_DPI: u32 = 180;
   pub const THUMBNAIL_DPI: u32 = 72;
 
   /// Max number of rendered page bitmaps kept in memory LRU cache.
