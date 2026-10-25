@@ -57,10 +57,14 @@ impl Render for QuickBookmarkBtn {
               time_created: SharedString::from(now_str.clone()),
               time_updated: SharedString::from(now_str),
             };
-            if let Ok(Some(updated_book)) = BookBookmarks::add(&db, path, bookmark) {
+            if let Ok(Some(updated_book)) = BookBookmarks::add(&db, path.clone(), bookmark) {
               cx.books_state().update_book(&updated_book);
+              let new_bookmarks = BookBookmarks::get(&db, path).unwrap_or_default();
+              state.update(cx, |s, cx| {
+                s.set_bookmarks(new_bookmarks);
+                cx.notify();
+              });
             }
-            cx.notify();
           }
         }),
       )

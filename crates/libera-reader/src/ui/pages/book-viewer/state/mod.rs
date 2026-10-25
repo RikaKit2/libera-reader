@@ -5,10 +5,49 @@ pub mod zoom;
 
 pub use layout_mode::LayoutMode;
 pub use sidebar_tab::SidebarTab;
+use std::collections::BTreeMap;
 pub use tts_config::{TtsConfigProvider, TtsEngineConfig, TtsVoiceConfig};
 pub use zoom::{ZoomPreset, calculate_fit_page, calculate_fit_width};
 
+/// Логическая позиция курсора выделения в документе (не зависит от зума и пикселей окна).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PdfTextPos {
+  pub page: usize,
+  pub line_idx: usize,
+  pub word_idx: usize,
+  pub char_idx: usize,
+}
+
+/// Состояние выделения текста в PDF-документе.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct PdfTextSelection {
+  pub anchor: Option<PdfTextPos>,
+  pub focus: Option<PdfTextPos>,
+  pub is_dragging: bool,
+}
+
+impl PdfTextSelection {
+  pub fn is_empty(&self) -> bool {
+    match (self.anchor, self.focus) {
+      (Some(a), Some(f)) => a == f,
+      _ => true,
+    }
+  }
+
+  pub fn ordered_range(&self) -> Option<(PdfTextPos, PdfTextPos)> {
+    let a = self.anchor?;
+    let f = self.focus?;
+    if a <= f { Some((a, f)) } else { Some((f, a)) }
+  }
+
+  pub fn clear(&mut self) {
+    self.anchor = None;
+    self.focus = None;
+    self.is_dragging = false;
+  }
+}
 use crate::db::models::books::book::BookPath;
+use crate::db::models::books::bookmark::BookMark;
 use crate::types::{HashMap, HashSet};
 use crate::ui::pages::book_viewer::document::DocumentData;
 use gpui::{Pixels, SharedString, Size};
@@ -59,6 +98,8 @@ pub struct BookViewerState {
   pub selection_handles: HashMap<usize, gpui_base::TextSelectionHandle>,
   pub selection_page: Option<usize>,
   pub selected_text: Option<String>,
+  pub pdf_selection: PdfTextSelection,
+  pub selected_page_texts: BTreeMap<usize, String>,
   // Search state
   pub search_open: bool,
   pub search_query: String,
@@ -68,6 +109,7 @@ pub struct BookViewerState {
   pub has_searched: bool,
   // Bookmark search state
   pub bookmark_search_query: String,
+  pub bookmarks: Vec<BookMark>,
   // Document outline
   pub outline: Vec<OutlineItem>,
   pub expanded_outline_items: HashSet<usize>,
@@ -101,6 +143,8 @@ impl Default for BookViewerState {
       selection_handles: HashMap::default(),
       selection_page: None,
       selected_text: None,
+      pdf_selection: PdfTextSelection::default(),
+      selected_page_texts: BTreeMap::new(),
 
       search_open: false,
       search_query: String::new(),
@@ -109,6 +153,7 @@ impl Default for BookViewerState {
       is_searching: false,
       has_searched: false,
       bookmark_search_query: String::new(),
+      bookmarks: Vec::new(),
       outline: Vec::new(),
       expanded_outline_items: HashSet::default(),
 
@@ -138,12 +183,15 @@ impl std::fmt::Debug for BookViewerState {
       .field("is_fullscreen", &self.is_fullscreen)
       .field("selection_page", &self.selection_page)
       .field("selected_text", &self.selected_text)
+      .field("pdf_selection", &self.pdf_selection)
+      .field("selected_page_texts", &self.selected_page_texts)
       .field("search_open", &self.search_open)
       .field("search_query", &self.search_query)
       .field("search_results", &self.search_results)
       .field("current_search_idx", &self.current_search_idx)
       .field("is_searching", &self.is_searching)
       .field("has_searched", &self.has_searched)
+      .field("bookmarks", &self.bookmarks)
       .field("outline", &self.outline)
       .field("expanded_outline_items", &self.expanded_outline_items)
       .field("tts_playing", &self.tts_playing)
@@ -171,6 +219,8 @@ impl BookViewerState {
     self.selected_text = None;
     self.selection_page = None;
     self.selection_handles.clear();
+    self.clear_pdf_selection();
+    self.bookmarks.clear();
   }
 
   pub fn set_book_metadata(&mut self, size: u64, hash: Option<String>) {
@@ -193,6 +243,7 @@ impl BookViewerState {
     self.selected_text = None;
     self.selection_page = None;
     self.selection_handles.clear();
+    self.clear_pdf_selection();
   }
 
   pub fn clear(&mut self) {
@@ -201,12 +252,14 @@ impl BookViewerState {
     self.page_sizes.clear();
     self.outline.clear();
     self.expanded_outline_items.clear();
+    self.bookmarks.clear();
     self.current_page = 1;
     self.total_pages = 1;
     self.title = "".into();
     self.selected_text = None;
     self.selection_page = None;
     self.selection_handles.clear();
+    self.clear_pdf_selection();
     self.search_results.clear();
     self.search_open = false;
     self.search_query.clear();
@@ -226,6 +279,37 @@ impl BookViewerState {
         handle
       })
       .clone()
+  }
+  pub fn clear_pdf_selection(&mut self) {
+    self.pdf_selection.clear();
+    self.selected_page_texts.clear();
+    self.selected_text = None;
+  }
+
+  pub fn update_page_selected_text(&mut self, page: usize, text: Option<String>) {
+    match text {
+      Some(t) if !t.is_empty() => {
+        self.selected_page_texts.insert(page, t);
+      }
+      _ => {
+        self.selected_page_texts.remove(&page);
+      }
+    }
+    if self.selected_page_texts.is_empty() {
+      self.selected_text = None;
+    } else {
+      let joined =
+        self.selected_page_texts.values().map(|s| s.as_str()).collect::<Vec<_>>().join("\n");
+      self.selected_text = Some(joined);
+    }
+  }
+
+  pub fn copy_selection_to_clipboard(&self, cx: &mut gpui::App) {
+    if let Some(text) = &self.selected_text
+      && !text.is_empty()
+    {
+      cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
+    }
   }
 
   pub fn clear_selection_handles(&mut self) {
@@ -387,6 +471,10 @@ impl BookViewerState {
 
   pub fn set_bookmark_search_query(&mut self, query: String) {
     self.bookmark_search_query = query;
+  }
+
+  pub fn set_bookmarks(&mut self, bookmarks: Vec<BookMark>) {
+    self.bookmarks = bookmarks;
   }
 }
 

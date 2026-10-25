@@ -65,6 +65,7 @@ pub struct MutoolWorkerSession {
   reader: BufReader<ChildStdout>,
   next_id: AtomicU64,
   current_path: Option<PathBuf>,
+  pub healthy: bool,
 }
 
 impl MutoolWorkerSession {
@@ -115,9 +116,14 @@ impl MutoolWorkerSession {
     let stdout = process.stdout.take().ok_or(MuToolError::IoError)?;
     let reader = BufReader::new(stdout);
 
-    let mut session =
-      Self { process, stdin, reader, next_id: AtomicU64::new(1), current_path: None };
-
+    let mut session = Self {
+      process,
+      stdin,
+      reader,
+      next_id: AtomicU64::new(1),
+      current_path: None,
+      healthy: true,
+    };
     // Verify the worker is live and responsive with a quick ping
     if !session.ping().unwrap_or(false) {
       return Err(MuToolError::OtherErr);
@@ -129,6 +135,7 @@ impl MutoolWorkerSession {
   pub fn call<T: for<'de> Deserialize<'de>>(
     &mut self, cmd: &str, path: Option<&Path>, page: Option<usize>,
   ) -> Result<T, MuToolError> {
+    self.healthy = false;
     let id = self.next_id.fetch_add(1, Ordering::SeqCst);
     let path_str = path.and_then(|p| p.to_str());
     let req = WorkerRequest { id, cmd, path: path_str, page };
@@ -154,7 +161,9 @@ impl MutoolWorkerSession {
       return Err(MuToolError::OtherErr);
     }
 
-    resp.result.ok_or(MuToolError::OtherErr)
+    let res = resp.result.ok_or(MuToolError::OtherErr)?;
+    self.healthy = true;
+    Ok(res)
   }
 
   pub fn ping(&mut self) -> Result<bool, MuToolError> {
@@ -266,7 +275,9 @@ impl<'a> std::ops::DerefMut for PooledWorker<'a> {
 
 impl<'a> Drop for PooledWorker<'a> {
   fn drop(&mut self) {
-    if let Some(session) = self.session.take() {
+    if let Some(session) = self.session.take()
+      && session.healthy
+    {
       self.pool.release(session);
     }
   }

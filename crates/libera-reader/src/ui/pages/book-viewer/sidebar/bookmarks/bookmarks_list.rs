@@ -1,5 +1,4 @@
-use crate::app_ext::AppExt;
-use crate::db::models::books::bookmark::{BookBookmarks, BookMark};
+use crate::db::models::books::bookmark::BookMark;
 use crate::ui::pages::book_viewer::constants::bookmarks;
 use crate::ui::pages::book_viewer::sidebar::bookmarks::bookmark_item::BookmarkItem;
 use crate::ui::pages::book_viewer::state::BookViewerState;
@@ -20,16 +19,10 @@ impl BookmarksList {
 
 impl Render for BookmarksList {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.theme();
-    let current_book = self.state.read(cx).current_book.clone();
     let query = self.state.read(cx).bookmark_search_query.trim().to_lowercase();
-    let db = cx.db().clone();
+    let all_bookmarks = self.state.read(cx).bookmarks.clone();
 
-    let all_bookmarks: Vec<BookMark> = if let Some(path) = current_book {
-      BookBookmarks::get(&db, path).unwrap_or_default()
-    } else {
-      Vec::new()
-    };
+    let theme = cx.theme();
 
     if all_bookmarks.is_empty() {
       return div()
@@ -110,8 +103,11 @@ impl Render for BookmarksList {
 
     let state = self.state.clone();
 
-    div().w_full().flex().flex_col().gap_y(bookmarks::LIST_GAP_Y).children(
-      filtered_bookmarks.into_iter().map(|bm| cx.new(|_cx| BookmarkItem::new(bm, state.clone()))),
-    )
+    div()
+      .w_full()
+      .flex()
+      .flex_col()
+      .gap_y(bookmarks::LIST_GAP_Y)
+      .children(filtered_bookmarks.into_iter().map(|bm| BookmarkItem::new(bm, state.clone())))
   }
 }

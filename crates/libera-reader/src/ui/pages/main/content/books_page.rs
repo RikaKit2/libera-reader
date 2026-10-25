@@ -19,14 +19,6 @@ impl BooksPage {
     let books_state = cx.books_state_entity().clone();
     let top_bar = cx.new(|cx| TopBar::new(window, cx, target));
 
-    let keys = match target {
-      TargetList::Library => books_state.read(cx).library_keys(),
-      TargetList::Favorites => books_state.read(cx).favorites_keys(),
-      TargetList::History => books_state.read(cx).history_keys(),
-      TargetList::Bookmarks => books_state.read(cx).bookmarks_keys(),
-    };
-    let paths = books_state.read(cx).collect_thumbnail_paths(&keys, cx.db());
-
     let grid_id = match target {
       TargetList::Library => "library-grid",
       TargetList::Favorites => "favorites-grid",
@@ -34,24 +26,14 @@ impl BooksPage {
       TargetList::Bookmarks => "bookmarks-grid",
     };
     let book_grid = cx.new(|cx| BooksGrid::new(target, grid_id.into(), cx));
-    book_grid.update(cx, |grid, cx| grid.set_thumbnail_paths(paths, cx));
 
-    let _subscriptions = vec![cx.observe(&books_state, move |this, state, cx| {
-      let keys = match target {
-        TargetList::Library => state.read(cx).library_keys(),
-        TargetList::Favorites => state.read(cx).favorites_keys(),
-        TargetList::History => state.read(cx).history_keys(),
-        TargetList::Bookmarks => state.read(cx).bookmarks_keys(),
-      };
-      let paths = state.read(cx).collect_thumbnail_paths(&keys, cx.db());
-      this.book_grid.update(cx, |grid, cx| grid.set_thumbnail_paths(paths, cx));
+    let _subscriptions = vec![cx.observe(&books_state, move |_this, _state, cx| {
       cx.notify();
     })];
 
     Self { top_bar, book_grid, _subscriptions }
   }
 }
-
 impl Render for BooksPage {
   fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     let (columns, ui_zoom) = {

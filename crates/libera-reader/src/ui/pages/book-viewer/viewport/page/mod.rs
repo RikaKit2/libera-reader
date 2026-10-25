@@ -38,7 +38,7 @@ impl PageView {
 }
 
 impl RenderOnce for PageView {
-  fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
     let (zoom_factor, page_dims) = {
       let s = self.state.read(cx);
       (s.zoom_factor, s.page_size(self.page_number))
@@ -55,10 +55,8 @@ impl RenderOnce for PageView {
       self.page_number,
       self.state.clone(),
       zoom_factor,
-      self.selection_handle,
       self.stext,
       (width, height),
-      window,
     );
     let badge = PageNumberBadge::new(self.page_number);
 

@@ -58,6 +58,10 @@ impl ThumbnailCache {
       self.entries.insert(new_path, path);
     }
   }
+  /// Look up the cached PNG path for a book without mutating or locking the DB.
+  pub fn get(&self, path_key: &SharedString) -> Option<PathBuf> {
+    self.entries.get(path_key).cloned().flatten()
+  }
 
   /// Look up the PNG path for a book path, resolving from the DB on cache miss.
   pub fn get_or_resolve(&mut self, db: &DB, path_key: &SharedString) -> ThumbnailPath {

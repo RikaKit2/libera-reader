@@ -64,7 +64,7 @@ impl DiskPageCacheResult {
 
 /// Renders a page via mutool CLI, writes the resulting WebP to disk cache,
 /// and decodes it into a GPU-ready `RenderImage`.
-fn render_and_cache_page(
+pub(crate) fn render_and_cache_page(
   book_path: &std::path::Path, page: usize, dpi: u32, page_file: &std::path::Path,
 ) -> PageImageState {
   match mutool::render_page_to_webp_bytes(book_path, page, dpi, 85.0) {
@@ -185,18 +185,15 @@ pub fn spawn_book_page_loader(
         };
         {
           let mut lock = cache_worker.lock();
-          if lock.get_loading_dpi(page) == Some(dpi) {
+          let expected_dpi = lock.get_loading_dpi(page);
+          // Применяем отрендеренную картинку, только если за время рендера
+          // не был запрошен другой target_dpi (работает и при Zoom In, и при Zoom Out!)
+          let is_superseded = expected_dpi.is_some_and(|loading_dpi| loading_dpi != dpi);
+          if !is_superseded {
             lock.pop_image_loading(page);
-          }
-
-          let cached_dpi = lock.get_image_dpi(page);
-          let is_obsolete_dpi = cached_dpi.is_some_and(|current_dpi| current_dpi > dpi);
-
-          if !is_obsolete_dpi {
             lock.insert_image(page, img_state);
             lock.set_image_dpi(page, dpi);
           }
-
           if let Some(ts) = text_state {
             lock.insert_text(page, ts);
           }

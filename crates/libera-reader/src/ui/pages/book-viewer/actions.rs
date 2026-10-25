@@ -26,6 +26,7 @@ actions!(
     TtsPlayPause,
     TtsNext,
     TtsPrev,
+    CopySelection,
     ExitViewer,
   ]
 );
@@ -34,6 +35,9 @@ pub const BOOK_VIEWER_CONTEXT: &str = "BookViewer";
 
 pub fn default_keybindings() -> Vec<KeyBinding> {
   vec![
+    // Copy
+    KeyBinding::new("ctrl-c", CopySelection, Some(BOOK_VIEWER_CONTEXT)),
+    KeyBinding::new("cmd-c", CopySelection, Some(BOOK_VIEWER_CONTEXT)),
     // Navigation
     KeyBinding::new("right", NextPage, None),
     KeyBinding::new("pagedown", NextPage, None),

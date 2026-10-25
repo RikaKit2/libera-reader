@@ -30,16 +30,22 @@ pub async fn extract_img(
 
     extract_img_with_format(path_to_book, resolution, &temp_path, "png").await?;
 
-    let reader = BufReader::new(File::open(&temp_path).map_err(|_| MuToolError::IoError)?);
-    let img = ImageReader::new(reader)
-      .with_guessed_format()
-      .map_err(|_| MuToolError::OtherErr)?
-      .decode()
-      .map_err(|_| MuToolError::OtherErr)?;
+    let out_path = path_to_thumbnail.clone();
+    tokio::task::spawn_blocking(move || -> Result<(), MuToolError> {
+      let reader = BufReader::new(File::open(&temp_path).map_err(|_| MuToolError::IoError)?);
+      let img = ImageReader::new(reader)
+        .with_guessed_format()
+        .map_err(|_| MuToolError::OtherErr)?
+        .decode()
+        .map_err(|_| MuToolError::OtherErr)?;
 
-    let encoder = webp::Encoder::from_image(&img).map_err(|_| MuToolError::OtherErr)?;
-    let webp_memory = encoder.encode(80.0);
-    std::fs::write(path_to_thumbnail, &*webp_memory).map_err(|_| MuToolError::IoError)?;
+      let encoder = webp::Encoder::from_image(&img).map_err(|_| MuToolError::OtherErr)?;
+      let webp_memory = encoder.encode(80.0);
+      std::fs::write(&out_path, &*webp_memory).map_err(|_| MuToolError::IoError)?;
+      Ok(())
+    })
+    .await
+    .map_err(|_| MuToolError::OtherErr)??;
 
     Ok(())
   } else if ext == "jpg" || ext == "jpeg" {
@@ -49,17 +55,23 @@ pub async fn extract_img(
 
     extract_img_with_format(path_to_book, resolution, &temp_path, "png").await?;
 
-    let reader = BufReader::new(File::open(&temp_path).map_err(|_| MuToolError::IoError)?);
-    let img = ImageReader::new(reader)
-      .with_guessed_format()
-      .map_err(|_| MuToolError::OtherErr)?
-      .decode()
-      .map_err(|_| MuToolError::OtherErr)?;
+    let out_path = path_to_thumbnail.clone();
+    tokio::task::spawn_blocking(move || -> Result<(), MuToolError> {
+      let reader = BufReader::new(File::open(&temp_path).map_err(|_| MuToolError::IoError)?);
+      let img = ImageReader::new(reader)
+        .with_guessed_format()
+        .map_err(|_| MuToolError::OtherErr)?
+        .decode()
+        .map_err(|_| MuToolError::OtherErr)?;
 
-    let out_file = File::create(path_to_thumbnail).map_err(|_| MuToolError::IoError)?;
-    let mut writer = std::io::BufWriter::new(out_file);
-    let encoder = JpegEncoder::new_with_quality(&mut writer, 85);
-    img.write_with_encoder(encoder).map_err(|_| MuToolError::OtherErr)?;
+      let out_file = File::create(&out_path).map_err(|_| MuToolError::IoError)?;
+      let mut writer = std::io::BufWriter::new(out_file);
+      let encoder = JpegEncoder::new_with_quality(&mut writer, 85);
+      img.write_with_encoder(encoder).map_err(|_| MuToolError::OtherErr)?;
+      Ok(())
+    })
+    .await
+    .map_err(|_| MuToolError::OtherErr)??;
 
     Ok(())
   } else {

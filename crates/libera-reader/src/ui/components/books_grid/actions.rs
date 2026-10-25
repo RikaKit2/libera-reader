@@ -46,10 +46,13 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
     (size, hash)
   };
 
+  let bookmarks = crate::db::models::books::bookmark::BookBookmarks::get(cx.db(), path.clone())
+    .unwrap_or_default();
   let viewer_state = cx.book_viewer_state().clone();
   viewer_state.update(cx, |s, cx| {
     s.set_book(path.clone(), 1, title.clone());
     s.set_book_metadata(size, hash);
+    s.set_bookmarks(bookmarks);
     cx.notify();
   });
   let path_clone = path.clone();
@@ -131,11 +134,15 @@ pub fn push_at_history(path: BookPath, cx: &mut App) {
 
   if should_persist {
     let db = cx.db().clone();
-    if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path.clone()) {
-      let mut updated = book.clone();
-      updated.user_data.last_opened = now;
-      let _ = crate::db::models::books::book::Book::update(&db, updated);
-    }
+    cx.background_executor()
+      .spawn(async move {
+        if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path) {
+          let mut updated = book.clone();
+          updated.user_data.last_opened = now;
+          let _ = crate::db::models::books::book::Book::update(&db, updated);
+        }
+      })
+      .detach();
   }
 }
 
@@ -158,10 +165,14 @@ pub fn toggle_favorite(path: BookPath, cx: &mut App) {
 
   if let Some(is_favorite) = new_state {
     let db = cx.db().clone();
-    if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path.clone()) {
-      let mut updated = book.clone();
-      updated.user_data.favorite = is_favorite;
-      let _ = crate::db::models::books::book::Book::update(&db, updated);
-    }
+    cx.background_executor()
+      .spawn(async move {
+        if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path) {
+          let mut updated = book.clone();
+          updated.user_data.favorite = is_favorite;
+          let _ = crate::db::models::books::book::Book::update(&db, updated);
+        }
+      })
+      .detach();
   }
 }

@@ -8,6 +8,7 @@ use gpui_component::StyledExt;
 use gpui_component::tooltip::Tooltip;
 use rust_i18n::t;
 
+#[derive(IntoElement)]
 pub struct BookmarkItem {
   bookmark: BookMark,
   state: Entity<BookViewerState>,
@@ -19,8 +20,8 @@ impl BookmarkItem {
   }
 }
 
-impl Render for BookmarkItem {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl RenderOnce for BookmarkItem {
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
     let theme = cx.theme();
     let target_page = self.bookmark.page_number as usize;
     let state = self.state.clone();
@@ -49,15 +50,15 @@ impl Render for BookmarkItem {
           .items_center()
           .gap_x(bookmarks::ITEM_GAP_X)
           .cursor_pointer()
-          .on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |_this, _, _window, cx| {
+          .on_mouse_down(MouseButton::Left, {
+            let state = state.clone();
+            move |_, _window, cx| {
               state.update(cx, |s, cx| {
                 s.go_to_page(target_page);
                 cx.notify();
               });
-            }),
-          )
+            }
+          })
           .child(
             svg()
               .path("heroicons--bookmark-20-solid.svg")
@@ -96,20 +97,25 @@ impl Render for BookmarkItem {
               .build(window, cx)
           })
           .hover(move |s| s.bg(theme.foreground.opacity(0.12)))
-          .on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |_this, _, _window, cx| {
+          .on_mouse_down(MouseButton::Left, {
+            let state = state.clone();
+            let book_path = book_path.clone();
+            move |_, _window, cx| {
               if let Some(path) = &book_path {
                 let db = cx.db().clone();
                 if let Ok(Some(updated_book)) =
                   BookBookmarks::remove(&db, path.clone(), &time_created)
                 {
                   cx.books_state().update_book(&updated_book);
+                  let new_bookmarks = BookBookmarks::get(&db, path.clone()).unwrap_or_default();
+                  state.update(cx, |s, cx| {
+                    s.set_bookmarks(new_bookmarks);
+                    cx.notify();
+                  });
                 }
-                cx.notify();
               }
-            }),
-          )
+            }
+          })
           .child(
             svg()
               .path("material-symbols--close.svg")

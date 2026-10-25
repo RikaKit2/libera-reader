@@ -5,7 +5,7 @@ use libera_reader::db::DB;
 use libera_reader::not_cached_books::NotCachedBooks;
 use libera_reader::services::Services;
 use libera_reader::settings::SETTINGS;
-use mimalloc::MiMalloc;
+use mimalloc_pprof::MiMalloc;
 use rfd::AsyncFileDialog;
 use std::thread::sleep;
 use std::time::Duration;

@@ -59,8 +59,6 @@ impl BookViewer {
         let available_height = window_size.height - px(32.0);
         this.state.update(cx, |s, cx| {
           if matches!(s.zoom_preset, ZoomPreset::FitWidth | ZoomPreset::FitPage) {
-            gpui_base::TextSelection::clear(window, cx);
-            s.clear_selection_handles();
             s.update_fit_zoom(size(available_width, available_height));
             cx.notify();
           }
@@ -125,34 +123,34 @@ impl Render for BookViewer {
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::ZoomIn, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
+      .on_action(cx.listener(|this, _: &actions::CopySelection, _window, cx| {
+        let text = this.state.read(cx).selected_text.clone();
+        if let Some(text) = text
+          && !text.is_empty()
+        {
+          cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+        }
+      }))
+      .on_action(cx.listener(|this, _: &actions::ZoomIn, _window, cx| {
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
           s.zoom_in();
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::ZoomOut, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
+      .on_action(cx.listener(|this, _: &actions::ZoomOut, _window, cx| {
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
           s.zoom_out();
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::ResetZoom, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
+      .on_action(cx.listener(|this, _: &actions::ResetZoom, _window, cx| {
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
           s.set_zoom(ZoomPreset::Percent100);
           cx.notify();
         });
       }))
       .on_action(cx.listener(|this, _: &actions::FitWidth, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
           s.set_zoom(ZoomPreset::FitWidth);
           let sidebar_open = s.active_sidebar_tab.is_open();
           let window_size = window.viewport_size();
@@ -164,9 +162,7 @@ impl Render for BookViewer {
         });
       }))
       .on_action(cx.listener(|this, _: &actions::FitPage, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
           s.set_zoom(ZoomPreset::FitPage);
           let sidebar_open = s.active_sidebar_tab.is_open();
           let window_size = window.viewport_size();

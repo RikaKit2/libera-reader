@@ -4,6 +4,8 @@ pub use thumbnail_card::ThumbnailCard;
 
 use crate::app_ext::AppExt;
 use crate::db::models::books::book::BookPath;
+use crate::types::HashSet;
+use crate::ui::pages::book_viewer::loader::{DiskPageCacheResult, render_and_cache_page};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
 use gpui_component::{VirtualListScrollHandle, v_virtual_list};
@@ -15,10 +17,12 @@ use std::sync::Arc;
 pub struct ThumbnailsView {
   state: Entity<BookViewerState>,
   scroll_handle: VirtualListScrollHandle,
-  thumbnail_cache: LruCache<usize, Option<Arc<RenderImage>>>,
+  thumbnail_cache: LruCache<usize, Arc<RenderImage>>,
+  loading_pages: HashSet<usize>,
   evicted: Vec<Arc<RenderImage>>,
   last_book_path: Option<BookPath>,
   last_current_page: usize,
+  thumbnail_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 impl ThumbnailsView {
@@ -27,9 +31,11 @@ impl ThumbnailsView {
       state,
       scroll_handle: VirtualListScrollHandle::new(),
       thumbnail_cache: LruCache::new(NonZeroUsize::new(32).unwrap()),
+      loading_pages: HashSet::default(),
       evicted: Vec::new(),
       last_book_path: None,
       last_current_page: 0,
+      thumbnail_semaphore: Arc::new(tokio::sync::Semaphore::new(2)),
     }
   }
 
@@ -63,12 +69,11 @@ impl Render for ThumbnailsView {
       for img in evicted {
         cx.drop_image(img, None);
       }
-      for (_, opt_img) in self.thumbnail_cache.iter() {
-        if let Some(img) = opt_img {
-          cx.drop_image(img.clone(), None);
-        }
+      for (_, img) in self.thumbnail_cache.iter() {
+        cx.drop_image(img.clone(), None);
       }
       self.thumbnail_cache.clear();
+      self.loading_pages.clear();
       self.last_current_page = 0;
     }
 
@@ -109,39 +114,82 @@ impl Render for ThumbnailsView {
 
               // Lookup or load thumbnail image
               let img = if let Some(cached) = view.thumbnail_cache.get(&page) {
-                cached.clone()
+                Some(cached.clone())
               } else {
-                let loaded = (|| {
-                  if book_size == 0 {
-                    return None;
-                  }
-                  let p72 = app_dirs.book_page_path(book_size, book_hash.as_deref(), page, 72);
-                  if let Ok(bytes) = std::fs::read(&p72)
-                    && !bytes.is_empty()
-                  {
-                    return crate::ui::pages::book_viewer::image_utils::decode_page_image_bytes(
-                      &bytes,
-                    );
-                  }
-                  let p150 = app_dirs.book_page_path(book_size, book_hash.as_deref(), page, 150);
-                  if let Ok(bytes) = std::fs::read(&p150)
-                    && !bytes.is_empty()
-                  {
-                    return crate::ui::pages::book_viewer::image_utils::decode_page_image_bytes(
-                      &bytes,
-                    );
-                  }
-                  None
-                })();
-
-                if let Some((_, Some(evicted_img))) =
-                  view.thumbnail_cache.push(page, loaded.clone())
+                if !view.loading_pages.contains(&page)
+                  && let Some(book) = &current_book
                 {
-                  view.evicted.push(evicted_img);
-                }
-                loaded
-              };
+                  view.loading_pages.insert(page);
+                  let page_num = page;
+                  let book_path = book.as_pathbuf();
+                  let app_dirs_clone = app_dirs.clone();
+                  let book_hash_clone = book_hash.clone();
+                  let semaphore = view.thumbnail_semaphore.clone();
 
+                  cx.spawn(move |this: WeakEntity<Self>, cx: &mut AsyncApp| {
+                    let mut owned_cx = cx.clone();
+                    async move {
+                      let loaded_img = owned_cx
+                        .background_executor()
+                        .spawn(async move {
+                          if book_size == 0 {
+                            return None;
+                          }
+                          // 1. Try 72 DPI disk cache
+                          let p72 = app_dirs_clone.book_page_path(
+                            book_size,
+                            book_hash_clone.as_deref(),
+                            page_num,
+                            72,
+                          );
+                          match DiskPageCacheResult::probe_and_load(&p72) {
+                            DiskPageCacheResult::Hit(img) => return Some(img),
+                            DiskPageCacheResult::EmptyFile | DiskPageCacheResult::CorruptedFile => {
+                              let _ = std::fs::remove_file(&p72);
+                            }
+                            DiskPageCacheResult::Miss => {}
+                          }
+
+                          // 2. Try 150 DPI disk cache
+                          let p150 = app_dirs_clone.book_page_path(
+                            book_size,
+                            book_hash_clone.as_deref(),
+                            page_num,
+                            150,
+                          );
+                          match DiskPageCacheResult::probe_and_load(&p150) {
+                            DiskPageCacheResult::Hit(img) => return Some(img),
+                            DiskPageCacheResult::EmptyFile | DiskPageCacheResult::CorruptedFile => {
+                              let _ = std::fs::remove_file(&p150);
+                            }
+                            DiskPageCacheResult::Miss => {}
+                          }
+                          // 3. Fallback: generate 72 DPI thumbnail and cache on disk
+                          let _permit = semaphore.acquire().await.ok();
+                          match render_and_cache_page(&book_path, page_num, 72, &p72) {
+                            crate::ui::pages::book_viewer::cache::PageImageState::Loaded(img) => {
+                              Some(img)
+                            }
+                            _ => None,
+                          }
+                        })
+                        .await;
+
+                      let _ = this.update(&mut owned_cx, |this, cx| {
+                        this.loading_pages.shift_remove(&page_num);
+                        if let Some(img) = loaded_img {
+                          if let Some((_, evicted_img)) = this.thumbnail_cache.push(page_num, img) {
+                            this.evicted.push(evicted_img);
+                          }
+                          cx.notify();
+                        }
+                      });
+                    }
+                  })
+                  .detach();
+                }
+                None
+              };
               let card = ThumbnailCard::new(page, is_active, img, state.clone());
               cards.push(card.render(cx));
             }

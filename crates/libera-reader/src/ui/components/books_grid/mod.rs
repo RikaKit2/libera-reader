@@ -31,7 +31,6 @@ pub struct BooksGrid {
   pub(crate) mode: CardDisplayMode,
   pub(crate) scroll_handle: VirtualListScrollHandle,
   pub(crate) id: gpui::ElementId,
-  pub(crate) thumbnail_paths: Vec<Option<PathBuf>>,
   pub(crate) image_cache: Arc<Mutex<BoundedCache>>,
   pub(crate) visible_start: Arc<AtomicUsize>,
   pub(crate) visible_end: Arc<AtomicUsize>,
@@ -85,7 +84,6 @@ impl BooksGrid {
       mode: CardDisplayMode::Compact,
       scroll_handle: VirtualListScrollHandle::new(),
       id,
-      thumbnail_paths: Vec::new(),
       image_cache: cache,
       visible_start,
       visible_end,
@@ -133,13 +131,6 @@ impl BooksGrid {
     };
   }
 
-  /// Replace the resolved thumbnail paths (one entry per book in the current
-  /// target list, in order; `None` means no thumbnail on disk yet).
-  pub fn set_thumbnail_paths(&mut self, paths: Vec<Option<PathBuf>>, cx: &mut Context<Self>) {
-    self.thumbnail_paths = paths;
-    cx.notify();
-  }
-
   fn total_books(&self, cx: &mut Context<Self>) -> usize {
     self.state.read(cx).total_books(self.target)
   }
@@ -183,8 +174,9 @@ impl Render for BooksGrid {
         // Both must be released before pass 2 hands `view` to the card renderer.
         let mut rows_data: Vec<RowCells> = Vec::new();
         {
-          let state_guard = view.state.read(cx).read();
-          let keys = match view.target {
+          let state_ent = view.state.read(cx);
+          let state_guard = state_ent.read();
+          let keys_ref = match view.target {
             TargetList::Library => &state_guard.library_keys,
             TargetList::Favorites => &state_guard.favorites_keys,
             TargetList::History => &state_guard.history_keys,
@@ -198,14 +190,19 @@ impl Render for BooksGrid {
             }
             let start = row * columns;
             let end = (start + columns).min(total_books);
+            if start >= keys_ref.len() {
+              break;
+            }
+            let row_keys = &keys_ref[start..end.min(keys_ref.len())];
 
-            let mut cell_data: RowCells = Vec::with_capacity(end - start);
-            for (i, id) in keys.iter().enumerate().take(end).skip(start) {
+            let mut cell_data: RowCells = Vec::with_capacity(row_keys.len());
+            for (offset, id) in row_keys.iter().enumerate() {
+              let i = start + offset;
               let book = match state_guard.books_map.get(id) {
                 Some(b) => b.clone(),
                 None => continue,
               };
-              let thumb = view.thumbnail_paths.get(i).cloned().flatten();
+              let thumb = state_guard.thumbnails.get(id);
 
               // Cache is keyed by book id, so a reorder (reverse/sort/search)
               // never surfaces a stale cover from the old cell at this index.
@@ -221,7 +218,6 @@ impl Render for BooksGrid {
             rows_data.push(cell_data);
           }
         }
-        // borrows of `view.state` and `view.image_cache` are now released.
 
         // --- Pass 2: render cells with a clean mutable `view` ---
         let mut rows = Vec::with_capacity(rows_data.len());
