@@ -9,7 +9,6 @@ use crate::db::models::books::book_sizes::BookSizes;
 use crate::services::extraction_coordinator::{ExtractionCoordinator, ExtractionCoordinatorMode};
 use crate::settings::SETTINGS;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::watch::Receiver;
@@ -18,9 +17,8 @@ pub async fn run(
   db: DB, app_dirs: AppDirs, mut rx: UnboundedReceiver<BookPath>, books_state: BooksState,
   settings: SETTINGS, mut coordinator_rx: Receiver<ExtractionCoordinatorMode>,
 ) {
-  let initial_workers = settings.read().workers_num.max(1) as usize;
-  let semaphore = Arc::new(Semaphore::new(initial_workers));
-  let max_workers = Arc::new(AtomicUsize::new(initial_workers));
+  let mut current_workers = settings.read().workers_num.max(1) as usize;
+  let mut semaphore = Arc::new(Semaphore::new(current_workers));
 
   loop {
     // 1. Wait if the user is actively reading a book in BookViewer
@@ -35,10 +33,10 @@ pub async fn run(
     ExtractionCoordinator::wait_for_library_mode(&mut coordinator_rx).await;
 
     // 3. Dynamic worker pool scaling based on user settings
-    let current_workers = settings.read().workers_num.max(1) as usize;
-    let prev_max = max_workers.swap(current_workers, Ordering::Relaxed);
-    if current_workers > prev_max {
-      semaphore.add_permits(current_workers - prev_max);
+    let target_workers = settings.read().workers_num.max(1) as usize;
+    if target_workers != current_workers {
+      current_workers = target_workers;
+      semaphore = Arc::new(Semaphore::new(current_workers));
     }
 
     let permit = match Arc::clone(&semaphore).acquire_owned().await {

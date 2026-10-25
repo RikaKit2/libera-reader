@@ -9,7 +9,7 @@ pub use tts_config::{TtsConfigProvider, TtsEngineConfig, TtsVoiceConfig};
 pub use zoom::{ZoomPreset, calculate_fit_page, calculate_fit_width};
 
 use crate::db::models::books::book::BookPath;
-use crate::types::HashMap;
+use crate::types::{HashMap, HashSet};
 use crate::ui::pages::book_viewer::document::DocumentData;
 use gpui::{Pixels, SharedString, Size};
 use mutool::{BBox, OutlineNode, PageDimensions};
@@ -70,6 +70,7 @@ pub struct BookViewerState {
   pub bookmark_search_query: String,
   // Document outline
   pub outline: Vec<OutlineItem>,
+  pub expanded_outline_items: HashSet<usize>,
 
   // TTS State
   pub tts_playing: bool,
@@ -109,6 +110,7 @@ impl Default for BookViewerState {
       has_searched: false,
       bookmark_search_query: String::new(),
       outline: Vec::new(),
+      expanded_outline_items: HashSet::default(),
 
       tts_playing: false,
       tts_engine: SharedString::from("piper"),
@@ -143,6 +145,7 @@ impl std::fmt::Debug for BookViewerState {
       .field("is_searching", &self.is_searching)
       .field("has_searched", &self.has_searched)
       .field("outline", &self.outline)
+      .field("expanded_outline_items", &self.expanded_outline_items)
       .field("tts_playing", &self.tts_playing)
       .field("tts_engine", &self.tts_engine)
       .field("tts_voice", &self.tts_voice)
@@ -182,6 +185,7 @@ impl BookViewerState {
     self.total_pages = doc.total_pages.max(1);
     self.page_sizes = doc.page_sizes.clone();
     self.outline = doc.outline.iter().cloned().map(OutlineItem::from).collect();
+    self.expanded_outline_items.clear();
     self.book_size =
       std::fs::metadata(doc.book_path.as_pathbuf()).map(|m| m.len()).unwrap_or(self.book_size);
     self.current_document = Some(doc);
@@ -196,6 +200,7 @@ impl BookViewerState {
     self.current_document = None;
     self.page_sizes.clear();
     self.outline.clear();
+    self.expanded_outline_items.clear();
     self.current_page = 1;
     self.total_pages = 1;
     self.title = "".into();

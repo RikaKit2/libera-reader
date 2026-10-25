@@ -48,7 +48,12 @@ impl Render for OutlineView {
       .flex()
       .flex_col()
       .gap_y_1()
-      .children(outline.into_iter().map(|item| OutlineTreeItem::new(item, state.clone(), cx)))
+      .children(
+        outline
+          .into_iter()
+          .enumerate()
+          .map(|(idx, item)| OutlineTreeItem::render_tree(item, idx + 1, state.clone(), cx)),
+      )
       .into_any_element()
   }
 }

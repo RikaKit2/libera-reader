@@ -101,7 +101,11 @@ impl Render for BookmarkItem {
             cx.listener(move |_this, _, _window, cx| {
               if let Some(path) = &book_path {
                 let db = cx.db().clone();
-                let _ = BookBookmarks::remove(&db, path.clone(), &time_created);
+                if let Ok(Some(updated_book)) =
+                  BookBookmarks::remove(&db, path.clone(), &time_created)
+                {
+                  cx.books_state().update_book(&updated_book);
+                }
                 cx.notify();
               }
             }),

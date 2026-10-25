@@ -41,6 +41,7 @@ pub enum PageLinksState {
 pub struct BookViewerCache {
   images: LruCache<usize, PageImageState>,
   image_dpis: LruCache<usize, u32>,
+  loading_dpis: LruCache<usize, u32>,
   texts: LruCache<usize, PageTextState>,
   links: LruCache<usize, PageLinksState>,
   evicted: Vec<Arc<RenderImage>>,
@@ -61,6 +62,7 @@ impl BookViewerCache {
     Self {
       images: LruCache::new(img_cap),
       image_dpis: LruCache::new(img_cap),
+      loading_dpis: LruCache::new(img_cap),
       texts: LruCache::new(text_cap),
       links: LruCache::new(links_cap),
       evicted: Vec::new(),
@@ -87,12 +89,20 @@ impl BookViewerCache {
   pub fn get_image_dpi(&mut self, page: usize) -> Option<u32> {
     self.image_dpis.get(&page).copied()
   }
-
   pub fn set_image_dpi(&mut self, page: usize, dpi: u32) {
     self.image_dpis.put(page, dpi);
   }
 
+  pub fn get_loading_dpi(&mut self, page: usize) -> Option<u32> {
+    self.loading_dpis.get(&page).copied()
+  }
+
+  pub fn set_loading_dpi(&mut self, page: usize, dpi: u32) {
+    self.loading_dpis.put(page, dpi);
+  }
+
   pub fn pop_image_loading(&mut self, page: usize) {
+    self.loading_dpis.pop(&page);
     if let Some(PageImageState::Loading) = self.images.peek(&page) {
       self.images.pop(&page);
     }
@@ -128,6 +138,7 @@ impl BookViewerCache {
     }
     self.images.clear();
     self.image_dpis.clear();
+    self.loading_dpis.clear();
     self.texts.clear();
     self.links.clear();
   }
@@ -140,6 +151,7 @@ impl BookViewerCache {
     }
     self.images.clear();
     self.image_dpis.clear();
+    self.loading_dpis.clear();
   }
 }
 
@@ -155,13 +167,19 @@ mod tests {
     cache.insert_image(1, PageImageState::Loading);
     assert!(matches!(cache.get_image(1), Some(PageImageState::Loading)));
 
+    cache.set_loading_dpi(1, 144);
+    assert_eq!(cache.get_loading_dpi(1), Some(144));
+
     cache.pop_image_loading(1);
     assert!(cache.get_image(1).is_none());
+    assert_eq!(cache.get_loading_dpi(1), None);
 
     cache.insert_text(1, PageTextState::Loading);
     assert!(matches!(cache.get_text(1), Some(PageTextState::Loading)));
 
+    cache.set_loading_dpi(2, 72);
     cache.clear();
     assert!(cache.get_text(1).is_none());
+    assert_eq!(cache.get_loading_dpi(2), None);
   }
 }

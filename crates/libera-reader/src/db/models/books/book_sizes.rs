@@ -23,12 +23,16 @@ impl BookSizes {
   fn get(book_size: BookSize, rw_t: &RwTransaction<'_>) -> anyhow::Result<Option<Self>> {
     Ok(rw_t.get().primary::<Self>(book_size)?)
   }
-  pub(crate) fn insert_book(new_book: &Book, rw_t: &RwTransaction<'_>) -> anyhow::Result<()> {
+  pub(crate) fn insert_book(
+    new_book: &Book, rw_t: &RwTransaction<'_>,
+  ) -> anyhow::Result<Option<BookPath>> {
+    let mut transitioned_from_unique = None;
     match BookSizes::get(new_book.book_size, rw_t)? {
       Some(old_self) => {
         let mut updated_self = old_self.clone();
         match updated_self.book_type {
           BookType::UniqueSize { book_path, mutool_data } => {
+            transitioned_from_unique = Some(book_path.clone());
             let mut map = HashMap::default();
             map.insert(book_path, DuplicateBookData::MutoolData(mutool_data));
             map.insert(new_book.book_path.clone(), DuplicateBookData::MutoolData(None));
@@ -58,7 +62,7 @@ impl BookSizes {
       }
     };
 
-    Ok(())
+    Ok(transitioned_from_unique)
   }
   pub(crate) fn remove_book(
     book_size: BookSize, target_book_path: &BookPath, rw_t: &RwTransaction<'_>,

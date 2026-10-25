@@ -46,12 +46,27 @@ pub struct FontInfo {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+pub struct TextWord {
+  pub bbox: BBox,
+  #[serde(default)]
+  pub text: String,
+}
+
+impl TextWord {
+  pub fn new(bbox: BBox, text: impl Into<String>) -> Self {
+    Self { bbox, text: text.into() }
+  }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct TextLine {
   pub bbox: BBox,
   #[serde(default)]
   pub font: Option<FontInfo>,
   #[serde(default)]
   pub text: String,
+  #[serde(default)]
+  pub words: Vec<TextWord>,
   #[serde(default)]
   pub x: f32,
   #[serde(default)]
@@ -76,11 +91,11 @@ pub struct PageStructuredText {
 }
 
 #[derive(Deserialize, Debug)]
-struct MuToolSTextDoc {
-  #[serde(default)]
-  pub pages: Vec<PageStructuredText>,
+#[serde(untagged)]
+enum MuToolSTextDoc {
+  Wrapped { pages: Vec<PageStructuredText> },
+  Direct(PageStructuredText),
 }
-
 /// Retrieve structured text (bounding boxes, font info, spans) for a specific page (1-indexed).
 pub fn get_page_structured_text(
   path_to_book: &Path, page: usize,
@@ -89,6 +104,12 @@ pub fn get_page_structured_text(
     return Err(MuToolError::IoError);
   }
 
+  // Try using persistent worker
+  if let Ok(mut worker) = crate::worker::global_worker_pool().acquire()
+    && let Ok(stext) = worker.get_page_structured_text(path_to_book, page)
+  {
+    return Ok(stext);
+  }
   let page_arg = page.to_string();
   let output = crate::mutool_std_command()
     .arg(CMD_DRAW)
@@ -122,9 +143,11 @@ pub fn parse_stext_json(raw_output: &str) -> Result<PageStructuredText, MuToolEr
   let doc: MuToolSTextDoc = serde_json::from_str(json_str)
     .map_err(|e| MuToolError::JsonError(format!("failed to parse stext JSON: {e}")))?;
 
-  Ok(doc.pages.into_iter().next().unwrap_or_default())
+  match doc {
+    MuToolSTextDoc::Direct(stext) => Ok(stext),
+    MuToolSTextDoc::Wrapped { mut pages } => Ok(pages.drain(..).next().unwrap_or_default()),
+  }
 }
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -137,5 +160,28 @@ mod tests {
     assert_eq!(stext.blocks[0].lines.len(), 1);
     assert_eq!(stext.blocks[0].lines[0].text, "Hello world");
     assert_eq!(stext.blocks[0].lines[0].bbox.w, 50.0);
+  }
+
+  #[test]
+  fn test_parse_stext_json_direct_blocks() {
+    let raw = r#"{"blocks":[{"type":"text","bbox":{"x":10.0,"y":20.0,"w":100.0,"h":30.0},"lines":[{"bbox":{"x":10.0,"y":20.0,"w":50.0,"h":15.0},"text":"Hello direct"}]}]}"#;
+    let stext = parse_stext_json(raw).unwrap();
+    assert_eq!(stext.blocks.len(), 1);
+    assert_eq!(stext.blocks[0].lines.len(), 1);
+    assert_eq!(stext.blocks[0].lines[0].text, "Hello direct");
+    assert_eq!(stext.blocks[0].lines[0].bbox.w, 50.0);
+  }
+
+  #[test]
+  fn test_parse_stext_json_with_words() {
+    let raw = r#"{"blocks":[{"type":"text","bbox":{"x":10.0,"y":20.0,"w":100.0,"h":30.0},"lines":[{"bbox":{"x":10.0,"y":20.0,"w":50.0,"h":15.0},"text":"Hello world","words":[{"text":"Hello","bbox":{"x":10.0,"y":20.0,"w":20.0,"h":15.0}},{"text":"world","bbox":{"x":35.0,"y":20.0,"w":25.0,"h":15.0}}]}]}]}"#;
+    let stext = parse_stext_json(raw).unwrap();
+    assert_eq!(stext.blocks.len(), 1);
+    let line = &stext.blocks[0].lines[0];
+    assert_eq!(line.words.len(), 2);
+    assert_eq!(line.words[0].text, "Hello");
+    assert_eq!(line.words[0].bbox.w, 20.0);
+    assert_eq!(line.words[1].text, "world");
+    assert_eq!(line.words[1].bbox.x, 35.0);
   }
 }

@@ -227,13 +227,11 @@ impl Book {
                 }
               }
               DuplicateBookData::MutoolData(_) => {
-                if let Some(p) = pick_existing(&unhashed_book_dir) {
-                  return Ok(Some(p));
-                }
+                return Ok(None);
               }
             }
-          } else if let Some(p) = pick_existing(&unhashed_book_dir) {
-            return Ok(Some(p));
+          } else {
+            return Ok(None);
           }
         }
       }

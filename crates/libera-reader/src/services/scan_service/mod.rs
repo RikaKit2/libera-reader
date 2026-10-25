@@ -169,6 +169,7 @@ impl ScanService {
   fn insert_books(&self, buffer: Vec<BookPath>, existing_paths: &mut HashSet<BookPath>) -> usize {
     let mut new_books = 0;
     let mut inserted_books: Vec<Book> = Vec::new();
+    let mut transitioned_books: Vec<BookPath> = Vec::new();
 
     let _ = self.db.rw_t(|rw_t| {
       for book_path in buffer {
@@ -182,13 +183,30 @@ impl ScanService {
         new_books += 1;
         if let Ok(new_book) = Book::new(book_path) {
           // Insert into BookSizes first
-          let _ = crate::db::models::books::book_sizes::BookSizes::insert_book(&new_book, rw_t);
+          if let Ok(Some(prev_unique_path)) =
+            crate::db::models::books::book_sizes::BookSizes::insert_book(&new_book, rw_t)
+          {
+            let crate::db::models::books::book::BookSize::BYTES(size) = new_book.book_size;
+            let unhashed_dir = self.app_dirs.book_dir(size, None);
+            if unhashed_dir.exists() {
+              let _ = std::fs::remove_dir_all(&unhashed_dir);
+            }
+            let legacy_path = self.app_dirs.legacy_book_cover_path(size, None);
+            if legacy_path.exists() {
+              let _ = std::fs::remove_file(&legacy_path);
+            }
+            transitioned_books.push(prev_unique_path);
+          }
           inserted_books.push(new_book.clone());
           rw_t.insert::<Book>(new_book)?;
         }
       }
       Ok(())
     });
+
+    for path in transitioned_books {
+      let _ = self.not_cached_books.tx().send(path);
+    }
 
     // Build snapshots outside the transaction so we can consult the filesystem
     // through `has_thumbnail_on_disk` (which needs an `&DB`, not an `RwTransaction`).
@@ -213,11 +231,49 @@ impl ScanService {
           let book_path = book.book_path.clone();
 
           if can_delete {
+            // 1. Physically delete book's cache directory (cover and all pages)
+            let crate::db::models::books::book::BookSize::BYTES(size) = book.book_size;
+            let hash = if let Ok(Some(book_sizes)) =
+              rw_t.get().primary::<crate::db::models::books::book_sizes::BookSizes>(book.book_size)
+            {
+              match book_sizes.book_type {
+                crate::db::models::books::BookType::DuplicateSize(map) => {
+                  if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) =
+                    map.get(&book.book_path)
+                  {
+                    Some(h.0.to_string())
+                  } else {
+                    None
+                  }
+                }
+                _ => None,
+              }
+            } else {
+              None
+            };
+
+            let book_cache_dir = self.app_dirs.book_dir(size, hash.as_deref());
+            if book_cache_dir.exists() {
+              let _ = std::fs::remove_dir_all(&book_cache_dir);
+            }
+            let legacy_path = self.app_dirs.legacy_book_cover_path(size, hash.as_deref());
+            if legacy_path.exists() {
+              let _ = std::fs::remove_file(&legacy_path);
+            }
+
+            // 2. Fully delete the book from BookSizes, BookBookmarks, and Book table
             let _ = crate::db::models::books::book_sizes::BookSizes::remove_book(
               book.book_size,
               &book.book_path,
               rw_t,
             );
+            if let Some(bookmarks) =
+              rw_t.get().primary::<crate::db::models::books::bookmark::BookBookmarks>(
+                book.book_path.clone(),
+              )?
+            {
+              rw_t.remove::<crate::db::models::books::bookmark::BookBookmarks>(bookmarks)?;
+            }
             rw_t.remove::<Book>(book)?;
             removed_paths.push(book_path);
           } else {

@@ -296,7 +296,8 @@ async fn process_batch(
         match event {
           FSEvent::CreateFile { file_path } => {
             if let Some(book_path) = BookPath::new(&file_path)
-              && let Ok(_) = fs_handlers::insert_book(book_path.clone(), rw_t, &not_cached_books)
+              && let Ok(_) =
+                fs_handlers::insert_book(book_path.clone(), rw_t, &not_cached_books, &app_dirs)
             {
               let _ = not_cached_books.tx().send(book_path.clone());
               if let Ok(Some(book)) = rw_t.get().primary::<Book>(book_path.clone()) {

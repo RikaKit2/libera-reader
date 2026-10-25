@@ -35,29 +35,56 @@ impl PageTextLayer {
       let mut text_style = window.text_style();
       text_style.color = gpui::transparent_black();
 
-      let mut global_line_idx = 0;
+      let mut global_item_idx = 0;
       for block in &stext.blocks {
         for line in &block.lines {
-          let scaled = line.bbox.scaled(zoom_factor);
-          let font_size = line.font.as_ref().map_or(scaled.h * 0.8, |f| f.size * zoom_factor);
-          let mut line_style = text_style.clone();
-          line_style.font_size = px(font_size).into();
-          line_style.line_height = px(scaled.h).into();
+          if !line.words.is_empty() {
+            for word in &line.words {
+              let scaled = word.bbox.scaled(zoom_factor);
+              let font_size = line.font.as_ref().map_or(scaled.h * 0.8, |f| f.size * zoom_factor);
+              let mut word_style = text_style.clone();
+              word_style.font_size = px(font_size).into();
+              word_style.line_height = px(scaled.h).into();
 
-          let runs = vec![line_style.to_run(line.text.len())];
-          let shared_text = SharedString::from(line.text.clone());
-          let styled_text = StyledText::new(shared_text.clone()).with_runs(runs);
+              let runs = vec![word_style.to_run(word.text.len())];
+              let shared_text = SharedString::from(word.text.clone());
+              let styled_text = StyledText::new(shared_text.clone()).with_runs(runs);
 
-          let line_bounds =
-            Bounds::new(Point::new(px(scaled.x), px(scaled.y)), size(px(scaled.w), px(scaled.h)));
+              let word_bounds = Bounds::new(
+                Point::new(px(scaled.x), px(scaled.y)),
+                size(px(scaled.w), px(scaled.h)),
+              );
 
-          lines.push(PageTextLineData {
-            bounds: line_bounds,
-            text: shared_text,
-            styled_text,
-            document_order: global_line_idx,
-          });
-          global_line_idx += 1;
+              lines.push(PageTextLineData {
+                bounds: word_bounds,
+                text: shared_text,
+                styled_text,
+                document_order: global_item_idx,
+              });
+              global_item_idx += 1;
+            }
+          } else {
+            let scaled = line.bbox.scaled(zoom_factor);
+            let font_size = line.font.as_ref().map_or(scaled.h * 0.8, |f| f.size * zoom_factor);
+            let mut line_style = text_style.clone();
+            line_style.font_size = px(font_size).into();
+            line_style.line_height = px(scaled.h).into();
+
+            let runs = vec![line_style.to_run(line.text.len())];
+            let shared_text = SharedString::from(line.text.clone());
+            let styled_text = StyledText::new(shared_text.clone()).with_runs(runs);
+
+            let line_bounds =
+              Bounds::new(Point::new(px(scaled.x), px(scaled.y)), size(px(scaled.w), px(scaled.h)));
+
+            lines.push(PageTextLineData {
+              bounds: line_bounds,
+              text: shared_text,
+              styled_text,
+              document_order: global_item_idx,
+            });
+            global_item_idx += 1;
+          }
         }
       }
     }
@@ -296,6 +323,7 @@ mod tests {
         size: 14.0,
       }),
       text: "Sample Line".into(),
+      words: Vec::new(),
       x: 50.0,
       y: 110.0,
       wmode: 0,

@@ -185,8 +185,18 @@ pub fn spawn_book_page_loader(
         };
         {
           let mut lock = cache_worker.lock();
-          lock.insert_image(page, img_state);
-          lock.set_image_dpi(page, dpi);
+          if lock.get_loading_dpi(page) == Some(dpi) {
+            lock.pop_image_loading(page);
+          }
+
+          let cached_dpi = lock.get_image_dpi(page);
+          let is_obsolete_dpi = cached_dpi.is_some_and(|current_dpi| current_dpi > dpi);
+
+          if !is_obsolete_dpi {
+            lock.insert_image(page, img_state);
+            lock.set_image_dpi(page, dpi);
+          }
+
           if let Some(ts) = text_state {
             lock.insert_text(page, ts);
           }

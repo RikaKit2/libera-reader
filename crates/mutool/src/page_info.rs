@@ -41,6 +41,14 @@ pub fn get_document_page_info(path_to_book: &Path) -> Result<DocumentPageInfo, M
     return Err(MuToolError::IoError);
   }
 
+  // Fast-path: try persistent worker
+  if let Ok(mut worker) = crate::worker::global_worker_pool().acquire()
+    && let Ok(info) = worker.get_page_info(path_to_book)
+    && info.total_pages > 0
+  {
+    return Ok(info);
+  }
+
   let output = crate::mutool_std_command()
     .arg(CMD_PAGES)
     .arg(path_to_book)
@@ -82,29 +90,44 @@ pub fn get_page_size(path_to_book: &Path, page: usize) -> Result<PageDimensions,
 /// Parse the XML-like output of `mutool pages <file>`.
 pub fn parse_pages_output(output: &str) -> DocumentPageInfo {
   let mut pages = Vec::new();
-  let mut current_page_dims: Option<PageDimensions> = None;
+  let mut current_box: Option<PageDimensions> = None;
+  let mut current_rotate: Option<i32> = None;
 
   for line in output.lines() {
     let trimmed = line.trim();
     if trimmed.starts_with("<page ") {
-      if let Some(dims) = current_page_dims.take() {
+      if let Some(mut dims) = current_box.take() {
+        if let Some(rot) = current_rotate.take() {
+          apply_rotation_to_dimensions(&mut dims, rot);
+        }
         pages.push(dims);
       }
-      current_page_dims = Some(PageDimensions::default());
+      current_box = Some(PageDimensions::default());
+      current_rotate = None;
     } else if (trimmed.starts_with("<MediaBox ") || trimmed.starts_with("<CropBox "))
-      && current_page_dims.is_some()
+      && current_box.is_some()
     {
       if let Some(dims) = parse_box_attributes(trimmed) {
-        current_page_dims = Some(dims);
+        current_box = Some(dims);
+      }
+    } else if trimmed.starts_with("<Rotate ") && current_box.is_some() {
+      if let Some(rot) = extract_attr_i32(trimmed, "v=") {
+        current_rotate = Some(rot);
       }
     } else if trimmed.starts_with("</page>")
-      && let Some(dims) = current_page_dims.take()
+      && let Some(mut dims) = current_box.take()
     {
+      if let Some(rot) = current_rotate.take() {
+        apply_rotation_to_dimensions(&mut dims, rot);
+      }
       pages.push(dims);
     }
   }
 
-  if let Some(dims) = current_page_dims.take() {
+  if let Some(mut dims) = current_box.take() {
+    if let Some(rot) = current_rotate.take() {
+      apply_rotation_to_dimensions(&mut dims, rot);
+    }
     pages.push(dims);
   }
 
@@ -112,6 +135,24 @@ pub fn parse_pages_output(output: &str) -> DocumentPageInfo {
   DocumentPageInfo { total_pages, pages }
 }
 
+fn apply_rotation_to_dimensions(dims: &mut PageDimensions, rot: i32) {
+  let normalized_rot = rot.rem_euclid(360);
+  if normalized_rot == 90 || normalized_rot == 270 {
+    std::mem::swap(&mut dims.width, &mut dims.height);
+  }
+}
+
+fn extract_attr_i32(line: &str, attr_name: &str) -> Option<i32> {
+  let start_pos = line.find(attr_name)?;
+  let after_key = &line[start_pos + attr_name.len()..];
+  let quote_char = after_key.chars().next()?;
+  if quote_char != '"' && quote_char != '\'' {
+    return None;
+  }
+  let value_str = &after_key[1..];
+  let end_pos = value_str.find(quote_char)?;
+  value_str[..end_pos].parse::<i32>().ok()
+}
 /// Extracts width and height from attributes like `l="0" b="0" r="595.28" t="841.89"`.
 fn parse_box_attributes(line: &str) -> Option<PageDimensions> {
   let l = extract_attr_f32(line, "l=")?;
@@ -186,5 +227,35 @@ mod tests {
     assert_eq!(info.pages[0].height, 841.89);
     assert_eq!(info.pages[1].width, 800.0);
     assert_eq!(info.pages[1].height, 600.0);
+  }
+
+  #[test]
+  fn test_parse_pages_xml_with_rotate() {
+    let xml = r#"
+<page pagenum="1">
+<MediaBox l="0" b="0" r="200" t="600" />
+<Rotate v="90" />
+</page>
+<page pagenum="2">
+<MediaBox l="0" b="0" r="200" t="600" />
+<CropBox l="10" b="20" r="110" t="320" />
+<Rotate v="270" />
+</page>
+<page pagenum="3">
+<MediaBox l="0" b="0" r="200" t="600" />
+<Rotate v="180" />
+</page>
+"#;
+    let info = parse_pages_output(xml);
+    assert_eq!(info.total_pages, 3);
+    // Page 1: 200x600 rotated 90 => 600x200
+    assert_eq!(info.pages[0].width, 600.0);
+    assert_eq!(info.pages[0].height, 200.0);
+    // Page 2: CropBox is 100x300, rotated 270 => 300x100
+    assert_eq!(info.pages[1].width, 300.0);
+    assert_eq!(info.pages[1].height, 100.0);
+    // Page 3: 200x600 rotated 180 => 200x600
+    assert_eq!(info.pages[2].width, 200.0);
+    assert_eq!(info.pages[2].height, 600.0);
   }
 }

@@ -12,6 +12,7 @@ pub mod page_info;
 pub mod render_page;
 pub mod search;
 pub mod stext;
+pub mod worker;
 pub use command::{get_mutool_bin_path, mutool_command, mutool_std_command, set_mutool_path};
 pub use constants::*;
 pub use create_book::create_empty_book;
@@ -28,7 +29,10 @@ pub use render_page::{
 };
 pub use search::{DocumentSearchMatch, search_document_text};
 pub use stext::{
-  BBox, FontInfo, PageStructuredText, TextBlock, TextLine, get_page_structured_text,
+  BBox, FontInfo, PageStructuredText, TextBlock, TextLine, TextWord, get_page_structured_text,
+};
+pub use worker::{
+  MutoolWorkerPool, MutoolWorkerSession, PooledWorker, ensure_worker_script, global_worker_pool,
 };
 
 use std::path::{Path, PathBuf};

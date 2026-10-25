@@ -1,8 +1,7 @@
-use crate::app_ext::AppExt;
 use crate::ui::pages::book_viewer::cache::{
   BookViewerCache, PageImageState, PageLinksState, PageTextState,
 };
-use crate::ui::pages::book_viewer::loader::{PageLoadRequest, spawn_book_page_loader};
+use crate::ui::pages::book_viewer::loader::PageLoadRequest;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use crate::ui::pages::book_viewer::viewport::page::PageView;
 use gpui::*;
@@ -20,45 +19,11 @@ pub struct PagedContainer {
 
 impl PagedContainer {
   pub fn new(
-    state: Entity<BookViewerState>, cache: Arc<Mutex<BookViewerCache>>, cx: &mut App,
+    state: Entity<BookViewerState>, cache: Arc<Mutex<BookViewerCache>>,
+    load_tx: tokio::sync::mpsc::UnboundedSender<PageLoadRequest>, visible_start: Arc<AtomicUsize>,
+    visible_end: Arc<AtomicUsize>, cx: &mut App,
   ) -> Entity<Self> {
-    let visible_start = Arc::new(AtomicUsize::new(1));
-    let visible_end = Arc::new(AtomicUsize::new(1));
-
-    let (load_tx, load_rx) = tokio::sync::mpsc::unbounded_channel::<PageLoadRequest>();
-    let (notify_tx, mut notify_rx) = tokio::sync::mpsc::unbounded_channel::<()>();
-
-    let runtime = crate::TOKIO.get().unwrap();
-    let coordinator = cx.services().extraction_coordinator.clone();
-
-    let workers = cx.settings().read().workers_num.max(1) as usize;
-    let app_dirs = cx.app_dirs().clone();
-    spawn_book_page_loader(
-      runtime,
-      cache.clone(),
-      visible_start.clone(),
-      visible_end.clone(),
-      load_rx,
-      notify_tx,
-      coordinator,
-      app_dirs,
-      workers,
-    );
-
-    cx.new(|cx| {
-      cx.spawn(|this: gpui::WeakEntity<Self>, cx: &mut AsyncApp| {
-        let mut owned_cx = cx.clone();
-        async move {
-          while notify_rx.recv().await.is_some() {
-            while notify_rx.try_recv().is_ok() {}
-            let _ = this.update(&mut owned_cx, |_, cx| cx.notify());
-          }
-        }
-      })
-      .detach();
-
-      Self { state, cache, load_tx, visible_start, visible_end }
-    })
+    cx.new(|_cx| Self { state, cache, load_tx, visible_start, visible_end })
   }
 }
 
@@ -85,22 +50,27 @@ impl Render for PagedContainer {
         let cached_dpi = cache_lock.get_image_dpi(current_page);
         let is_stale_dpi = cached_dpi.is_some_and(|d| d != target_dpi);
 
-        let (img, is_img_loading) = match cache_lock.get_image(current_page) {
-          Some(PageImageState::Loaded(img)) if !is_stale_dpi => (Some(img.clone()), false),
+        let img_state = cache_lock.get_image(current_page).cloned();
+        let (img, is_img_loading) = match img_state {
+          Some(PageImageState::Loaded(img)) if !is_stale_dpi => (Some(img), false),
           Some(PageImageState::Loaded(img)) => {
-            let _ = self.load_tx.send(PageLoadRequest {
-              page: current_page,
-              book_path: path.clone(),
-              dpi: target_dpi,
-              book_size,
-              book_hash: book_hash.clone(),
-            });
-            (Some(img.clone()), false)
+            if cache_lock.get_loading_dpi(current_page) != Some(target_dpi) {
+              cache_lock.set_loading_dpi(current_page, target_dpi);
+              let _ = self.load_tx.send(PageLoadRequest {
+                page: current_page,
+                book_path: path.clone(),
+                dpi: target_dpi,
+                book_size,
+                book_hash: book_hash.clone(),
+              });
+            }
+            (Some(img), false)
           }
           Some(PageImageState::Loading) => (None, true),
           Some(PageImageState::Failed(_)) => (None, false),
           Some(PageImageState::Unloaded) | None => {
             cache_lock.insert_image(current_page, PageImageState::Loading);
+            cache_lock.set_loading_dpi(current_page, target_dpi);
             let _ = self.load_tx.send(PageLoadRequest {
               page: current_page,
               book_path: path,
