@@ -50,11 +50,15 @@ pub struct TextWord {
   pub bbox: BBox,
   #[serde(default)]
   pub text: String,
+  /// Точные X-границы каждого символа внутри слова (в PDF-пунктах из шрифта книги).
+  /// Длина = char_count + 1 (от левого края первой буквы до правого края последней).
+  #[serde(default)]
+  pub char_xs: Vec<f32>,
 }
 
 impl TextWord {
   pub fn new(bbox: BBox, text: impl Into<String>) -> Self {
-    Self { bbox, text: text.into() }
+    Self { bbox, text: text.into(), char_xs: Vec::new() }
   }
 }
 

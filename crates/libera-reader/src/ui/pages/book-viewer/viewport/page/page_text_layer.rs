@@ -10,6 +10,7 @@ pub struct PdfWordLayout {
   pub bbox: BBox, // В базовых PDF-пунктах (72 DPI)
   pub text: String,
   pub char_count: usize,
+  pub char_xs: Vec<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -43,7 +44,12 @@ impl PageTextLayer {
             for w in &line.words {
               let char_count = w.text.chars().count();
               if char_count > 0 {
-                words.push(PdfWordLayout { bbox: w.bbox, text: w.text.clone(), char_count });
+                words.push(PdfWordLayout {
+                  bbox: w.bbox,
+                  text: w.text.clone(),
+                  char_count,
+                  char_xs: w.char_xs.clone(),
+                });
               }
             }
           } else if !line.text.trim().is_empty() {
@@ -61,6 +67,7 @@ impl PageTextLayer {
                 bbox: BBox::new(cur_x, line.bbox.y, ww, line.bbox.h),
                 text: rw.to_string(),
                 char_count: cc,
+                char_xs: Vec::new(),
               });
               cur_x += ww + unit_w;
             }
@@ -173,8 +180,22 @@ impl PageTextLayer {
       let w_right = word.bbox.x + word.bbox.w;
 
       if pdf_x >= w_left && pdf_x <= w_right {
-        let frac = ((pdf_x - w_left) / word.bbox.w.max(0.1)).clamp(0.0, 1.0);
-        let char_idx = ((frac * word.char_count as f32).round() as usize).min(word.char_count);
+        let char_idx = if word.char_xs.len() == word.char_count + 1 {
+          // Ищем индекс символа по реальным координатам глифов шрифта книги
+          let mut best_c = 0;
+          let mut min_d = f32::MAX;
+          for (c_i, &cx_pos) in word.char_xs.iter().enumerate() {
+            let d = (pdf_x - cx_pos).abs();
+            if d < min_d {
+              min_d = d;
+              best_c = c_i;
+            }
+          }
+          best_c
+        } else {
+          let frac = ((pdf_x - w_left) / word.bbox.w.max(0.1)).clamp(0.0, 1.0);
+          ((frac * word.char_count as f32).round() as usize).min(word.char_count)
+        };
         return Some(PdfTextPos { page, line_idx, word_idx: w_idx, char_idx });
       }
 
@@ -232,9 +253,12 @@ impl PageTextLayer {
     Some((start_wc, end_wc))
   }
 
-  /// Возвращает PDF X-координату (72 DPI) для (word_idx, char_idx) внутри строки.
+  /// Возвращает точную PDF X-координату (72 DPI) буквы из метрик шрифта MuPDF.
   fn char_x_in_line(line: &PdfLineLayout, word_idx: usize, char_idx: usize) -> f32 {
     let word = &line.words[word_idx];
+    if word.char_xs.len() == word.char_count + 1 {
+      return word.char_xs[char_idx.min(word.char_count)];
+    }
     let frac = (char_idx as f32 / word.char_count.max(1) as f32).clamp(0.0, 1.0);
     word.bbox.x + word.bbox.w * frac
   }

@@ -27,6 +27,7 @@ function extractStructuredTextWithWords(page) {
     var linesWords = [];
     var currentLineWords = [];
     var currentWordChars = [];
+    var currentWordCharXs = [];
     var currentWordMinX = 0, currentWordMinY = 0, currentWordMaxX = 0, currentWordMaxY = 0;
 
     function flushWord() {
@@ -38,9 +39,11 @@ function extractStructuredTextWithWords(page) {
                     y: Math.round(currentWordMinY * 10) / 10,
                     w: Math.round((currentWordMaxX - currentWordMinX) * 10) / 10,
                     h: Math.round((currentWordMaxY - currentWordMinY) * 10) / 10
-                }
+                },
+                char_xs: currentWordCharXs
             });
             currentWordChars = [];
+            currentWordCharXs = [];
         }
     }
 
@@ -48,6 +51,7 @@ function extractStructuredTextWithWords(page) {
         beginLine: function() {
             currentLineWords = [];
             currentWordChars = [];
+            currentWordCharXs = [];
         },
         onChar: function(c, origin, font, size, quad) {
             if (c === " " || c === "\t" || c === "\n" || c === "\r") {
@@ -60,16 +64,21 @@ function extractStructuredTextWithWords(page) {
             var minY = Math.min(quad[1], quad[3], quad[5], quad[7]);
             var maxY = Math.max(quad[1], quad[3], quad[5], quad[7]);
 
+            var rMinX = Math.round(minX * 100) / 100;
+            var rMaxX = Math.round(maxX * 100) / 100;
+
             if (currentWordChars.length === 0) {
                 currentWordMinX = minX;
                 currentWordMinY = minY;
                 currentWordMaxX = maxX;
                 currentWordMaxY = maxY;
+                currentWordCharXs = [rMinX, rMaxX];
             } else {
                 if (minX < currentWordMinX) currentWordMinX = minX;
                 if (minY < currentWordMinY) currentWordMinY = minY;
                 if (maxX > currentWordMaxX) currentWordMaxX = maxX;
                 if (maxY > currentWordMaxY) currentWordMaxY = maxY;
+                currentWordCharXs.push(rMaxX);
             }
             currentWordChars.push(c);
         },
