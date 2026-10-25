@@ -134,9 +134,9 @@ impl BooksStateData {
     });
   }
 
-  pub fn mark_thumbnail_extracted(&mut self, path: &BookPath) {
+  pub fn mark_thumbnail_extracted(&mut self, path: &BookPath, thumb_path: Option<PathBuf>) {
     let path_key = path.full_path_string();
-    self.thumbnails.remove(&path_key);
+    self.thumbnails.insert_resolved(path_key, thumb_path);
   }
 }
 
@@ -268,10 +268,10 @@ impl BooksState {
     self.notify();
   }
 
-  pub fn mark_thumbnail_extracted(&self, path: &BookPath) {
+  pub fn mark_thumbnail_extracted(&self, path: &BookPath, thumb_path: Option<PathBuf>) {
     {
       let mut data = self.write();
-      data.mark_thumbnail_extracted(path);
+      data.mark_thumbnail_extracted(path, thumb_path);
     }
     self.notify();
   }
@@ -375,7 +375,7 @@ mod tests {
 
     // 2. Mark thumbnail extracted
     let bp1 = BookPath::new(std::path::Path::new("/path/to/book1.pdf")).unwrap();
-    state.mark_thumbnail_extracted(&bp1);
+    state.mark_thumbnail_extracted(&bp1, None);
     // 3. Update book
     let mut updated1 = book1.clone();
     updated1.user_data.favorite = true;

@@ -58,8 +58,8 @@ pub async fn run(
         }
 
         // 2. Skip if a usable, non-empty thumbnail already exists on disk
-        if book.has_thumbnail_on_disk(&db, &app_dirs.thumbnails_dir) {
-          books_state.mark_thumbnail_extracted(&book.book_path);
+        if let Ok(Some(existing_path)) = book.get_thumbnail_path(&db, &app_dirs.thumbnails_dir) {
+          books_state.mark_thumbnail_extracted(&book.book_path, Some(existing_path));
           drop(permit);
           return;
         }
@@ -176,7 +176,8 @@ pub async fn run(
           });
 
           if db_save_res.is_ok() {
-            books_state.mark_thumbnail_extracted(&book.book_path);
+            let final_thumb = existing_cover.or(Some(path_to_thumbnail));
+            books_state.mark_thumbnail_extracted(&book.book_path, final_thumb);
           }
         }
       }
