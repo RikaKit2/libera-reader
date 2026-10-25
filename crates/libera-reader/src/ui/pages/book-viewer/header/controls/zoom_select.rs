@@ -34,7 +34,9 @@ impl ZoomSelect {
               _window: &mut Window,
               cx: &mut Context<'_, Self>| {
           if let SelectEvent::Confirm(Some(preset)) = event {
+            gpui_base::TextSelection::clear(_window, cx);
             state.update(cx, |s, cx| {
+              s.clear_selection_handles();
               s.set_zoom(*preset);
               if matches!(*preset, ZoomPreset::FitWidth | ZoomPreset::FitPage) {
                 let sidebar_open = s.active_sidebar_tab.is_open();

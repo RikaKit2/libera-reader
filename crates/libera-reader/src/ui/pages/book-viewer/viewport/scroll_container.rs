@@ -247,12 +247,14 @@ impl Render for ScrollContainer {
                 .items_center()
                 .justify_center()
                 .py(PAGE_GAP_Y / 2.0)
-                .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, _window, cx| {
+                .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, window, cx| {
                   if event.modifiers.control || event.modifiers.platform {
                     cx.stop_propagation();
                     let delta = event.delta.pixel_delta(px(20.0)).y;
                     let step = if delta > px(0.0) { 0.10 } else { -0.10 };
+                    gpui_base::TextSelection::clear(window, cx);
                     this.state.update(cx, |s, cx| {
+                      s.clear_selection_handles();
                       s.adjust_zoom_by(step);
                       cx.notify();
                     });
@@ -272,12 +274,14 @@ impl Render for ScrollContainer {
     div()
       .size_full()
       .p(CONTAINER_PADDING)
-      .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, _window, cx| {
+      .on_scroll_wheel(cx.listener(|this, event: &ScrollWheelEvent, window, cx| {
         if event.modifiers.control || event.modifiers.platform {
           cx.stop_propagation();
           let delta = event.delta.pixel_delta(px(20.0)).y;
           let step = if delta > px(0.0) { 0.10 } else { -0.10 };
+          gpui_base::TextSelection::clear(window, cx);
           this.state.update(cx, |s, cx| {
+            s.clear_selection_handles();
             s.adjust_zoom_by(step);
             cx.notify();
           });
