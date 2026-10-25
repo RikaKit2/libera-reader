@@ -37,6 +37,8 @@ pub struct BooksGrid {
   pub(crate) load_tx: tokio::sync::mpsc::UnboundedSender<(usize, gpui::SharedString, PathBuf)>,
   pub(crate) clicked_book: Option<(gpui::SharedString, usize)>,
   pub(crate) click_counter: usize,
+  pub(crate) cached_item_sizes: Rc<Vec<gpui::Size<Pixels>>>,
+  pub(crate) last_layout_key: (usize, Pixels),
 }
 
 impl BooksGrid {
@@ -90,6 +92,8 @@ impl BooksGrid {
       load_tx,
       clicked_book: None,
       click_counter: 0,
+      cached_item_sizes: Rc::new(Vec::new()),
+      last_layout_key: (0, px(0.0)),
     }
   }
 
@@ -150,14 +154,19 @@ impl Render for BooksGrid {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     self.image_cache.lock().unwrap().flush_evictions(cx);
 
+    let user_cache_size = cx.settings().read().image_cache_size as usize;
     let total_books = self.total_books(cx);
     let columns = self.columns.max(1);
-    let total_rows = total_books.div_ceil(columns);
+    let total_rows = total_books.div_ceil(columns).max(1);
     let row_height = self.row_height;
     let card_height = row_height - px(C::GRID_ROW_GAP);
-    let item_sizes: Rc<Vec<gpui::Size<Pixels>>> =
-      Rc::new((0..total_rows.max(1)).map(|_| size(px(0.), row_height)).collect());
 
+    if self.last_layout_key != (total_rows, row_height) {
+      self.last_layout_key = (total_rows, row_height);
+      self.cached_item_sizes =
+        Rc::new((0..total_rows).map(|_| size(px(100.), row_height)).collect());
+    }
+    let item_sizes = self.cached_item_sizes.clone();
     let scroll = self.scroll_handle.clone();
     let list = v_virtual_list(
       cx.entity().clone(),
@@ -183,7 +192,8 @@ impl Render for BooksGrid {
             TargetList::Bookmarks => &state_guard.bookmarks_keys,
           };
           let mut cache_lock = view.image_cache.lock().unwrap();
-
+          let min_safe_cap = (visible_range.len() + 4) * columns;
+          cache_lock.sync_capacity(user_cache_size.max(min_safe_cap));
           for row in visible_range {
             if row >= total_rows {
               break;

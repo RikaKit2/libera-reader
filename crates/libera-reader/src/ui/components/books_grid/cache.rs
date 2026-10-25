@@ -15,36 +15,72 @@ pub enum CoverState {
 /// (reverse / sort / search), so swapping the keys list never shows a stale
 /// cover from the cell that used to occupy that position.
 pub struct BoundedCache {
-  pub inner: LruCache<SharedString, CoverState>,
+  textures: LruCache<SharedString, Arc<RenderImage>>,
+  in_flight: crate::types::HashSet<SharedString>,
+  failed: crate::types::HashSet<SharedString>,
   evicted: Vec<Arc<RenderImage>>,
 }
 
 impl BoundedCache {
   pub fn new(max_cached: usize) -> Self {
-    Self { inner: LruCache::new(NonZeroUsize::new(max_cached).unwrap()), evicted: Vec::new() }
+    Self {
+      textures: LruCache::new(NonZeroUsize::new(max_cached.max(16)).unwrap()),
+      in_flight: crate::types::HashSet::default(),
+      failed: crate::types::HashSet::default(),
+      evicted: Vec::new(),
+    }
+  }
+
+  /// Гарантирует, что размер LRU-кэша не меньше `min_cap` (число видимых карточек + буфер)
+  /// и синхронизирует размер с настройками пользователя.
+  pub fn sync_capacity(&mut self, desired_cap: usize) {
+    let target = desired_cap.max(16);
+    if self.textures.cap().get() != target {
+      while self.textures.len() > target {
+        if let Some((_, img)) = self.textures.pop_lru() {
+          self.evicted.push(img);
+        }
+      }
+      self.textures.resize(NonZeroUsize::new(target).unwrap());
+    }
   }
 
   pub fn get_mut(&mut self, id: &SharedString) -> Option<CoverState> {
-    self.inner.get(id).cloned()
+    if let Some(img) = self.textures.get(id) {
+      return Some(CoverState::Loaded(img.clone()));
+    }
+    if self.in_flight.contains(id) {
+      return Some(CoverState::Loading);
+    }
+    if self.failed.contains(id) {
+      return Some(CoverState::Failed);
+    }
+    None
   }
 
   pub fn insert(&mut self, id: SharedString, state: CoverState) {
-    if let Some((_, evicted_state)) = self.inner.push(id, state)
-      && let CoverState::Loaded(img) = evicted_state
-    {
-      self.evicted.push(img);
+    match state {
+      CoverState::Loading => {
+        self.in_flight.insert(id);
+      }
+      CoverState::Loaded(img) => {
+        self.in_flight.swap_remove(&id);
+        self.failed.swap_remove(&id);
+        if let Some((_, evicted_img)) = self.textures.push(id, img) {
+          self.evicted.push(evicted_img);
+        }
+      }
+      CoverState::Failed => {
+        self.in_flight.swap_remove(&id);
+        self.failed.insert(id);
+      }
     }
   }
 
-  /// Drop a `Loading` placeholder if present (used by the loader to cancel
-  /// stale requests for books that scrolled out of view).
   pub fn pop_loading(&mut self, id: &SharedString) {
-    if let Some(CoverState::Loading) = self.inner.peek(id) {
-      self.inner.pop(id);
-    }
+    self.in_flight.swap_remove(id);
   }
 
-  // ⚡️ MIGRATION: Accept AppContext and explicitly remove tile from GPU atlas
   pub fn flush_evictions(&mut self, cx: &mut App) {
     let evicted = std::mem::take(&mut self.evicted);
     for img in evicted {

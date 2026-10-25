@@ -64,6 +64,7 @@ impl Viewport {
     let last_book_path = state.read(cx).current_book.clone();
 
     cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
       let sc = scroll_container.clone();
       let pc = paged_container.clone();
       cx.spawn(|this: gpui::WeakEntity<Self>, cx: &mut AsyncApp| {

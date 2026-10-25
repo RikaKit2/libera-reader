@@ -31,13 +31,21 @@ impl BookSizes {
       Some(old_self) => {
         let mut updated_self = old_self.clone();
         match updated_self.book_type {
-          BookType::UniqueSize { book_path, mutool_data } => {
-            transitioned_from_unique = Some(book_path.clone());
-            let mut map = HashMap::default();
-            map.insert(book_path, DuplicateBookData::MutoolData(mutool_data));
-            map.insert(new_book.book_path.clone(), DuplicateBookData::MutoolData(None));
-            updated_self.book_type = BookType::DuplicateSize(map);
-            rw_t.update(old_self, updated_self)?;
+          BookType::UniqueSize { mut book_path, mutool_data } => {
+            if book_path == new_book.book_path {
+              if book_path.deleted {
+                book_path.deleted = false;
+                updated_self.book_type = BookType::UniqueSize { book_path, mutool_data };
+                rw_t.update(old_self, updated_self)?;
+              }
+            } else {
+              transitioned_from_unique = Some(book_path.clone());
+              let mut map = HashMap::default();
+              map.insert(book_path, DuplicateBookData::MutoolData(mutool_data));
+              map.insert(new_book.book_path.clone(), DuplicateBookData::MutoolData(None));
+              updated_self.book_type = BookType::DuplicateSize(map);
+              rw_t.update(old_self, updated_self)?;
+            }
           }
           BookType::DuplicateSize(mut hash_map) => {
             match hash_map.contains_key(&new_book.book_path) {

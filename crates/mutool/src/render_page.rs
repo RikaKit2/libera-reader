@@ -62,38 +62,49 @@ pub fn render_page_to_png_bytes(
     .stderr(Stdio::null())
     .output()
     .map_err(|_| MuToolError::MutoolNotFound)?;
-
-  if !output.status.success() {
-    return Err(MuToolError::OtherErr);
+  if !output.status.success() || output.stdout.is_empty() {
+    return Err(MuToolError::CommandFailed(format!(
+      "mutool draw failed for {:?} page {}",
+      path_to_book, page
+    )));
   }
 
   Ok(output.stdout)
 }
 
 /// Render a single document page (1-indexed) directly to encoded WebP bytes.
+/// Uses `to_rgb8()` + `Encoder::from_rgb` so grayscale (Luma8) pages never fail!
 pub fn render_page_to_webp_bytes(
   path_to_book: &Path, page: usize, dpi: u32, quality: f32,
 ) -> Result<Vec<u8>, MuToolError> {
   let png_bytes = render_page_to_png_bytes(path_to_book, page, dpi)?;
   let img = image::ImageReader::new(std::io::Cursor::new(png_bytes))
     .with_guessed_format()
-    .map_err(|_| MuToolError::OtherErr)?
+    .map_err(|e| MuToolError::ParseError(e.to_string()))?
     .decode()
-    .map_err(|_| MuToolError::OtherErr)?;
+    .map_err(|e| MuToolError::ParseError(e.to_string()))?;
 
-  let encoder = webp::Encoder::from_image(&img).map_err(|_| MuToolError::OtherErr)?;
+  let rgb = img.to_rgb8();
+  let encoder = webp::Encoder::from_rgb(rgb.as_raw(), rgb.width(), rgb.height());
   let webp_memory = encoder.encode(quality);
   Ok(webp_memory.to_vec())
 }
 
-/// Render a single document page (1-indexed) directly to a WebP file on disk.
+/// Render a single document page (1-indexed) atomically to a WebP file on disk.
 pub fn render_page_to_webp(
   path_to_book: &Path, page: usize, dpi: u32, output_path: &Path, quality: f32,
 ) -> Result<(), MuToolError> {
   let webp_bytes = render_page_to_webp_bytes(path_to_book, page, dpi, quality)?;
-  if let Some(parent) = output_path.parent() {
-    let _ = std::fs::create_dir_all(parent);
+  let parent = output_path.parent().ok_or(MuToolError::IoError)?;
+  std::fs::create_dir_all(parent).map_err(|_| MuToolError::IoError)?;
+
+  let mut tmp = tempfile::Builder::new()
+    .prefix(".tmp_page_")
+    .tempfile_in(parent)
+    .map_err(|_| MuToolError::IoError)?;
+  std::io::Write::write_all(&mut tmp, &webp_bytes).map_err(|_| MuToolError::IoError)?;
+  if tmp.persist(output_path).is_err() {
+    std::fs::write(output_path, webp_bytes).map_err(|_| MuToolError::IoError)?;
   }
-  std::fs::write(output_path, webp_bytes).map_err(|_| MuToolError::IoError)?;
   Ok(())
 }

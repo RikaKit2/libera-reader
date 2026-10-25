@@ -22,10 +22,14 @@ pub const MIN_RENDER_DPI: u32 = 36;
 pub const MAX_RENDER_DPI: u32 = 300;
 pub const BASE_PDF_DPI: f32 = 72.0;
 
-/// Compute optimal raster render resolution based on user zoom factor and window scale factor.
+pub const DPI_BUCKETS: &[u32] = &[36, 72, 96, 108, 120, 144, 180, 216, 252, 300];
+
+/// Compute optimal raster render resolution snapped to discrete DPI buckets.
+/// Prevents spamming disk and CPU with tens of intermediate DPIs during window resize / zoom.
 pub fn compute_target_dpi(zoom_factor: f32, scale_factor: f32) -> u32 {
-  let calculated = (BASE_PDF_DPI * zoom_factor * scale_factor).round() as u32;
-  calculated.clamp(MIN_RENDER_DPI, MAX_RENDER_DPI)
+  let raw = (BASE_PDF_DPI * zoom_factor * scale_factor).round() as u32;
+  let clamped = raw.clamp(MIN_RENDER_DPI, MAX_RENDER_DPI);
+  *DPI_BUCKETS.iter().min_by_key(|&&b| b.abs_diff(clamped)).unwrap_or(&144)
 }
 
 /// The outcome of querying the persistent on-disk page cache.
@@ -62,7 +66,7 @@ impl DiskPageCacheResult {
   }
 }
 
-/// Renders a page via mutool CLI, writes the resulting WebP to disk cache,
+/// Renders a page via mutool CLI, writes the resulting WebP to disk cache atomically,
 /// and decodes it into a GPU-ready `RenderImage`.
 pub(crate) fn render_and_cache_page(
   book_path: &std::path::Path, page: usize, dpi: u32, page_file: &std::path::Path,
@@ -70,16 +74,34 @@ pub(crate) fn render_and_cache_page(
   match mutool::render_page_to_webp_bytes(book_path, page, dpi, 85.0) {
     Ok(bytes) => {
       if let Some(parent) = page_file.parent() {
-        let _ = std::fs::create_dir_all(parent);
+        if let Err(e) = std::fs::create_dir_all(parent) {
+          tracing::error!("Failed to create pages cache dir {:?}: {:?}", parent, e);
+        } else {
+          let persisted =
+            tempfile::Builder::new().prefix(".tmp_p_").tempfile_in(parent).and_then(|mut tmp| {
+              std::io::Write::write_all(&mut tmp, &bytes)?;
+              tmp.persist(page_file).map_err(|e| e.error)
+            });
+          if let Err(e) = persisted {
+            tracing::warn!("Tempfile persist failed ({:?}), falling back to fs::write", e);
+            if let Err(write_err) = std::fs::write(page_file, &bytes) {
+              tracing::error!("Failed to write cached page {:?}: {:?}", page_file, write_err);
+            }
+          }
+        }
       }
-      let _ = std::fs::write(page_file, &bytes);
-
       match decode_page_image_bytes(&bytes) {
         Some(img) => PageImageState::Loaded(img),
-        None => PageImageState::Failed("Failed to decode rendered WebP bytes".to_string()),
+        None => {
+          tracing::error!("Failed to decode rendered WebP bytes for page {}", page);
+          PageImageState::Failed("Failed to decode rendered WebP bytes".to_string())
+        }
       }
     }
-    Err(err) => PageImageState::Failed(err.to_string()),
+    Err(err) => {
+      tracing::error!("mutool failed to render page {} of {:?}: {:?}", page, book_path, err);
+      PageImageState::Failed(err.to_string())
+    }
   }
 }
 #[allow(clippy::too_many_arguments)]
@@ -191,8 +213,11 @@ pub fn spawn_book_page_loader(
           let is_superseded = expected_dpi.is_some_and(|loading_dpi| loading_dpi != dpi);
           if !is_superseded {
             lock.pop_image_loading(page);
-            lock.insert_image(page, img_state);
-            lock.set_image_dpi(page, dpi);
+            if let PageImageState::Loaded(img) = img_state {
+              lock.insert_loaded_image(page, img, dpi);
+            } else {
+              lock.insert_image(page, img_state);
+            }
           }
           if let Some(ts) = text_state {
             lock.insert_text(page, ts);

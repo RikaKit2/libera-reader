@@ -245,7 +245,7 @@ pub mod viewport {
   pub const THUMBNAIL_DPI: u32 = 72;
 
   /// Max number of rendered page bitmaps kept in memory LRU cache.
-  pub const MAX_CACHED_PAGE_IMAGES: usize = 5;
+  pub const MAX_CACHED_PAGE_IMAGES: usize = 16;
   /// Max number of structured text layers kept in memory LRU cache.
   pub const MAX_CACHED_TEXT_LAYERS: usize = 50;
   /// Number of adjacent pages to prefetch around visible range.

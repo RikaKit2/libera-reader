@@ -29,10 +29,13 @@ impl SideBar {
     let header = cx.new(|_cx| SidebarHeader::new(state.clone()));
     let outline = cx.new(|_cx| OutlineView::new(state.clone()));
     let bookmarks = BookmarksView::new(window, cx, state.clone());
-    let thumbnails = cx.new(|_cx| ThumbnailsView::new(state.clone()));
+    let thumbnails = cx.new(|cx| ThumbnailsView::new(state.clone(), cx));
     let tts = TtsView::new(window, cx, state.clone());
 
-    cx.new(|_cx| Self { state, header, outline, bookmarks, thumbnails, tts })
+    cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      Self { state, header, outline, bookmarks, thumbnails, tts }
+    })
   }
 }
 

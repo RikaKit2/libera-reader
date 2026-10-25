@@ -12,10 +12,8 @@ pub use page_text_layer::PageTextLayer;
 
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use gpui_base::TextSelectionHandle;
 use mutool::{PageLink, PageStructuredText};
 use std::sync::Arc;
-
 #[derive(IntoElement)]
 pub struct PageView {
   page_number: usize,
@@ -24,16 +22,15 @@ pub struct PageView {
   is_image_loading: bool,
   stext: Option<Arc<PageStructuredText>>,
   links: Option<Arc<Vec<PageLink>>>,
-  selection_handle: TextSelectionHandle,
 }
 
 impl PageView {
   pub fn new(
     page_number: usize, state: Entity<BookViewerState>, image: Option<Arc<RenderImage>>,
     is_image_loading: bool, stext: Option<Arc<PageStructuredText>>,
-    links: Option<Arc<Vec<PageLink>>>, selection_handle: TextSelectionHandle,
+    links: Option<Arc<Vec<PageLink>>>,
   ) -> Self {
-    Self { page_number, state, image, is_image_loading, stext, links, selection_handle }
+    Self { page_number, state, image, is_image_loading, stext, links }
   }
 }
 

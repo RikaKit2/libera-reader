@@ -1,6 +1,5 @@
 use super::FOOTER_HEIGHT_PX;
 use super::actions::toggle_favorite;
-use crate::app_ext::AppExt;
 use crate::db::models::books::book::Book;
 use crate::db::models::books::book::BookPath;
 use crate::ui::components::books_grid::cache::CoverState;
@@ -42,8 +41,9 @@ impl super::BooksGrid {
     let loaded = matches!(cover_state, Some(CoverState::Loaded(_)));
     if loaded {
       if let Some(CoverState::Loaded(img)) = cover_state {
-        cover = cover
-          .child(gpui::img(ImageSource::Render(img)).w_full().h_full().object_fit(ObjectFit::Fill));
+        cover = cover.child(
+          gpui::img(ImageSource::Render(img)).w_full().h_full().object_fit(ObjectFit::Cover),
+        );
       }
     } else if thumb.is_some() {
       // Still loading or failed — leave the background as a placeholder box.
@@ -231,7 +231,7 @@ impl super::BooksGrid {
     &self, book: &Book, thumb: Option<PathBuf>, cover_state: Option<CoverState>,
     card_height: Pixels, cx: &Context<Self>,
   ) -> Div {
-    let mode = cx.settings().read().card_display_mode;
+    let mode = self.mode;
     let theme = cx.theme();
     let book_path = book.book_path.clone();
 
@@ -284,8 +284,7 @@ pub(crate) fn render_book_card(
   view: &mut super::BooksGrid, book: &Book, thumb: Option<PathBuf>,
   cover_state: Option<CoverState>, card_height: Pixels, cx: &Context<super::BooksGrid>,
 ) -> Div {
-  let mode = cx.settings().read().card_display_mode;
-  if mode == crate::db::models::CardDisplayMode::List {
+  if view.mode == crate::db::models::CardDisplayMode::List {
     view.render_list_card(book, thumb, cover_state, card_height, cx)
   } else {
     view.render_book_card_detailed_or_compact(book, thumb, cover_state, card_height, cx)

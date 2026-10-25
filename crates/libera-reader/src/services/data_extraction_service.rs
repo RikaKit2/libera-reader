@@ -8,35 +8,44 @@ use crate::db::models::books::book_hashes::BookHashes;
 use crate::db::models::books::book_sizes::BookSizes;
 use crate::services::extraction_coordinator::{ExtractionCoordinator, ExtractionCoordinatorMode};
 use crate::settings::SETTINGS;
+use crate::types::HashSet;
+use parking_lot::Mutex;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::watch::Receiver;
 
+const COVER_EXTRACTION_DPI: u32 = 48;
+
 pub async fn run(
   db: DB, app_dirs: AppDirs, mut rx: UnboundedReceiver<BookPath>, books_state: BooksState,
   settings: SETTINGS, mut coordinator_rx: Receiver<ExtractionCoordinatorMode>,
 ) {
-  let mut current_workers = settings.read().workers_num.max(1) as usize;
-  let mut semaphore = Arc::new(Semaphore::new(current_workers));
+  let max_cpus = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
+  let mut current_workers = (settings.read().workers_num.max(1) as usize).min(max_cpus);
+  let semaphore = Arc::new(Semaphore::new(current_workers));
+  let in_flight: Arc<Mutex<HashSet<BookPath>>> = Arc::new(Mutex::new(HashSet::default()));
 
   loop {
     // 1. Wait if the user is actively reading a book in BookViewer
     ExtractionCoordinator::wait_for_library_mode(&mut coordinator_rx).await;
 
-    let path = match rx.recv().await {
-      Some(p) => p,
-      None => break,
-    };
+    let Some(path) = rx.recv().await else { break };
 
-    // 2. Re-check coordinator state before acquiring permit
-    ExtractionCoordinator::wait_for_library_mode(&mut coordinator_rx).await;
+    // Deduplicate: skip if this book is already being extracted right now
+    {
+      let mut active = in_flight.lock();
+      if active.contains(&path) {
+        continue;
+      }
+      active.insert(path.clone());
+    }
 
-    // 3. Dynamic worker pool scaling based on user settings
-    let target_workers = settings.read().workers_num.max(1) as usize;
-    if target_workers != current_workers {
+    // Dynamic worker pool scaling based on user settings
+    let target_workers = (settings.read().workers_num.max(1) as usize).min(max_cpus);
+    if target_workers > current_workers {
+      semaphore.add_permits(target_workers - current_workers);
       current_workers = target_workers;
-      semaphore = Arc::new(Semaphore::new(current_workers));
     }
 
     let permit = match Arc::clone(&semaphore).acquire_owned().await {
@@ -44,38 +53,53 @@ pub async fn run(
       Err(_) => break,
     };
 
+    let should_forget_permit = if target_workers < current_workers {
+      current_workers -= 1;
+      true
+    } else {
+      false
+    };
+
+    // 2. Re-check coordinator state after acquiring permit
+    ExtractionCoordinator::wait_for_library_mode(&mut coordinator_rx).await;
+
     let db = db.clone();
     let app_dirs = app_dirs.clone();
     let books_state = books_state.clone();
+    let in_flight_worker = in_flight.clone();
 
     tokio::spawn(async move {
       if let Ok(Some(book)) = crate::db::models::books::book::Book::get(&db, path.clone()) {
-        // 1. Skip zero-byte empty books
         let BookSize::BYTES(book_size_bytes) = book.book_size;
         if book_size_bytes == 0 {
-          drop(permit);
+          in_flight_worker.lock().swap_remove(&path);
+          if should_forget_permit {
+            permit.forget();
+          } else {
+            drop(permit);
+          }
           return;
         }
 
-        // 2. Skip if a usable, non-empty thumbnail already exists on disk
         if let Ok(Some(existing_path)) = book.get_thumbnail_path(&db, &app_dirs.thumbnails_dir) {
           books_state.mark_thumbnail_extracted(&book.book_path, Some(existing_path));
-          drop(permit);
+          in_flight_worker.lock().swap_remove(&path);
+          if should_forget_permit {
+            permit.forget();
+          } else {
+            drop(permit);
+          }
           return;
         }
 
-        // 3. Determine book hash if duplicate size
         let mut computed_hash = None;
-
         if let Ok(Some(book_sizes)) = db.get_primary::<BookSizes>(book.book_size) {
           match book_sizes.book_type {
             BookType::UniqueSize { .. } => {}
             DuplicateSize(map) => {
               if let Some(dup_data) = map.get(&book.book_path) {
                 match dup_data {
-                  BookHash(hash) => {
-                    computed_hash = Some(hash.clone());
-                  }
+                  BookHash(hash) => computed_hash = Some(hash.clone()),
                   MutoolData(_) => {
                     if let Ok(hash_str) =
                       crate::utils::calc_file_hash(book.book_path.as_pathbuf()).await
@@ -91,12 +115,10 @@ pub async fn run(
 
         let path_to_thumbnail =
           app_dirs.book_cover_path(book_size_bytes, computed_hash.as_ref().map(|h| h.0.as_str()));
-
         if let Some(parent) = path_to_thumbnail.parent() {
           let _ = std::fs::create_dir_all(parent);
         }
 
-        // 4. Extract cover (JPEG 85%) to disk if it doesn't exist yet
         let existing_cover = app_dirs
           .find_existing_book_cover(book_size_bytes, computed_hash.as_ref().map(|h| h.0.as_str()));
         let extraction_ok = match existing_cover {
@@ -104,11 +126,10 @@ pub async fn run(
           None => {
             let res = mutool::extract_img::extract_img(
               &book.book_path.as_pathbuf(),
-              20,
+              COVER_EXTRACTION_DPI,
               &path_to_thumbnail,
             )
             .await;
-
             match res {
               Ok(()) => true,
               Err(err) => {
@@ -164,7 +185,6 @@ pub async fn run(
               {
                 *map.get_mut(&book.book_path).unwrap() = BookHash(hash.clone());
                 rw_t.update::<BookSizes>(old_book_sizes, updated_book_sizes)?;
-
                 crate::db::models::books::book_hashes::BookHashes::insert_book(
                   hash.clone(),
                   &book.book_path,
@@ -174,14 +194,18 @@ pub async fn run(
             }
             Ok(())
           });
-
           if db_save_res.is_ok() {
             let final_thumb = existing_cover.or(Some(path_to_thumbnail));
             books_state.mark_thumbnail_extracted(&book.book_path, final_thumb);
           }
         }
       }
-      drop(permit);
+      in_flight_worker.lock().swap_remove(&path);
+      if should_forget_permit {
+        permit.forget();
+      } else {
+        drop(permit);
+      }
     });
   }
 }

@@ -7,17 +7,17 @@ use std::io::BufReader;
 use std::path::Path;
 use std::sync::Arc;
 
-pub const THUMB_MAX_PX: u32 = 200;
+pub const THUMB_MAX_PX: u32 = 400;
+pub const PAGE_THUMB_MAX_PX: u32 = 240;
 
 /// Decodes WebP bytes directly into native BGRA memory for GPUI,
-/// with 0 CPU channel swaps and optional SIMD-accelerated scaling in LibWebP.
-pub fn decode_webp_to_gpui(webp_bytes: &[u8]) -> Option<Arc<RenderImage>> {
+/// with 0 CPU channel swaps and optional SIMD-accelerated scaling in LibWebP to fit `max_px`.
+pub fn decode_webp_to_gpui_sized(webp_bytes: &[u8], max_px: u32) -> Option<Arc<RenderImage>> {
   use std::os::raw::c_int;
 
   let mut width: c_int = 0;
   let mut height: c_int = 0;
 
-  // 1. Read width and height from WebP header (fast, without decoding)
   if unsafe {
     libwebp_sys2::WebPGetInfo(webp_bytes.as_ptr(), webp_bytes.len(), &mut width, &mut height)
   } == 0
@@ -32,8 +32,7 @@ pub fn decode_webp_to_gpui(webp_bytes: &[u8]) -> Option<Arc<RenderImage>> {
   let w = width as u32;
   let h = height as u32;
 
-  // When dimensions fit within THUMB_MAX_PX, decode directly into BGRA buffer (0 copy, 0 swap)
-  if w <= THUMB_MAX_PX && h <= THUMB_MAX_PX {
+  if w <= max_px && h <= max_px {
     let len = (w * h * 4) as usize;
     let stride = (w * 4) as c_int;
     let mut buffer = vec![0u8; len];
@@ -57,14 +56,13 @@ pub fn decode_webp_to_gpui(webp_bytes: &[u8]) -> Option<Arc<RenderImage>> {
     return Some(Arc::new(RenderImage::new(smallvec![img_frame])));
   }
 
-  // If thumbnail exceeds THUMB_MAX_PX, decode with LibWebP scaling directly into BGRA
   unsafe {
     let mut config: libwebp_sys2::WebPDecoderConfig = std::mem::zeroed();
     if libwebp_sys2::WebPInitDecoderConfig(&mut config) == 0 {
       return None;
     }
 
-    let scale = (THUMB_MAX_PX as f32 / (w.max(h) as f32)).min(1.0);
+    let scale = (max_px as f32 / (w.max(h) as f32)).min(1.0);
     let scaled_w = ((w as f32 * scale).round() as u32).max(1);
     let scaled_h = ((h as f32 * scale).round() as u32).max(1);
 
@@ -92,7 +90,17 @@ pub fn decode_webp_to_gpui(webp_bytes: &[u8]) -> Option<Arc<RenderImage>> {
   }
 }
 
+#[inline]
+pub fn decode_webp_to_gpui(webp_bytes: &[u8]) -> Option<Arc<RenderImage>> {
+  decode_webp_to_gpui_sized(webp_bytes, THUMB_MAX_PX)
+}
+
+#[inline]
 pub fn load_thumbnail(img_path: &Path) -> Option<Arc<RenderImage>> {
+  load_thumbnail_sized(img_path, THUMB_MAX_PX)
+}
+
+pub fn load_thumbnail_sized(img_path: &Path, max_px: u32) -> Option<Arc<RenderImage>> {
   let is_webp = img_path
     .extension()
     .and_then(|ext| ext.to_str())
@@ -104,40 +112,23 @@ pub fn load_thumbnail(img_path: &Path) -> Option<Arc<RenderImage>> {
       evict_file_page_cache(&img_file);
     }
     if let Ok(webp_bytes) = std::fs::read(img_path)
-      && let Some(render_img) = decode_webp_to_gpui(&webp_bytes)
+      && let Some(render_img) = decode_webp_to_gpui_sized(&webp_bytes, max_px)
     {
       return Some(render_img);
     }
   }
 
   // Fallback for non-WebP (JPEG/PNG) or legacy caches
-  let img_file = match std::fs::File::open(img_path) {
-    Ok(f) => f,
-    Err(_) => return None,
-  };
-  let reader = match ImageReader::new(BufReader::new(&img_file)).with_guessed_format() {
-    Ok(r) => r,
-    Err(_) => {
-      let _ = std::fs::remove_file(img_path);
-      return None;
-    }
-  };
-  let img = match reader.decode() {
-    Ok(img) => img,
-    Err(_) => {
-      let _ = std::fs::remove_file(img_path);
-      return None;
-    }
-  };
-  let resized = if img.width() > THUMB_MAX_PX || img.height() > THUMB_MAX_PX {
-    img.resize(THUMB_MAX_PX, THUMB_MAX_PX, FilterType::Triangle)
+  let img_file = std::fs::File::open(img_path).ok()?;
+  let reader = ImageReader::new(BufReader::new(&img_file)).with_guessed_format().ok()?;
+  let img = reader.decode().ok()?;
+  let resized = if img.width() > max_px || img.height() > max_px {
+    img.resize(max_px, max_px, FilterType::Triangle)
   } else {
     img
   };
 
   let mut rgba_img = resized.to_rgba8();
-
-  // Swap R and B channels on CPU for fallback formats
   for px in rgba_img.as_chunks_mut::<4>().0 {
     px.swap(0, 2);
   }
@@ -145,9 +136,7 @@ pub fn load_thumbnail(img_path: &Path) -> Option<Arc<RenderImage>> {
   evict_file_page_cache(&img_file);
 
   let img_frame = Frame::new(rgba_img);
-  let render_image = Arc::new(RenderImage::new(smallvec![img_frame]));
-
-  Some(render_image)
+  Some(Arc::new(RenderImage::new(smallvec![img_frame])))
 }
 
 /// Advise the operating system to drop the file's contents from the page cache.

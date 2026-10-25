@@ -20,11 +20,9 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
   let _ = cx.settings_mut().set_route(RootRoute::BookViewer);
   let title = path.display_name();
   let (size, hash) = {
-    let size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
-    let hash = if let Ok(Some(book)) =
-      crate::db::models::books::book::Book::get(cx.db(), path.clone())
-    {
-      if let Ok(Some(book_sizes)) =
+    if let Ok(Some(book)) = crate::db::models::books::book::Book::get(cx.db(), path.clone()) {
+      let size = book.size_bytes();
+      let hash = if let Ok(Some(book_sizes)) =
         cx.db().get_primary::<crate::db::models::books::book_sizes::BookSizes>(book.book_size)
       {
         match book_sizes.book_type {
@@ -39,11 +37,12 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
         }
       } else {
         None
-      }
+      };
+      (size, hash)
     } else {
-      None
-    };
-    (size, hash)
+      let size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
+      (size, None)
+    }
   };
 
   let bookmarks = crate::db::models::books::bookmark::BookBookmarks::get(cx.db(), path.clone())
@@ -51,7 +50,7 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
   let viewer_state = cx.book_viewer_state().clone();
   viewer_state.update(cx, |s, cx| {
     s.set_book(path.clone(), 1, title.clone());
-    s.set_book_metadata(size, hash);
+    s.set_book_metadata(size, hash.clone());
     s.set_bookmarks(bookmarks);
     cx.notify();
   });
@@ -71,6 +70,7 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
         Ok(doc) => {
           viewer_state_worker.update(&mut owned_app, |s, cx| {
             s.set_document(doc, title_clone);
+            s.set_book_metadata(size, hash);
             cx.notify();
           });
         }

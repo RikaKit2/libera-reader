@@ -39,8 +39,8 @@ impl Render for PathSelect {
           if let Some(folder) = AsyncFileDialog::new().pick_folder().await {
             let path = folder.path().to_path_buf();
             cx.update(|cx| {
-              let _ = cx.services_mut().notify_service.stop();
               cx.settings_mut().set_path_to_scan(path).unwrap();
+              let _ = cx.services_mut().notify_service.stop();
               crate::services::start_services(cx);
             });
           }

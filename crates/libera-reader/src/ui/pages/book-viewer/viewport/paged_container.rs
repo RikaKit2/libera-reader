@@ -23,7 +23,10 @@ impl PagedContainer {
     load_tx: tokio::sync::mpsc::UnboundedSender<PageLoadRequest>, visible_start: Arc<AtomicUsize>,
     visible_end: Arc<AtomicUsize>, cx: &mut App,
   ) -> Entity<Self> {
-    cx.new(|_cx| Self { state, cache, load_tx, visible_start, visible_end })
+    cx.new(|cx| {
+      cx.observe(&state, |_, _, cx| cx.notify()).detach();
+      Self { state, cache, load_tx, visible_start, visible_end }
+    })
   }
 }
 
@@ -50,7 +53,7 @@ impl Render for PagedContainer {
         let cached_dpi = cache_lock.get_image_dpi(current_page);
         let is_stale_dpi = cached_dpi.is_some_and(|d| d != target_dpi);
 
-        let img_state = cache_lock.get_image(current_page).cloned();
+        let img_state = cache_lock.get_image(current_page);
         let (img, is_img_loading) = match img_state {
           Some(PageImageState::Loaded(img)) if !is_stale_dpi => (Some(img), false),
           Some(PageImageState::Loaded(img)) => {
@@ -73,10 +76,10 @@ impl Render for PagedContainer {
             cache_lock.set_loading_dpi(current_page, target_dpi);
             let _ = self.load_tx.send(PageLoadRequest {
               page: current_page,
-              book_path: path,
+              book_path: path.clone(),
               dpi: target_dpi,
               book_size,
-              book_hash,
+              book_hash: book_hash.clone(),
             });
             (None, true)
           }
@@ -91,24 +94,37 @@ impl Render for PagedContainer {
           Some(PageLinksState::Loaded(l)) => Some(l.clone()),
           _ => None,
         };
+        let total_pages = self.state.read(cx).total_pages;
+        let prefetch_start = current_page.saturating_sub(1).max(1);
+        let prefetch_end = (current_page
+          + crate::ui::pages::book_viewer::constants::viewport::PREFETCH_DISTANCE)
+          .min(total_pages);
+        for pf_page in prefetch_start..=prefetch_end {
+          if pf_page == current_page {
+            continue;
+          }
+          if cache_lock.get_image(pf_page).is_none()
+            && cache_lock.get_loading_dpi(pf_page).is_none()
+          {
+            cache_lock.insert_image(pf_page, PageImageState::Loading);
+            cache_lock.set_loading_dpi(pf_page, target_dpi);
+            let _ = self.load_tx.send(PageLoadRequest {
+              page: pf_page,
+              book_path: path.clone(),
+              dpi: target_dpi,
+              book_size,
+              book_hash: book_hash.clone(),
+            });
+          }
+        }
 
         (img, is_img_loading, stext, links)
       }
       None => (None, false, None, None),
     };
 
-    let selection_handle =
-      self.state.update(cx, |s, cx| s.get_or_create_selection_handle(current_page, window, cx));
-
-    let page_view = PageView::new(
-      current_page,
-      self.state.clone(),
-      img,
-      is_img_loading,
-      stext,
-      links,
-      selection_handle,
-    );
+    let page_view =
+      PageView::new(current_page, self.state.clone(), img, is_img_loading, stext, links);
 
     div()
       .size_full()

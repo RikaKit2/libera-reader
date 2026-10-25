@@ -143,6 +143,7 @@ impl FSEvent {
 pub struct NotifyService {
   status: WorkStatus,
   watcher: RecommendedWatcher,
+  watched_path: Option<PathBuf>,
   notify_rx: Option<UnboundedReceiver<notify::Event>>,
   not_cached_books: NotCachedBooks,
   settings: SETTINGS,
@@ -179,6 +180,7 @@ impl NotifyService {
     Ok(Self {
       status: WorkStatus::NotWorking,
       watcher,
+      watched_path: None,
       notify_rx: Some(rx),
       not_cached_books,
       settings,
@@ -193,36 +195,38 @@ impl NotifyService {
   }
 
   pub fn run(&mut self) -> Result<()> {
-    match &self.status {
-      WorkStatus::Working => {}
-      WorkStatus::NotWorking => {
-        if let Some(path_to_scan) = self.settings.get_path_to_scan_if_exists()
-          && let Some(rx) = self.notify_rx.take()
-        {
-          let db = self.db.clone();
-          let not_cached_books = self.not_cached_books.clone();
-          let books_state = self.books_state.clone();
-          let app_dirs = self.app_dirs.clone();
-          self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
-          self.status = WorkStatus::Working;
+    if let Some(rx) = self.notify_rx.take() {
+      let db = self.db.clone();
+      let not_cached_books = self.not_cached_books.clone();
+      let books_state = self.books_state.clone();
+      let app_dirs = self.app_dirs.clone();
+      tokio::spawn(async move {
+        run_event_loop(rx, not_cached_books, db, books_state, app_dirs).await;
+      });
+    }
 
-          tokio::spawn(async move {
-            run_event_loop(rx, not_cached_books, db, books_state, app_dirs).await;
-          });
-        }
+    if let Some(path_to_scan) = self.settings.get_path_to_scan_if_exists()
+      && (self.watched_path.as_ref() != Some(&path_to_scan)
+        || self.status == WorkStatus::NotWorking)
+    {
+      if let Some(old_path) = self.watched_path.take() {
+        let _ = self.watcher.unwatch(&old_path);
       }
-    };
+      self.watcher.watch(path_to_scan.as_ref(), notify::RecursiveMode::Recursive)?;
+      self.watched_path = Some(path_to_scan);
+      self.status = WorkStatus::Working;
+    }
     Ok(())
   }
 
   pub fn stop(&mut self) -> Result<()> {
-    match &self.settings.read().previous_path_to_scan {
-      None => Ok(()),
-      Some(path_to_scan) => {
-        self.status = WorkStatus::NotWorking;
-        Ok(self.watcher.unwatch(path_to_scan.as_ref())?)
-      }
+    self.status = WorkStatus::NotWorking;
+    if let Some(old_path) = self.watched_path.take() {
+      let _ = self.watcher.unwatch(&old_path);
+    } else if let Some(prev_path) = &self.settings.read().previous_path_to_scan {
+      let _ = self.watcher.unwatch(prev_path.as_ref());
     }
+    Ok(())
   }
 }
 

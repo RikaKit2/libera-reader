@@ -17,13 +17,12 @@ pub async fn extract_img(
     return Ok(());
   }
 
-  if let Some(parent) = path_to_thumbnail.parent() {
-    let _ = std::fs::create_dir_all(parent);
-  }
+  let parent = path_to_thumbnail.parent().ok_or(MuToolError::IoError)?.to_path_buf();
+  std::fs::create_dir_all(&parent).map_err(|_| MuToolError::IoError)?;
 
   let ext = path_to_thumbnail.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
 
-  if ext == "webp" {
+  if ext == "webp" || ext == "jpg" || ext == "jpeg" {
     let temp_file =
       tempfile::Builder::new().suffix(".png").tempfile().map_err(|_| MuToolError::IoError)?;
     let temp_path = temp_file.path().to_path_buf();
@@ -31,6 +30,8 @@ pub async fn extract_img(
     extract_img_with_format(path_to_book, resolution, &temp_path, "png").await?;
 
     let out_path = path_to_thumbnail.clone();
+    let is_webp = ext == "webp";
+
     tokio::task::spawn_blocking(move || -> Result<(), MuToolError> {
       let reader = BufReader::new(File::open(&temp_path).map_err(|_| MuToolError::IoError)?);
       let img = ImageReader::new(reader)
@@ -39,35 +40,33 @@ pub async fn extract_img(
         .decode()
         .map_err(|_| MuToolError::OtherErr)?;
 
-      let encoder = webp::Encoder::from_image(&img).map_err(|_| MuToolError::OtherErr)?;
-      let webp_memory = encoder.encode(80.0);
-      std::fs::write(&out_path, &*webp_memory).map_err(|_| MuToolError::IoError)?;
-      Ok(())
-    })
-    .await
-    .map_err(|_| MuToolError::OtherErr)??;
+      let mut tmp_out = tempfile::Builder::new()
+        .prefix(".tmp_cover_")
+        .tempfile_in(&parent)
+        .map_err(|_| MuToolError::IoError)?;
 
-    Ok(())
-  } else if ext == "jpg" || ext == "jpeg" {
-    let temp_file =
-      tempfile::Builder::new().suffix(".png").tempfile().map_err(|_| MuToolError::IoError)?;
-    let temp_path = temp_file.path().to_path_buf();
+      if is_webp {
+        let rgb = img.to_rgb8();
+        let encoder = webp::Encoder::from_rgb(rgb.as_raw(), rgb.width(), rgb.height());
+        let webp_memory = encoder.encode(82.0);
+        std::io::Write::write_all(&mut tmp_out, &webp_memory).map_err(|_| MuToolError::IoError)?;
+        if tmp_out.persist(&out_path).is_err() {
+          std::fs::write(&out_path, &*webp_memory).map_err(|_| MuToolError::IoError)?;
+        }
+      } else {
+        let mut writer = std::io::BufWriter::new(&mut tmp_out);
+        let encoder = JpegEncoder::new_with_quality(&mut writer, 85);
+        img.write_with_encoder(encoder).map_err(|_| MuToolError::OtherErr)?;
+        std::io::Write::flush(&mut writer).map_err(|_| MuToolError::IoError)?;
+        drop(writer);
+        if tmp_out.persist(&out_path).is_err() {
+          let mut fallback_file = File::create(&out_path).map_err(|_| MuToolError::IoError)?;
+          let mut fallback_writer = std::io::BufWriter::new(&mut fallback_file);
+          let encoder = JpegEncoder::new_with_quality(&mut fallback_writer, 85);
+          img.write_with_encoder(encoder).map_err(|_| MuToolError::OtherErr)?;
+        }
+      }
 
-    extract_img_with_format(path_to_book, resolution, &temp_path, "png").await?;
-
-    let out_path = path_to_thumbnail.clone();
-    tokio::task::spawn_blocking(move || -> Result<(), MuToolError> {
-      let reader = BufReader::new(File::open(&temp_path).map_err(|_| MuToolError::IoError)?);
-      let img = ImageReader::new(reader)
-        .with_guessed_format()
-        .map_err(|_| MuToolError::OtherErr)?
-        .decode()
-        .map_err(|_| MuToolError::OtherErr)?;
-
-      let out_file = File::create(&out_path).map_err(|_| MuToolError::IoError)?;
-      let mut writer = std::io::BufWriter::new(out_file);
-      let encoder = JpegEncoder::new_with_quality(&mut writer, 85);
-      img.write_with_encoder(encoder).map_err(|_| MuToolError::OtherErr)?;
       Ok(())
     })
     .await
@@ -84,6 +83,7 @@ async fn extract_img_with_format(
 ) -> Result<(), MuToolError> {
   let mut child = mutool_command()
     .arg("draw")
+    .arg("-q")
     .arg("-r")
     .arg(resolution.to_string())
     .arg("-F")
@@ -95,8 +95,8 @@ async fn extract_img_with_format(
     .stdout(Stdio::null())
     .stderr(Stdio::null())
     .spawn()
-    .unwrap();
-  let status = child.wait().await.unwrap();
+    .map_err(|_| MuToolError::MutoolNotFound)?;
+  let status = child.wait().await.map_err(|_| MuToolError::IoError)?;
   MuToolError::from_process_exit_status(status)
 }
 

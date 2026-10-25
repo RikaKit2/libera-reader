@@ -42,7 +42,7 @@ pub struct Book {
 
 impl Book {
   pub(crate) fn new(book_path: BookPath) -> anyhow::Result<Self> {
-    let book_size = book_path.get_book_size().unwrap();
+    let book_size = book_path.get_book_size()?;
     let parent_dir = book_path.parent_dir.clone();
     Ok(Self { book_path, parent_dir, book_size, user_data: UserData::default(), bookmark_count: 0 })
   }
