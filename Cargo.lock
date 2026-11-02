@@ -4359,9 +4359,9 @@ dependencies = [
 
 [[package]]
 name = "mimalloc-pprof"
-version = "1.1.0"
+version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d26c55d67571b57373a078262cb6efb4f8a2ff0719157c452217e604c6bd7306"
+checksum = "b4e88e22386bc722411a4d7d0ddd53d66137e9fdb3aa9877e7b1cbac2472faa4"
 dependencies = [
  "cc",
 ]
@@ -7358,7 +7358,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
  "windows-sys 0.52.0",
