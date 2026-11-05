@@ -22,6 +22,7 @@ pub use state::BookViewerState;
 pub use viewport::Viewport;
 
 use crate::app_ext::AppExt;
+use crate::db::models::books::book::BookPath;
 use crate::db::models::settings::{RootRoute, Route};
 use gpui::prelude::*;
 use gpui::{
@@ -35,7 +36,8 @@ pub(crate) struct BookViewer {
   sidebar: Entity<SideBar>,
   viewport: Entity<Viewport>,
   focus_handle: FocusHandle,
-  _window_subscription: Subscription,
+  last_focused_book: Option<BookPath>,
+  _subscriptions: Vec<Subscription>,
 }
 
 impl BookViewer {
@@ -51,7 +53,7 @@ impl BookViewer {
       let focus_handle = cx.focus_handle();
       window.focus(&focus_handle, cx);
 
-      let sub = cx.observe_window_bounds(window, |this: &mut Self, window, cx| {
+      let bounds_sub = cx.observe_window_bounds(window, |this: &mut Self, window, cx| {
         let sidebar_open = this.state.read(cx).active_sidebar_tab.is_open();
         let window_size = window.viewport_size();
         let available_width =
@@ -65,7 +67,23 @@ impl BookViewer {
         });
       });
 
-      Self { state, header, sidebar, viewport, focus_handle, _window_subscription: sub }
+      let focus_lost_sub = cx.on_focus_lost(window, |this: &mut Self, window, cx| {
+        if cx.settings().read().route == RootRoute::BookViewer {
+          let target =
+            window.focus_lost_restore_target(cx).unwrap_or_else(|| this.focus_handle.clone());
+          window.focus(&target, cx);
+        }
+      });
+
+      Self {
+        state,
+        header,
+        sidebar,
+        viewport,
+        focus_handle,
+        last_focused_book: None,
+        _subscriptions: vec![bounds_sub, focus_lost_sub],
+      }
     })
   }
 
@@ -76,8 +94,13 @@ impl BookViewer {
 
 impl Render for BookViewer {
   fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    if !self.focus_handle.is_focused(window) {
-      window.focus(&self.focus_handle, cx);
+    let current_book = self.state.read(cx).current_book.clone();
+    if current_book != self.last_focused_book {
+      self.last_focused_book = current_book;
+      let fh = self.focus_handle.clone();
+      window.defer(cx, move |window, cx| {
+        window.focus(&fh, cx);
+      });
     }
 
     div()
@@ -191,18 +214,22 @@ impl Render for BookViewer {
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::CloseSearch, _window, cx| {
-        this.state.update(cx, |s, cx| {
-          if s.search_open {
+      .on_action(cx.listener(|this, _: &actions::CloseSearch, window, cx| {
+        let is_search_open = this.state.read(cx).search_open;
+        if is_search_open {
+          this.state.update(cx, |s, cx| {
             s.toggle_search();
             cx.notify();
-          } else {
+          });
+          window.focus(&this.focus_handle, cx);
+        } else {
+          this.state.update(cx, |_s, cx| {
             cx.services().extraction_coordinator.set_mode(
               crate::services::extraction_coordinator::ExtractionCoordinatorMode::BackgroundLibrary,
             );
             let _ = cx.settings_mut().set_route(RootRoute::Main(Route::Library));
-          }
-        });
+          });
+        }
       }))
       .on_action(cx.listener(|_this, _: &actions::ExitViewer, _window, cx| {
         cx.services().extraction_coordinator.set_mode(

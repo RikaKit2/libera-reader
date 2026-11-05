@@ -29,7 +29,9 @@ pub fn set_app_theme(cx: &mut gpui::App, theme: String) {
   let theme_name = gpui::SharedString::from(theme);
   match gpui_component::ThemeRegistry::global(cx).themes().get(&theme_name).cloned() {
     Some(theme_config) => {
-      gpui_component::Theme::global_mut(cx).apply_config(&theme_config);
+      gpui_component::Theme::update(cx, |current| {
+        current.apply_config(&theme_config);
+      });
     }
     None => {
       crate::utils::error!("Theme not found: {:?}", theme_name);

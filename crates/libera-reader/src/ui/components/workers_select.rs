@@ -1,6 +1,5 @@
 use crate::app_ext::AppExt;
 use gpui::*;
-use gpui_component::gray;
 use gpui_component::input::*;
 use gpui_component::*;
 use rust_i18n::t;
@@ -73,13 +72,13 @@ impl WorkersSelect {
 }
 
 impl Render for WorkersSelect {
-  fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     div().child(
       h_flex()
         .gap_2()
         .items_center()
         .child(NumberInput::new(&self.input).small().w(px(100.0)))
-        .child(div().text_sm().text_color(gray(500).opacity(0.6)).child(format!(
+        .child(div().text_sm().text_color(cx.theme().muted_foreground).child(format!(
           "/ {} {}",
           std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4),
           t!("components.workers_select.max_label")

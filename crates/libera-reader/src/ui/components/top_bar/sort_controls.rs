@@ -60,6 +60,7 @@ impl SortControls {
               cx: &mut Context<'_, SortControls>| {
           if let SelectEvent::Confirm(Some(new_mode)) = event {
             let _ = cx.settings_mut().set_display_mode(*new_mode);
+            cx.books_state().notify();
             cx.notify();
           }
         }

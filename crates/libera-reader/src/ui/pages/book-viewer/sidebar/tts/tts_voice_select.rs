@@ -9,7 +9,8 @@ use rust_i18n::t;
 pub struct TtsVoiceSelect {
   state: Entity<BookViewerState>,
   select_state: Entity<SelectState<SearchableVec<TtsVoiceConfig>>>,
-  _subscription: Subscription,
+  last_engine: SharedString,
+  _subscriptions: Vec<Subscription>,
 }
 
 impl TtsVoiceSelect {
@@ -29,7 +30,7 @@ impl TtsVoiceSelect {
 
     let state_clone = state.clone();
     cx.new(|cx: &mut Context<Self>| {
-      let subscription = cx.subscribe_in(&select_state, window, {
+      let sub_confirm = cx.subscribe_in(&select_state, window, {
         let state = state_clone.clone();
         move |_this: &mut Self,
               _select: &Entity<SelectState<SearchableVec<TtsVoiceConfig>>>,
@@ -45,7 +46,38 @@ impl TtsVoiceSelect {
         }
       });
 
-      Self { state, select_state, _subscription: subscription }
+      let sub_engine = cx.observe_in(&state, window, |this, state, window, cx| {
+        let engine = state.read(cx).tts_engine.clone();
+        if engine != this.last_engine {
+          this.last_engine = engine.clone();
+          let new_voices = TtsConfigProvider::available_voices(&engine);
+          let default_voice = new_voices.first().map(|v| v.id.clone());
+          this.select_state.update(cx, |select, cx| {
+            select.set_items(SearchableVec::new(new_voices), window, cx);
+            if default_voice.is_some() {
+              select.set_selected_index(Some(IndexPath::default().row(0)), window, cx);
+            } else {
+              select.set_selected_index(None, window, cx);
+            }
+          });
+          if let Some(voice_id) = default_voice
+            && state.read(cx).tts_voice != voice_id
+          {
+            state.update(cx, |s, cx| {
+              s.tts_voice = voice_id;
+              cx.notify();
+            });
+          }
+          cx.notify();
+        }
+      });
+
+      Self {
+        state,
+        select_state,
+        last_engine: current_engine,
+        _subscriptions: vec![sub_confirm, sub_engine],
+      }
     })
   }
 }

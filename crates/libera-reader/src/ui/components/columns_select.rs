@@ -61,6 +61,7 @@ impl ColumnsSelect {
         let SelectEvent::Confirm(new_columns) = event;
         if let Some(new_columns) = new_columns {
           cx.settings_mut().set_number_of_columns(*new_columns).unwrap();
+          cx.books_state().notify();
         };
       }
       cx.subscribe_in(&columns_select, window, fun_name).detach();

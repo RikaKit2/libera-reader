@@ -35,18 +35,7 @@ impl BooksPage {
   }
 }
 impl Render for BooksPage {
-  fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let (columns, ui_zoom) = {
-      let s = cx.settings().read();
-      (s.number_of_columns as usize, s.ui_zoom)
-    };
-    let available_width =
-      window.viewport_size().width - px(C::SIDEBAR_W + C::GRID_PL + C::GRID_PR + C::SCROLLBAR_W);
-    let col_width = available_width / columns as f32;
-    let row_height = col_width * C::COVER_RATIO * ui_zoom as f32 + px(C::GRID_ROW_HEIGHT_EXTRA);
-    let mode = cx.settings().read().card_display_mode;
-    self.book_grid.update(cx, |grid, _cx| grid.set_layout(columns, row_height, mode));
-
+  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     div()
       .w_full()
       .h_full()

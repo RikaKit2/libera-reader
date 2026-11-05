@@ -13,6 +13,7 @@ use crate::db::models::books::book::{Book, BookPath};
 use crate::ui::components::books_grid::cache::{BoundedCache, CoverState};
 use crate::ui::components::books_grid::constants as C;
 use crate::ui::components::books_grid::loader::spawn_background_loader;
+use crate::ui::pages::main::constants as MainC;
 use gpui::{
   AsyncApp, Context, Div, IntoElement, ParentElement, Pixels, Render, Styled, Window, div, px, size,
 };
@@ -151,10 +152,24 @@ pub(crate) use constants::FOOTER_HEIGHT_PX;
 type RowCells = Vec<(Book, Option<PathBuf>, Option<CoverState>)>;
 
 impl Render for BooksGrid {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+  fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     self.image_cache.lock().unwrap().flush_evictions(cx);
 
-    let user_cache_size = cx.settings().read().image_cache_size as usize;
+    let (user_cache_size, raw_columns, ui_zoom, mode) = {
+      let s = cx.settings().read();
+      (
+        s.image_cache_size as usize,
+        s.number_of_columns as usize,
+        s.ui_zoom as f32,
+        s.card_display_mode,
+      )
+    };
+    let available_width = window.viewport_size().width
+      - px(MainC::SIDEBAR_W + MainC::GRID_PL + MainC::GRID_PR + MainC::SCROLLBAR_W);
+    let col_width = available_width / (raw_columns.max(1) as f32);
+    let base_row_height =
+      col_width * MainC::COVER_RATIO * ui_zoom + px(MainC::GRID_ROW_HEIGHT_EXTRA);
+    self.set_layout(raw_columns, base_row_height, mode);
     let total_books = self.total_books(cx);
     let columns = self.columns.max(1);
     let total_rows = total_books.div_ceil(columns).max(1);
