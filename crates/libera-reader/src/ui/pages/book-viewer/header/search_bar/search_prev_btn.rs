@@ -1,11 +1,12 @@
-use crate::ui::pages::book_viewer::constants::{RADIUS_SM, search_bar};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use gpui_component::ActiveTheme;
-use gpui_component::StyledExt;
-use gpui_component::tooltip::Tooltip;
+use gpui_component::{
+  Icon, Sizable,
+  button::{Button, ButtonVariants},
+};
 use rust_i18n::t;
 
+#[derive(IntoElement)]
 pub struct SearchPrevBtn {
   state: Entity<BookViewerState>,
 }
@@ -16,47 +17,21 @@ impl SearchPrevBtn {
   }
 }
 
-impl Render for SearchPrevBtn {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    let theme = cx.theme();
+impl RenderOnce for SearchPrevBtn {
+  fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
     let state = self.state.clone();
 
-    div()
-      .id("search-prev-btn")
-      .h(search_bar::BTN_HEIGHT)
-      .px(search_bar::BTN_PADDING_X)
-      .hover(move |s| s.bg(theme.foreground.opacity(0.12)))
-      .rounded(RADIUS_SM)
-      .tooltip(|window, cx| {
-        Tooltip::new(t!("components.book_viewer.tooltips.search_prev").to_string())
-          .build(window, cx)
+    Button::new("search-prev-btn")
+      .ghost()
+      .xsmall()
+      .icon(Icon::new(Icon::empty()).path("heroicons--chevron-up.svg"))
+      .label(t!("components.book_viewer.search.prev_btn").to_string())
+      .tooltip(t!("components.book_viewer.tooltips.search_prev").to_string())
+      .on_click(move |_, _window, cx| {
+        state.update(cx, |s, cx| {
+          s.prev_search_match();
+          cx.notify();
+        });
       })
-      .flex()
-      .items_center()
-      .justify_center()
-      .gap_x(search_bar::BTN_GAP_X)
-      .cursor_pointer()
-      .on_mouse_down(
-        MouseButton::Left,
-        cx.listener(move |_this, _, _window, cx| {
-          state.update(cx, |s, cx| {
-            s.prev_search_match();
-            cx.notify();
-          });
-        }),
-      )
-      .child(
-        svg()
-          .path("heroicons--chevron-up.svg")
-          .size(search_bar::BTN_ICON_SIZE)
-          .text_color(theme.foreground),
-      )
-      .child(
-        div()
-          .text_xs()
-          .font_medium()
-          .text_color(theme.foreground)
-          .child(t!("components.book_viewer.search.prev_btn").to_string()),
-      )
   }
 }

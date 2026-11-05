@@ -5,6 +5,7 @@ use gpui_component::ActiveTheme;
 use gpui_component::StyledExt;
 use rust_i18n::t;
 
+#[derive(IntoElement)]
 pub struct SidebarHeader {
   state: Entity<BookViewerState>,
 }
@@ -15,8 +16,8 @@ impl SidebarHeader {
   }
 }
 
-impl Render for SidebarHeader {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl RenderOnce for SidebarHeader {
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
     let theme = cx.theme();
     let tab = self.state.read(cx).active_sidebar_tab;
     let title = match tab {

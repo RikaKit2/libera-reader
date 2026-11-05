@@ -3,6 +3,7 @@ use gpui::*;
 use gpui_component::ActiveTheme;
 use rust_i18n::t;
 
+#[derive(IntoElement)]
 pub struct PageCounter {
   state: Entity<BookViewerState>,
 }
@@ -13,8 +14,8 @@ impl PageCounter {
   }
 }
 
-impl Render for PageCounter {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl RenderOnce for PageCounter {
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
     let theme = cx.theme();
     let state_ref = self.state.read(cx);
     let current = state_ref.current_page;

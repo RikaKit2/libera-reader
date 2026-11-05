@@ -5,97 +5,20 @@ use gpui::*;
 use gpui_component::ActiveTheme;
 
 pub struct HeaderBar {
-  // Left controls
-  outline_btn: Entity<OutlineBtn>,
-  scroll_mode_btn: Entity<ScrollModeBtn>,
-  tts_btn: Entity<TtsBtn>,
-
-  // Center controls
-  prev_page_btn: Entity<PrevPageBtn>,
-  next_page_btn: Entity<NextPageBtn>,
+  state: Entity<BookViewerState>,
   page_number_input: Entity<PageNumberInput>,
-  page_counter: Entity<PageCounter>,
   zoom_select: Entity<ZoomSelect>,
-
-  // Right controls (in strict Vue order 1..7)
-  invert_colors_btn: Entity<InvertColorsBtn>,
-  bookmarks_btn: Entity<BookmarksBtn>,
-  thumbnails_btn: Entity<ThumbnailsBtn>,
-  search_toggle_btn: Entity<SearchToggleBtn>,
-  fullscreen_btn: Entity<FullscreenBtn>,
-  exit_btn: Entity<ExitBtn>,
+  _subscription: Subscription,
 }
 
 impl HeaderBar {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
-    let outline_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      OutlineBtn::new(state.clone())
-    });
-    let scroll_mode_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      ScrollModeBtn::new(state.clone())
-    });
-    let tts_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      TtsBtn::new(state.clone())
-    });
-
-    let prev_page_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      PrevPageBtn::new(state.clone())
-    });
-    let next_page_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      NextPageBtn::new(state.clone())
-    });
     let page_number_input = PageNumberInput::new(window, cx, state.clone());
-    let page_counter = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      PageCounter::new(state.clone())
-    });
     let zoom_select = ZoomSelect::new(window, cx, state.clone());
 
-    let invert_colors_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      InvertColorsBtn::new(state.clone())
-    });
-    let bookmarks_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      BookmarksBtn::new(state.clone())
-    });
-    let thumbnails_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      ThumbnailsBtn::new(state.clone())
-    });
-    let search_toggle_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      SearchToggleBtn::new(state.clone())
-    });
-    let fullscreen_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      FullscreenBtn::new(state.clone())
-    });
-    let exit_btn = cx.new(|_cx| ExitBtn::new());
-
     cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      Self {
-        outline_btn,
-        scroll_mode_btn,
-        tts_btn,
-        prev_page_btn,
-        next_page_btn,
-        page_number_input,
-        page_counter,
-        zoom_select,
-        invert_colors_btn,
-        bookmarks_btn,
-        thumbnails_btn,
-        search_toggle_btn,
-        fullscreen_btn,
-        exit_btn,
-      }
+      let sub = cx.observe(&state, |_, _, cx| cx.notify());
+      Self { state, page_number_input, zoom_select, _subscription: sub }
     })
   }
 }
@@ -120,9 +43,9 @@ impl Render for HeaderBar {
           .flex()
           .items_center()
           .gap_x(header::GAP_TIGHT)
-          .child(self.outline_btn.clone())
-          .child(self.scroll_mode_btn.clone())
-          .child(self.tts_btn.clone()),
+          .child(OutlineBtn::new(self.state.clone()))
+          .child(ScrollModeBtn::new(self.state.clone()))
+          .child(TtsBtn::new(self.state.clone())),
       )
       // Center section
       .child(
@@ -130,24 +53,24 @@ impl Render for HeaderBar {
           .flex()
           .items_center()
           .gap_x(header::GAP_NORMAL)
-          .child(self.prev_page_btn.clone())
-          .child(self.next_page_btn.clone())
+          .child(PrevPageBtn::new(self.state.clone()))
+          .child(NextPageBtn::new(self.state.clone()))
           .child(self.page_number_input.clone())
-          .child(self.page_counter.clone())
+          .child(PageCounter::new(self.state.clone()))
           .child(div().ml_1().child(self.zoom_select.clone())),
       )
-      // Right section (7 buttons in strict order)
+      // Right section (6 buttons in strict order)
       .child(
         div()
           .flex()
           .items_center()
           .gap_x(header::GAP_TIGHT)
-          .child(self.invert_colors_btn.clone())
-          .child(self.bookmarks_btn.clone())
-          .child(self.thumbnails_btn.clone())
-          .child(self.search_toggle_btn.clone())
-          .child(self.fullscreen_btn.clone())
-          .child(self.exit_btn.clone()),
+          .child(InvertColorsBtn::new(self.state.clone()))
+          .child(BookmarksBtn::new(self.state.clone()))
+          .child(ThumbnailsBtn::new(self.state.clone()))
+          .child(SearchToggleBtn::new(self.state.clone()))
+          .child(FullscreenBtn::new(self.state.clone()))
+          .child(ExitBtn::new()),
       )
   }
 }

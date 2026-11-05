@@ -17,32 +17,16 @@ use gpui_component::ActiveTheme;
 pub struct SearchBar {
   state: Entity<BookViewerState>,
   input: Entity<SearchInput>,
-  prev_btn: Entity<SearchPrevBtn>,
-  next_btn: Entity<SearchNextBtn>,
-  counter: Entity<SearchCounter>,
-  close_btn: Entity<SearchCloseBtn>,
+  _subscription: Subscription,
 }
 
 impl SearchBar {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
     let input = SearchInput::new(window, cx, state.clone());
-    let prev_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      SearchPrevBtn::new(state.clone())
-    });
-    let next_btn = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      SearchNextBtn::new(state.clone())
-    });
-    let counter = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      SearchCounter::new(state.clone())
-    });
-    let close_btn = cx.new(|_cx| SearchCloseBtn::new(state.clone()));
 
     cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      Self { state, input, prev_btn, next_btn, counter, close_btn }
+      let sub = cx.observe(&state, |_, _, cx| cx.notify());
+      Self { state, input, _subscription: sub }
     })
   }
 }
@@ -71,10 +55,13 @@ impl Render for SearchBar {
       .child(self.input.clone());
 
     if has_query {
-      bar = bar.child(self.counter.clone());
+      bar = bar.child(SearchCounter::new(self.state.clone()));
     }
 
-    bar.child(self.next_btn.clone()).child(self.prev_btn.clone()).child(self.close_btn.clone())
+    bar
+      .child(SearchNextBtn::new(self.state.clone()))
+      .child(SearchPrevBtn::new(self.state.clone()))
+      .child(SearchCloseBtn::new(self.state.clone()))
   }
 }
 

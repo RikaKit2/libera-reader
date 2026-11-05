@@ -17,7 +17,6 @@ use gpui_component::ActiveTheme;
 
 pub struct SideBar {
   state: Entity<BookViewerState>,
-  header: Entity<SidebarHeader>,
   outline: Entity<OutlineView>,
   bookmarks: Entity<BookmarksView>,
   thumbnails: Entity<ThumbnailsView>,
@@ -26,10 +25,6 @@ pub struct SideBar {
 
 impl SideBar {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
-    let header = cx.new(|cx| {
-      cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      SidebarHeader::new(state.clone())
-    });
     let outline = cx.new(|cx| {
       cx.observe(&state, |_, _, cx| cx.notify()).detach();
       OutlineView::new(state.clone())
@@ -40,7 +35,7 @@ impl SideBar {
 
     cx.new(|cx| {
       cx.observe(&state, |_, _, cx| cx.notify()).detach();
-      Self { state, header, outline, bookmarks, thumbnails, tts }
+      Self { state, outline, bookmarks, thumbnails, tts }
     })
   }
 }
@@ -70,7 +65,7 @@ impl Render for SideBar {
       .border_color(theme.border)
       .flex()
       .flex_col()
-      .child(self.header.clone())
+      .child(SidebarHeader::new(self.state.clone()))
       .child(div().w_full().flex_1().overflow_hidden().child(content))
   }
 }

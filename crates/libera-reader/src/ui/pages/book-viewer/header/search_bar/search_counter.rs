@@ -4,6 +4,7 @@ use gpui::*;
 use gpui_component::ActiveTheme;
 use rust_i18n::t;
 
+#[derive(IntoElement)]
 pub struct SearchCounter {
   state: Entity<BookViewerState>,
 }
@@ -14,8 +15,8 @@ impl SearchCounter {
   }
 }
 
-impl Render for SearchCounter {
-  fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+impl RenderOnce for SearchCounter {
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
     let theme = cx.theme();
     let state_ref = self.state.read(cx);
     let count = state_ref.search_results.len();
