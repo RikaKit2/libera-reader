@@ -1,15 +1,51 @@
-use crate::ui::pages::book_viewer::constants::tts;
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
+use gpui_component::slider::{Slider, SliderEvent, SliderState};
 use gpui_component::{ActiveTheme, Icon, IconName, Sizable, StyledExt, button::*};
 use rust_i18n::t;
+
 pub struct TtsSpeedSlider {
   state: Entity<BookViewerState>,
+  slider_state: Entity<SliderState>,
+  _subscriptions: Vec<Subscription>,
 }
 
 impl TtsSpeedSlider {
-  pub fn new(state: Entity<BookViewerState>) -> Self {
-    Self { state }
+  pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
+    let speed = state.read(cx).tts_speed;
+    let slider_state =
+      cx.new(|_| SliderState::new().min(0.5).max(3.0).step(0.25).default_value(speed));
+
+    let state_clone = state.clone();
+    let slider_clone = slider_state.clone();
+    cx.new(|cx| {
+      let sub_slider = cx.subscribe_in(&slider_state, window, {
+        let state = state_clone.clone();
+        move |_this: &mut Self, _slider, event: &SliderEvent, _window, cx| match event {
+          SliderEvent::Change(val) | SliderEvent::Release(val) => {
+            let new_speed = val.start();
+            state.update(cx, |s, cx| {
+              if (s.tts_speed - new_speed).abs() > 0.01 {
+                s.tts_speed = new_speed;
+                cx.notify();
+              }
+            });
+          }
+        }
+      });
+
+      let sub_state = cx.observe_in(&state, window, move |_this, state, window, cx| {
+        let current_speed = state.read(cx).tts_speed;
+        let current_slider_val = slider_clone.read(cx).value().start();
+        if (current_speed - current_slider_val).abs() > 0.01 {
+          slider_clone.update(cx, |s, cx| {
+            s.set_value(current_speed, window, cx);
+          });
+        }
+      });
+
+      Self { state, slider_state, _subscriptions: vec![sub_slider, sub_state] }
+    })
   }
 }
 
@@ -51,38 +87,24 @@ impl Render for TtsSpeedSlider {
             Button::new("tts-speed-dec").icon(Icon::new(IconName::Minus)).small().ghost().on_click(
               {
                 let state = state.clone();
-                cx.listener(move |_this, _, _window, cx| {
+                move |_ev, _window, cx| {
                   state.update(cx, |s, cx| {
                     s.tts_speed = (s.tts_speed - 0.25).max(0.5);
                     cx.notify();
                   });
-                })
+                }
               },
             ),
           )
-          .child(
-            div()
-              .flex_1()
-              .h(tts::SPEED_TRACK_HEIGHT)
-              .bg(cx.theme().input)
-              .rounded_full()
-              .relative()
-              .child(
-                div()
-                  .h_full()
-                  .w(relative((speed - 0.5) / 2.5))
-                  .bg(cx.theme().primary)
-                  .rounded_full(),
-              ),
-          )
+          .child(Slider::new(&self.slider_state).flex_1())
           .child(
             Button::new("tts-speed-inc").icon(Icon::new(IconName::Plus)).small().ghost().on_click(
-              cx.listener(move |_this, _, _window, cx| {
+              move |_ev, _window, cx| {
                 state.update(cx, |s, cx| {
                   s.tts_speed = (s.tts_speed + 0.25).min(3.0);
                   cx.notify();
                 });
-              }),
+              },
             ),
           ),
       )

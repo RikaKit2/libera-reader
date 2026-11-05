@@ -42,7 +42,7 @@ impl TtsView {
     let play_btn = cx.new(|_cx| TtsPlayBtn::new(state.clone()));
     let prev_btn = cx.new(|_cx| TtsPrevBtn::new(state.clone()));
     let next_btn = cx.new(|_cx| TtsNextBtn::new(state.clone()));
-    let speed_slider = cx.new(|_cx| TtsSpeedSlider::new(state.clone()));
+    let speed_slider = TtsSpeedSlider::new(window, cx, state.clone());
     let pause_input = TtsPauseInput::new(window, cx, state.clone());
     let auto_turn_toggle = cx.new(|_cx| TtsAutoTurnToggle::new(state.clone()));
     let reset_btn = cx.new(|_cx| TtsResetBtn::new(state.clone()));

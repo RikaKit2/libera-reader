@@ -47,9 +47,18 @@ impl SideBar {
 
 impl Render for SideBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-    div().bg(cx.theme().border).w_12().h_full().flex().flex_col().justify_between().children([
-      div().children(TOP_ENTRIES.iter().map(|&(route, icon)| self.entry(route, icon, cx))),
-      div().children(BOTTOM_ENTRIES.iter().map(|&(route, icon)| self.entry(route, icon, cx))),
-    ])
+    div()
+      .bg(cx.theme().sidebar)
+      .border_r_1()
+      .border_color(cx.theme().border)
+      .w_12()
+      .h_full()
+      .flex()
+      .flex_col()
+      .justify_between()
+      .children([
+        div().children(TOP_ENTRIES.iter().map(|&(route, icon)| self.entry(route, icon, cx))),
+        div().children(BOTTOM_ENTRIES.iter().map(|&(route, icon)| self.entry(route, icon, cx))),
+      ])
   }
 }

@@ -62,9 +62,11 @@ impl RenderOnce for Btn {
     let mut btn: Stateful<gpui::Div> = div()
       .id(self.id)
       .child(icon)
+      .m_1()
       .p_2()
-      .border_l_2()
-      .border_color(if is_active { theme.primary } else { gpui::transparent_black() });
+      .rounded_md()
+      .when(is_active, |s| s.bg(theme.sidebar_accent))
+      .hover(move |h| if is_active { h } else { h.bg(theme.sidebar_accent.opacity(0.5)) });
 
     if let Some(handler) = self.on_click {
       btn = btn.on_click(move |evt, window, cx| handler(evt, window, cx));
