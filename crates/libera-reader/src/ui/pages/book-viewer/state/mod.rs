@@ -48,7 +48,7 @@ impl PdfTextSelection {
 }
 use crate::db::models::books::book::BookPath;
 use crate::db::models::books::bookmark::BookMark;
-use crate::types::{HashMap, HashSet};
+use crate::types::HashSet;
 use crate::ui::pages::book_viewer::document::DocumentData;
 use gpui::{Pixels, SharedString, Size};
 use mutool::{BBox, OutlineNode, PageDimensions};
@@ -95,7 +95,6 @@ pub struct BookViewerState {
   pub is_fullscreen: bool,
 
   // Selection state
-  pub selection_handles: HashMap<usize, gpui_base::TextSelectionHandle>,
   pub selection_page: Option<usize>,
   pub selected_text: Option<String>,
   pub pdf_selection: PdfTextSelection,
@@ -140,7 +139,6 @@ impl Default for BookViewerState {
       zoom_factor: 1.0,
       invert_colors: false,
       is_fullscreen: false,
-      selection_handles: HashMap::default(),
       selection_page: None,
       selected_text: None,
       pdf_selection: PdfTextSelection::default(),
@@ -220,7 +218,6 @@ impl BookViewerState {
     self.title = title;
     self.selected_text = None;
     self.selection_page = None;
-    self.selection_handles.clear();
     self.clear_pdf_selection();
     self.bookmarks.clear();
   }
@@ -244,7 +241,6 @@ impl BookViewerState {
     self.title = title;
     self.selected_text = None;
     self.selection_page = None;
-    self.selection_handles.clear();
     self.clear_pdf_selection();
   }
 
@@ -260,27 +256,12 @@ impl BookViewerState {
     self.title = "".into();
     self.selected_text = None;
     self.selection_page = None;
-    self.selection_handles.clear();
     self.clear_pdf_selection();
     self.search_results.clear();
     self.search_open = false;
     self.search_query.clear();
     self.is_searching = false;
     self.has_searched = false;
-  }
-  pub fn get_or_create_selection_handle(
-    &mut self, page: usize, window: &gpui::Window, cx: &mut gpui::App,
-  ) -> gpui_base::TextSelectionHandle {
-    self
-      .selection_handles
-      .entry(page)
-      .or_insert_with(|| {
-        let handle = gpui_base::TextSelectionHandle::new("", cx);
-        let sub = handle.refresh_window_on_change(window, cx);
-        sub.detach();
-        handle
-      })
-      .clone()
   }
   pub fn clear_pdf_selection(&mut self) {
     self.pdf_selection.clear();
@@ -312,10 +293,6 @@ impl BookViewerState {
     {
       cx.write_to_clipboard(gpui::ClipboardItem::new_string(text.clone()));
     }
-  }
-
-  pub fn clear_selection_handles(&mut self) {
-    self.selection_handles.clear();
   }
 
   pub fn page_size(&self, page: usize) -> PageDimensions {

@@ -113,34 +113,30 @@ impl Render for BookViewer {
           window.focus(&this.focus_handle, cx);
         }),
       )
-      .on_action(cx.listener(|this, _: &actions::NextPage, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
+      .on_action(cx.listener(|this, _: &actions::NextPage, _window, cx| {
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
+          s.clear_pdf_selection();
           s.next_page();
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::PrevPage, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
+      .on_action(cx.listener(|this, _: &actions::PrevPage, _window, cx| {
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
+          s.clear_pdf_selection();
           s.prev_page();
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::FirstPage, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
+      .on_action(cx.listener(|this, _: &actions::FirstPage, _window, cx| {
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
+          s.clear_pdf_selection();
           s.go_to_page(1);
           cx.notify();
         });
       }))
-      .on_action(cx.listener(|this, _: &actions::LastPage, window, cx| {
-        gpui_base::TextSelection::clear(window, cx);
+      .on_action(cx.listener(|this, _: &actions::LastPage, _window, cx| {
         this.state.update(cx, |s, cx| {
-          s.clear_selection_handles();
+          s.clear_pdf_selection();
           let total = s.total_pages;
           s.go_to_page(total);
           cx.notify();

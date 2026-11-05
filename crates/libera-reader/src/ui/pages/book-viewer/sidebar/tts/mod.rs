@@ -26,38 +26,21 @@ pub struct TtsView {
   state: Entity<BookViewerState>,
   engine_select: Entity<TtsEngineSelect>,
   voice_select: Entity<TtsVoiceSelect>,
-  play_btn: Entity<TtsPlayBtn>,
-  prev_btn: Entity<TtsPrevBtn>,
-  next_btn: Entity<TtsNextBtn>,
   speed_slider: Entity<TtsSpeedSlider>,
   pause_input: Entity<TtsPauseInput>,
-  auto_turn_toggle: Entity<TtsAutoTurnToggle>,
-  reset_btn: Entity<TtsResetBtn>,
+  _subscription: Subscription,
 }
 
 impl TtsView {
   pub fn new(window: &mut Window, cx: &mut App, state: Entity<BookViewerState>) -> Entity<Self> {
     let engine_select = TtsEngineSelect::new(window, cx, state.clone());
     let voice_select = TtsVoiceSelect::new(window, cx, state.clone());
-    let play_btn = cx.new(|_cx| TtsPlayBtn::new(state.clone()));
-    let prev_btn = cx.new(|_cx| TtsPrevBtn::new(state.clone()));
-    let next_btn = cx.new(|_cx| TtsNextBtn::new(state.clone()));
     let speed_slider = TtsSpeedSlider::new(window, cx, state.clone());
     let pause_input = TtsPauseInput::new(window, cx, state.clone());
-    let auto_turn_toggle = cx.new(|_cx| TtsAutoTurnToggle::new(state.clone()));
-    let reset_btn = cx.new(|_cx| TtsResetBtn::new(state.clone()));
 
-    cx.new(|_cx| Self {
-      state,
-      engine_select,
-      voice_select,
-      play_btn,
-      prev_btn,
-      next_btn,
-      speed_slider,
-      pause_input,
-      auto_turn_toggle,
-      reset_btn,
+    cx.new(|cx| {
+      let sub = cx.observe(&state, |_, _, cx| cx.notify());
+      Self { state, engine_select, voice_select, speed_slider, pause_input, _subscription: sub }
     })
   }
 }
@@ -78,9 +61,9 @@ impl Render for TtsView {
           .items_center()
           .justify_center()
           .gap_x_3()
-          .child(self.prev_btn.clone())
-          .child(self.play_btn.clone())
-          .child(self.next_btn.clone()),
+          .child(TtsPrevBtn::new(self.state.clone()))
+          .child(TtsPlayBtn::new(self.state.clone()))
+          .child(TtsNextBtn::new(self.state.clone())),
       )
       // Engine & Voice selection
       .child(self.engine_select.clone())
@@ -90,8 +73,8 @@ impl Render for TtsView {
       // Pause input
       .child(self.pause_input.clone())
       // Auto turn
-      .child(self.auto_turn_toggle.clone())
+      .child(TtsAutoTurnToggle::new(self.state.clone()))
       // Reset button
-      .child(div().pt_2().child(self.reset_btn.clone()))
+      .child(div().pt_2().child(TtsResetBtn::new(self.state.clone())))
   }
 }
