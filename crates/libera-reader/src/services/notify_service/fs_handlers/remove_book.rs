@@ -19,7 +19,7 @@ pub(crate) fn remove_book_by_path(
   let Some(book) = rw_t.get().primary::<Book>(book_path.clone())? else {
     return Ok(RemoveStatus::FullyDeleted);
   };
-  let can_delete = book.can_delete();
+  let can_delete = book.is_deletable();
 
   if can_delete {
     // 1. Physically delete book's cache directory (cover and all pages)

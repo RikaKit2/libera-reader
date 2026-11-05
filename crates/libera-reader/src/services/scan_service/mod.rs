@@ -232,7 +232,7 @@ impl ScanService {
             if book.book_path.deleted {
               continue;
             }
-            let can_delete = book.can_delete();
+            let can_delete = book.is_deletable();
             let book_path = book.book_path.clone();
 
             if can_delete {

@@ -212,7 +212,7 @@ mod tests {
     let soft_deleted_bms = BookBookmarks::get(&db, new_book_path.clone())?;
     assert_eq!(soft_deleted_bms.len(), 1, "Bookmarks preserved during soft delete");
 
-    // 5. Remove bookmark so book becomes eligible for full delete (can_delete == true)
+    // 5. Remove bookmark so book becomes eligible for full delete (is_deletable == true)
     BookBookmarks::remove(&db, new_book_path.clone(), &bookmark.time_created)?;
     // Insert an orphaned BookBookmarks record to ensure full delete purges it
     db.rw_t(|rw_t| {

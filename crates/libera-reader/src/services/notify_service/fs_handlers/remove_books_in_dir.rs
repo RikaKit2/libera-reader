@@ -13,7 +13,7 @@ pub(crate) fn remove_books_in_dir(
     all_books.into_iter().filter(|b| b.parent_dir == book_dir).collect();
 
   for book in books_to_process {
-    let can_delete = book.can_delete();
+    let can_delete = book.is_deletable();
     if can_delete {
       let BookSize::BYTES(size) = book.book_size;
       let hash = if let Ok(Some(book_sizes)) = rw_t.get().primary::<BookSizes>(book.book_size) {

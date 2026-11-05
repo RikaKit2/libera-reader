@@ -107,7 +107,7 @@ impl Book {
   pub fn exists_on_disk(&self) -> bool {
     self.book_path.exists_on_disk()
   }
-  pub fn can_delete(&self) -> bool {
+  pub fn is_deletable(&self) -> bool {
     !self.user_data.favorite && self.user_data.last_opened == 0 && self.bookmark_count == 0
   }
   /// Whether a usable thumbnail PNG currently exists on disk for this book.
