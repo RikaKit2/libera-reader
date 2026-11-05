@@ -1,9 +1,10 @@
 use crate::ui::pages::book_viewer::constants::viewport::{
   MAX_CACHED_PAGE_IMAGES, MAX_CACHED_TEXT_LAYERS,
 };
+use crate::ui::pages::book_viewer::viewport::page::page_text_layer::PdfLineLayout;
 use gpui::RenderImage;
 use lru::LruCache;
-use mutool::{PageLink, PageStructuredText};
+use mutool::PageLink;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
 
@@ -23,7 +24,7 @@ pub enum PageTextState {
   #[default]
   Unloaded,
   Loading,
-  Loaded(Arc<PageStructuredText>),
+  Loaded(Arc<Vec<PdfLineLayout>>),
   Failed(String),
 }
 

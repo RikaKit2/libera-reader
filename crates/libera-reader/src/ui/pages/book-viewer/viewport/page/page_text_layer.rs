@@ -19,6 +19,55 @@ pub struct PdfLineLayout {
   pub words: Vec<PdfWordLayout>,
 }
 
+impl PdfLineLayout {
+  /// Converts raw `PageStructuredText` into structured lines and words.
+  pub fn from_stext(stext: &PageStructuredText) -> Vec<Self> {
+    let mut lines = Vec::new();
+    for block in &stext.blocks {
+      for line in &block.lines {
+        let mut words = Vec::new();
+        if !line.words.is_empty() {
+          for w in &line.words {
+            let char_count = w.text.chars().count();
+            if char_count > 0 {
+              words.push(PdfWordLayout {
+                bbox: w.bbox,
+                text: w.text.clone(),
+                char_count,
+                char_xs: w.char_xs.clone(),
+              });
+            }
+          }
+        } else if !line.text.trim().is_empty() {
+          // Fallback, если stext получен без пословной разбивки
+          let raw_words: Vec<&str> = line.text.split_whitespace().collect();
+          let total_chars: usize = raw_words.iter().map(|w| w.chars().count()).sum::<usize>();
+          let spaces = raw_words.len().saturating_sub(1);
+          let total_units = (total_chars + spaces).max(1) as f32;
+          let unit_w = line.bbox.w / total_units;
+          let mut cur_x = line.bbox.x;
+          for rw in raw_words {
+            let cc = rw.chars().count();
+            let ww = unit_w * (cc as f32);
+            words.push(PdfWordLayout {
+              bbox: BBox::new(cur_x, line.bbox.y, ww, line.bbox.h),
+              text: rw.to_string(),
+              char_count: cc,
+              char_xs: Vec::new(),
+            });
+            cur_x += ww + unit_w;
+          }
+        }
+
+        if !words.is_empty() {
+          lines.push(PdfLineLayout { bbox: line.bbox, words });
+        }
+      }
+    }
+    lines
+  }
+}
+
 pub struct PageTextLayer {
   page_number: usize,
   state: Entity<BookViewerState>,
@@ -31,56 +80,11 @@ pub struct PageTextLayer {
 impl PageTextLayer {
   pub fn new(
     page_number: usize, state: Entity<BookViewerState>, zoom_factor: f32,
-    stext: Option<Arc<PageStructuredText>>, page_size: (f32, f32),
+    lines: Option<Arc<Vec<PdfLineLayout>>>, page_size: (f32, f32),
   ) -> Self {
     let (page_width, page_height) = page_size;
-    let mut lines = Vec::new();
-
-    if let Some(stext) = stext {
-      for block in &stext.blocks {
-        for line in &block.lines {
-          let mut words = Vec::new();
-          if !line.words.is_empty() {
-            for w in &line.words {
-              let char_count = w.text.chars().count();
-              if char_count > 0 {
-                words.push(PdfWordLayout {
-                  bbox: w.bbox,
-                  text: w.text.clone(),
-                  char_count,
-                  char_xs: w.char_xs.clone(),
-                });
-              }
-            }
-          } else if !line.text.trim().is_empty() {
-            // Fallback, если stext получен без пословной разбивки
-            let raw_words: Vec<&str> = line.text.split_whitespace().collect();
-            let total_chars: usize = raw_words.iter().map(|w| w.chars().count()).sum::<usize>();
-            let spaces = raw_words.len().saturating_sub(1);
-            let total_units = (total_chars + spaces).max(1) as f32;
-            let unit_w = line.bbox.w / total_units;
-            let mut cur_x = line.bbox.x;
-            for rw in raw_words {
-              let cc = rw.chars().count();
-              let ww = unit_w * (cc as f32);
-              words.push(PdfWordLayout {
-                bbox: BBox::new(cur_x, line.bbox.y, ww, line.bbox.h),
-                text: rw.to_string(),
-                char_count: cc,
-                char_xs: Vec::new(),
-              });
-              cur_x += ww + unit_w;
-            }
-          }
-
-          if !words.is_empty() {
-            lines.push(PdfLineLayout { bbox: line.bbox, words });
-          }
-        }
-      }
-    }
-
-    Self { page_number, state, zoom_factor, lines: Arc::new(lines), page_width, page_height }
+    let lines = lines.unwrap_or_else(|| Arc::new(Vec::new()));
+    Self { page_number, state, zoom_factor, lines, page_width, page_height }
   }
 
   /// Проверяет, находится ли точка (в PDF-координатах 72 DPI)Directly над каким-либо словом.

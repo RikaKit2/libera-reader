@@ -4,6 +4,7 @@ use crate::ui::pages::book_viewer::cache::{
 };
 use crate::ui::pages::book_viewer::constants::viewport::{PAGE_RENDER_DPI, PREFETCH_DISTANCE};
 use crate::ui::pages::book_viewer::image_utils::decode_page_image_bytes;
+use crate::ui::pages::book_viewer::viewport::page::page_text_layer::PdfLineLayout;
 use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -206,7 +207,10 @@ pub fn spawn_book_page_loader(
         };
         let text_state = if need_text {
           match mutool::get_page_structured_text(&path, page) {
-            Ok(stext) => Some(PageTextState::Loaded(Arc::new(stext))),
+            Ok(stext) => {
+              let lines = PdfLineLayout::from_stext(&stext);
+              Some(PageTextState::Loaded(Arc::new(lines)))
+            }
             Err(err) => Some(PageTextState::Failed(err.to_string())),
           }
         } else {

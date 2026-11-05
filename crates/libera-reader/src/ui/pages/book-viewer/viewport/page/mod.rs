@@ -8,11 +8,11 @@ pub use page_canvas::PageCanvas;
 pub use page_links_layer::PageLinksLayer;
 pub use page_number_badge::PageNumberBadge;
 pub use page_shadow::PageShadow;
-pub use page_text_layer::PageTextLayer;
+pub use page_text_layer::{PageTextLayer, PdfLineLayout};
 
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use mutool::{PageLink, PageStructuredText};
+use mutool::PageLink;
 use std::sync::Arc;
 #[derive(IntoElement)]
 pub struct PageView {
@@ -20,14 +20,14 @@ pub struct PageView {
   state: Entity<BookViewerState>,
   image: Option<Arc<RenderImage>>,
   is_image_loading: bool,
-  stext: Option<Arc<PageStructuredText>>,
+  stext: Option<Arc<Vec<PdfLineLayout>>>,
   links: Option<Arc<Vec<PageLink>>>,
 }
 
 impl PageView {
   pub fn new(
     page_number: usize, state: Entity<BookViewerState>, image: Option<Arc<RenderImage>>,
-    is_image_loading: bool, stext: Option<Arc<PageStructuredText>>,
+    is_image_loading: bool, stext: Option<Arc<Vec<PdfLineLayout>>>,
     links: Option<Arc<Vec<PageLink>>>,
   ) -> Self {
     Self { page_number, state, image, is_image_loading, stext, links }

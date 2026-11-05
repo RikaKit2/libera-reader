@@ -47,6 +47,8 @@ impl Render for QuickBookmarkBtn {
 
           if let Some(path) = book_path {
             let db = cx.db().clone();
+            let books_state = cx.books_state().clone();
+            let state_worker = state.clone();
             let now_str = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
             let title_str =
               t!("components.book_viewer.bookmarks.quick_title", page = page).to_string();
@@ -57,14 +59,27 @@ impl Render for QuickBookmarkBtn {
               time_created: SharedString::from(now_str.clone()),
               time_updated: SharedString::from(now_str),
             };
-            if let Ok(Some(updated_book)) = BookBookmarks::add(&db, path.clone(), bookmark) {
-              cx.books_state().update_book(&updated_book);
-              let new_bookmarks = BookBookmarks::get(&db, path).unwrap_or_default();
-              state.update(cx, |s, cx| {
-                s.set_bookmarks(new_bookmarks);
-                cx.notify();
-              });
-            }
+            cx.spawn(move |_this, cx: &mut AsyncApp| {
+              let mut owned_cx = cx.clone();
+              async move {
+                let res = owned_cx
+                  .background_executor()
+                  .spawn(async move {
+                    let updated = BookBookmarks::add(&db, path.clone(), bookmark).ok().flatten();
+                    let bms = BookBookmarks::get(&db, path).unwrap_or_default();
+                    updated.map(|u| (u, bms))
+                  })
+                  .await;
+                if let Some((updated_book, new_bookmarks)) = res {
+                  books_state.update_book(&updated_book);
+                  state_worker.update(&mut owned_cx, |s, cx| {
+                    s.set_bookmarks(new_bookmarks);
+                    cx.notify();
+                  });
+                }
+              }
+            })
+            .detach();
           }
         }),
       )

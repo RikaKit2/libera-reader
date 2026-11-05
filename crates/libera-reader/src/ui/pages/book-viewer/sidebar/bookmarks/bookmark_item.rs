@@ -100,19 +100,35 @@ impl RenderOnce for BookmarkItem {
           .on_mouse_down(MouseButton::Left, {
             let state = state.clone();
             let book_path = book_path.clone();
+            let time_created = time_created.clone();
             move |_, _window, cx| {
               if let Some(path) = &book_path {
                 let db = cx.db().clone();
-                if let Ok(Some(updated_book)) =
-                  BookBookmarks::remove(&db, path.clone(), &time_created)
-                {
-                  cx.books_state().update_book(&updated_book);
-                  let new_bookmarks = BookBookmarks::get(&db, path.clone()).unwrap_or_default();
-                  state.update(cx, |s, cx| {
-                    s.set_bookmarks(new_bookmarks);
-                    cx.notify();
-                  });
-                }
+                let books_state = cx.books_state().clone();
+                let state_worker = state.clone();
+                let path = path.clone();
+                let tc = time_created.clone();
+                cx.spawn(move |async_cx: &mut AsyncApp| {
+                  let mut owned_cx = async_cx.clone();
+                  async move {
+                    let res = owned_cx
+                      .background_executor()
+                      .spawn(async move {
+                        let updated = BookBookmarks::remove(&db, path.clone(), &tc).ok().flatten();
+                        let bms = BookBookmarks::get(&db, path).unwrap_or_default();
+                        updated.map(|u| (u, bms))
+                      })
+                      .await;
+                    if let Some((updated_book, new_bookmarks)) = res {
+                      books_state.update_book(&updated_book);
+                      state_worker.update(&mut owned_cx, |s, cx| {
+                        s.set_bookmarks(new_bookmarks);
+                        cx.notify();
+                      });
+                    }
+                  }
+                })
+                .detach();
               }
             }
           })

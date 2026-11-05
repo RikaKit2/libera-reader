@@ -19,64 +19,70 @@ pub fn book_card_click(path: BookPath, cx: &mut App) {
     .set_mode(crate::services::extraction_coordinator::ExtractionCoordinatorMode::ForegroundReader);
   let _ = cx.settings_mut().set_route(RootRoute::BookViewer);
   let title = path.display_name();
-  let (size, hash) = {
-    if let Ok(Some(book)) = crate::db::models::books::book::Book::get(cx.db(), path.clone()) {
-      let size = book.size_bytes();
-      let hash = if let Ok(Some(book_sizes)) =
-        cx.db().get_primary::<crate::db::models::books::book_sizes::BookSizes>(book.book_size)
-      {
-        match book_sizes.book_type {
-          crate::db::models::books::BookType::DuplicateSize(map) => {
-            if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) = map.get(&path) {
-              let hashed_cover = cx.app_dirs().book_cover_path(size, Some(h.0.as_str()));
-              let unhashed_cover = cx.app_dirs().book_cover_path(size, None);
-              if !hashed_cover.exists() && unhashed_cover.exists() {
-                None
-              } else {
-                Some(h.0.to_string())
-              }
-            } else {
-              None
-            }
-          }
-          _ => None,
-        }
-      } else {
-        None
-      };
-      (size, hash)
-    } else {
-      let size = std::fs::metadata(path.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
-      (size, None)
-    }
-  };
-
-  let bookmarks = crate::db::models::books::bookmark::BookBookmarks::get(cx.db(), path.clone())
-    .unwrap_or_default();
   let viewer_state = cx.book_viewer_state().clone();
   viewer_state.update(cx, |s, cx| {
     s.set_book(path.clone(), 1, title.clone());
-    s.set_book_metadata(size, hash.clone());
-    s.set_bookmarks(bookmarks);
     cx.notify();
   });
   let path_clone = path.clone();
   let viewer_state_worker = viewer_state.clone();
   let title_clone = title.clone();
+  let db = cx.db().clone();
+  let app_dirs = cx.app_dirs().clone();
 
   cx.spawn(move |async_app: &mut AsyncApp| {
     let mut owned_app = async_app.clone();
     async move {
       let path_for_load = path_clone.clone();
-      let doc_res = owned_app
+      let load_res = owned_app
         .background_executor()
-        .spawn(async move { DocumentData::load(path_for_load) })
+        .spawn(async move {
+          let (size, hash) = if let Ok(Some(book)) =
+            crate::db::models::books::book::Book::get(&db, path_for_load.clone())
+          {
+            let size = book.size_bytes();
+            let hash = if let Ok(Some(book_sizes)) =
+              db.get_primary::<crate::db::models::books::book_sizes::BookSizes>(book.book_size)
+            {
+              match book_sizes.book_type {
+                crate::db::models::books::BookType::DuplicateSize(map) => {
+                  if let Some(crate::db::models::books::DuplicateBookData::BookHash(h)) =
+                    map.get(&path_for_load)
+                  {
+                    let hashed_cover = app_dirs.book_cover_path(size, Some(h.0.as_str()));
+                    let unhashed_cover = app_dirs.book_cover_path(size, None);
+                    if !hashed_cover.exists() && unhashed_cover.exists() {
+                      None
+                    } else {
+                      Some(h.0.to_string())
+                    }
+                  } else {
+                    None
+                  }
+                }
+                _ => None,
+              }
+            } else {
+              None
+            };
+            (size, hash)
+          } else {
+            let size = std::fs::metadata(path_for_load.as_pathbuf()).map(|m| m.len()).unwrap_or(0);
+            (size, None)
+          };
+          let bookmarks =
+            crate::db::models::books::bookmark::BookBookmarks::get(&db, path_for_load.clone())
+              .unwrap_or_default();
+          let doc = DocumentData::load(path_for_load)?;
+          Ok::<_, mutool::MuToolError>((doc, size, hash, bookmarks))
+        })
         .await;
-      match doc_res {
-        Ok(doc) => {
+      match load_res {
+        Ok((doc, size, hash, bookmarks)) => {
           viewer_state_worker.update(&mut owned_app, |s, cx| {
             s.set_document(doc, title_clone);
             s.set_book_metadata(size, hash);
+            s.set_bookmarks(bookmarks);
             cx.notify();
           });
         }
