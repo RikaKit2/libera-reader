@@ -1,9 +1,8 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, header};
 use crate::ui::pages::book_viewer::state::BookViewerState;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
-use gpui_component::{
-  Icon, Selectable, Sizable,
-  button::{Button, ButtonVariants},
-};
+use gpui_component::{ActiveTheme, tooltip::Tooltip};
 use rust_i18n::t;
 
 #[derive(IntoElement)]
@@ -19,19 +18,24 @@ impl FullscreenBtn {
 
 impl RenderOnce for FullscreenBtn {
   fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    let theme = cx.theme();
     let is_fullscreen = self.state.read(cx).is_fullscreen;
     let state = self.state.clone();
 
-    Button::new("header-fullscreen-btn")
-      .ghost()
-      .xsmall()
-      .selected(is_fullscreen)
-      .icon(Icon::new(Icon::empty()).path(if is_fullscreen {
-        "gridicons--fullscreen-exit.svg"
-      } else {
-        "gridicons--fullscreen.svg"
-      }))
-      .tooltip(t!("components.book_viewer.tooltips.fullscreen").to_string())
+    div()
+      .id("header-fullscreen-btn")
+      .w(header::BTN_SIZE)
+      .h(header::BTN_SIZE)
+      .flex()
+      .items_center()
+      .justify_center()
+      .rounded(RADIUS_SM)
+      .cursor_pointer()
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.fullscreen").to_string()).build(window, cx)
+      })
+      .when(is_fullscreen, |s| s.bg(theme.primary.opacity(0.2)))
+      .hover(move |s| s.bg(theme.foreground.opacity(0.08)))
       .on_click(move |_, window, cx| {
         state.update(cx, |s, cx| {
           s.is_fullscreen = !s.is_fullscreen;
@@ -39,5 +43,15 @@ impl RenderOnce for FullscreenBtn {
           cx.notify();
         });
       })
+      .child(
+        svg()
+          .path(if is_fullscreen {
+            "gridicons--fullscreen-exit.svg"
+          } else {
+            "gridicons--fullscreen.svg"
+          })
+          .size(header::ICON_SIZE_MD)
+          .text_color(if is_fullscreen { theme.primary } else { theme.foreground }),
+      )
   }
 }

@@ -49,9 +49,8 @@ impl Render for TopBar {
   fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
     let bg = cx.theme().background;
     div()
-      .bg(cx.theme().title_bar)
-      .border_b_1()
-      .border_color(cx.theme().border)
+      .bg(cx.theme().border)
+      .w_full()
       .h_12()
       .flex()
       .items_center()

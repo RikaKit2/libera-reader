@@ -45,28 +45,27 @@ impl RenderOnce for Btn {
     let theme = cx.theme();
 
     let normal_color = adjust_brightness(theme.foreground, 1.0);
-    let hover_color = adjust_brightness(theme.foreground, 1.2);
+    let hover_color = adjust_brightness(theme.foreground, 1.25);
 
-    // The icon needs its own element id so GPUI can track hover on it directly
-    // (a non-stateful svg never receives hover). The div keeps `self.id` for
-    // click handling. Active icons stay bright and don't react to hover.
-    let icon_id: SharedString = format!("{}_icon", self.image_source).into();
-    let base_icon = svg().path(&self.image_source).id(icon_id).w(px(28.0)).h(px(28.0));
-
-    let icon = if is_active {
-      base_icon.text_color(hover_color)
+    let icon = svg().path(&self.image_source).w(px(28.0)).h(px(28.0)).text_color(if is_active {
+      theme.primary
     } else {
-      base_icon.text_color(normal_color).hover(|h| h.text_color(hover_color))
-    };
+      normal_color
+    });
 
     let mut btn: Stateful<gpui::Div> = div()
       .id(self.id)
-      .child(icon)
-      .m_1()
-      .p_2()
-      .rounded_md()
-      .when(is_active, |s| s.bg(theme.sidebar_accent))
-      .hover(move |h| if is_active { h } else { h.bg(theme.sidebar_accent.opacity(0.5)) });
+      .w_12()
+      .h_12()
+      .flex()
+      .items_center()
+      .justify_center()
+      .cursor_pointer()
+      .border_l_2()
+      .border_color(if is_active { theme.primary } else { gpui::transparent_black() })
+      .when(is_active, |s| s.bg(theme.primary.opacity(0.12)))
+      .hover(move |s| s.bg(theme.foreground.opacity(0.08)).text_color(hover_color))
+      .child(icon);
 
     if let Some(handler) = self.on_click {
       btn = btn.on_click(move |evt, window, cx| handler(evt, window, cx));

@@ -1,9 +1,7 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, search_bar};
 use crate::ui::pages::book_viewer::state::BookViewerState;
 use gpui::*;
-use gpui_component::{
-  Icon, Sizable,
-  button::{Button, ButtonVariants},
-};
+use gpui_component::{ActiveTheme, tooltip::Tooltip};
 use rust_i18n::t;
 
 #[derive(IntoElement)]
@@ -18,19 +16,35 @@ impl SearchCloseBtn {
 }
 
 impl RenderOnce for SearchCloseBtn {
-  fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+  fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    let theme = cx.theme();
     let state = self.state.clone();
 
-    Button::new("search-close-btn")
-      .ghost()
-      .xsmall()
-      .icon(Icon::new(Icon::empty()).path("material-symbols--close.svg"))
-      .tooltip(t!("components.book_viewer.tooltips.search_close").to_string())
+    div()
+      .id("search-close-btn")
+      .w(search_bar::CLOSE_BTN_SIZE)
+      .h(search_bar::CLOSE_BTN_SIZE)
+      .flex()
+      .items_center()
+      .justify_center()
+      .rounded(RADIUS_SM)
+      .cursor_pointer()
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.search_close").to_string())
+          .build(window, cx)
+      })
+      .hover(move |s| s.bg(theme.foreground.opacity(0.08)))
       .on_click(move |_, _window, cx| {
         state.update(cx, |s, cx| {
           s.toggle_search();
           cx.notify();
         });
       })
+      .child(
+        svg()
+          .path("material-symbols--close.svg")
+          .size(search_bar::CLOSE_ICON_SIZE)
+          .text_color(theme.foreground),
+      )
   }
 }

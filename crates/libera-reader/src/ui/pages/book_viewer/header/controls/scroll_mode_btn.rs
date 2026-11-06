@@ -1,9 +1,8 @@
+use crate::ui::pages::book_viewer::constants::{RADIUS_SM, header};
 use crate::ui::pages::book_viewer::state::BookViewerState;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
-use gpui_component::{
-  Icon, Selectable, Sizable,
-  button::{Button, ButtonVariants},
-};
+use gpui_component::{ActiveTheme, tooltip::Tooltip};
 use rust_i18n::t;
 
 #[derive(IntoElement)]
@@ -19,20 +18,36 @@ impl ScrollModeBtn {
 
 impl RenderOnce for ScrollModeBtn {
   fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+    let theme = cx.theme();
     let is_continuous = self.state.read(cx).layout_mode.is_continuous();
     let state_entity = self.state.clone();
 
-    Button::new("header-scroll-mode-btn")
-      .ghost()
-      .xsmall()
-      .selected(is_continuous)
-      .icon(Icon::new(Icon::empty()).path("pajamas--scroll-down.svg"))
-      .tooltip(t!("components.book_viewer.tooltips.scroll_mode").to_string())
+    div()
+      .id("header-scroll-mode-btn")
+      .w(header::BTN_SIZE)
+      .h(header::BTN_SIZE)
+      .flex()
+      .items_center()
+      .justify_center()
+      .rounded(RADIUS_SM)
+      .cursor_pointer()
+      .tooltip(|window, cx| {
+        Tooltip::new(t!("components.book_viewer.tooltips.scroll_mode").to_string())
+          .build(window, cx)
+      })
+      .hover(move |s| s.bg(theme.foreground.opacity(0.08)))
+      .when(is_continuous, |s| s.bg(theme.primary.opacity(0.15)))
       .on_click(move |_, _window, cx| {
         state_entity.update(cx, |s, cx| {
           s.layout_mode.toggle_continuous();
           cx.notify();
         });
       })
+      .child(svg().path("pajamas--scroll-down.svg").size(header::ICON_SIZE_SM).text_color(
+        match is_continuous {
+          true => theme.primary,
+          false => theme.foreground,
+        },
+      ))
   }
 }
